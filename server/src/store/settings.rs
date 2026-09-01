@@ -1,4 +1,6 @@
 //! Persists application settings.
+use std::collections::HashSet;
+
 use serde::{Deserialize, Serialize};
 
 use crate::Result;
@@ -10,6 +12,8 @@ const PROXY_SETTINGS_KEY: &str = "outbound_proxy";
 const TAB_SETTINGS_KEY: &str = "cursor_tab";
 const INSTALLATION_ID_KEY: &str = "installation_id";
 const DESKTOP_SETTINGS_KEY: &str = "desktop_lifecycle";
+const DISABLED_PLUGIN_MODELS_KEY: &str = "disabled_plugin_models";
+const DISABLED_PLUGIN_ACCOUNTS_KEY: &str = "disabled_plugin_accounts";
 
 pub const PUBLIC_TAB_SERVICE_URL: &str = "https://tab.leokun.cn";
 
@@ -293,6 +297,58 @@ impl Store {
             "INSERT INTO service_settings(setting_key, value_json, updated_at_ms) VALUES (?, ?, ?) ON CONFLICT(setting_key) DO UPDATE SET value_json = excluded.value_json, updated_at_ms = excluded.updated_at_ms",
         )
         .bind(DESKTOP_SETTINGS_KEY)
+        .bind(value_json)
+        .bind(now_ms())
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn disabled_plugin_models(&self) -> Result<HashSet<String>> {
+        let value = sqlx::query_scalar::<_, String>(
+            "SELECT value_json FROM service_settings WHERE setting_key = ?",
+        )
+        .bind(DISABLED_PLUGIN_MODELS_KEY)
+        .fetch_optional(&self.pool)
+        .await?;
+        value
+            .map(|value| serde_json::from_str(&value).map_err(Into::into))
+            .unwrap_or_else(|| Ok(HashSet::new()))
+    }
+
+    pub async fn set_disabled_plugin_models(&self, model_ids: &HashSet<String>) -> Result<()> {
+        let value_json = serde_json::to_string(model_ids)?;
+        let _write = self.writes.lock().await;
+        sqlx::query(
+            "INSERT INTO service_settings(setting_key, value_json, updated_at_ms) VALUES (?, ?, ?) ON CONFLICT(setting_key) DO UPDATE SET value_json = excluded.value_json, updated_at_ms = excluded.updated_at_ms",
+        )
+        .bind(DISABLED_PLUGIN_MODELS_KEY)
+        .bind(value_json)
+        .bind(now_ms())
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn disabled_plugin_accounts(&self) -> Result<HashSet<String>> {
+        let value = sqlx::query_scalar::<_, String>(
+            "SELECT value_json FROM service_settings WHERE setting_key = ?",
+        )
+        .bind(DISABLED_PLUGIN_ACCOUNTS_KEY)
+        .fetch_optional(&self.pool)
+        .await?;
+        value
+            .map(|value| serde_json::from_str(&value).map_err(Into::into))
+            .unwrap_or_else(|| Ok(HashSet::new()))
+    }
+
+    pub async fn set_disabled_plugin_accounts(&self, account_ids: &HashSet<String>) -> Result<()> {
+        let value_json = serde_json::to_string(account_ids)?;
+        let _write = self.writes.lock().await;
+        sqlx::query(
+            "INSERT INTO service_settings(setting_key, value_json, updated_at_ms) VALUES (?, ?, ?) ON CONFLICT(setting_key) DO UPDATE SET value_json = excluded.value_json, updated_at_ms = excluded.updated_at_ms",
+        )
+        .bind(DISABLED_PLUGIN_ACCOUNTS_KEY)
         .bind(value_json)
         .bind(now_ms())
         .execute(&self.pool)
