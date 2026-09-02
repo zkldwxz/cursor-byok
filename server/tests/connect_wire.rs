@@ -21,6 +21,7 @@ use cursor_server::{
         proto::{agent::v1 as pb, aiserver::v1 as ai},
     },
     cursor::transport::TransportRegistry,
+    network::NetworkClients,
 };
 use flate2::{write::GzEncoder, Compression};
 use prost::Message;
@@ -102,6 +103,7 @@ async fn bidi_append_gzip_body_is_decompressed_before_protobuf_decode() {
             .as_path(),
     )
     .unwrap();
+    let clients = NetworkClients::new(store.clone());
     let registry = TransportRegistry::new(
         store,
         Arc::new(fake_provider::FakeProvider::default()),
@@ -118,7 +120,7 @@ async fn bidi_append_gzip_body_is_decompressed_before_protobuf_decode() {
     encoder.write_all(&wire).unwrap();
     let compressed = encoder.finish().unwrap();
 
-    let response = cursor::router(registry)
+    let response = cursor::router(registry, clients)
         .unwrap()
         .oneshot(
             Request::post("/aiserver.v1.BidiService/BidiAppend")

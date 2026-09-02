@@ -459,6 +459,7 @@ mod tests {
             name: "ReadLints".into(),
             arguments_text: String::new(),
             arguments: json!({ "paths": paths }),
+            argument_error: None,
         }
     }
 
