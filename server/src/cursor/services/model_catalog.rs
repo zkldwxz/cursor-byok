@@ -187,6 +187,32 @@ struct UsableModelsAddition {
     models: Vec<agent::ModelDetails>,
 }
 
+#[derive(Clone, PartialEq, Message)]
+struct DefaultModelResponse {
+    #[prost(string, tag = "1")]
+    model: String,
+    #[prost(string, tag = "2")]
+    thinking_model: String,
+    #[prost(bool, tag = "3")]
+    max_mode: bool,
+    #[prost(string, tag = "4")]
+    next_default_set_date: String,
+}
+
+#[derive(Clone, PartialEq, Message)]
+struct DefaultModelNudgeDataResponse {
+    #[prost(string, tag = "1")]
+    nudge_date: String,
+    #[prost(bool, tag = "2")]
+    should_default_switch_on_new_chat: bool,
+    #[prost(string, repeated, tag = "3")]
+    models_with_no_default_switch: Vec<String>,
+    #[prost(string, tag = "4")]
+    conversion_model_override: String,
+}
+
+const CLI_LOCAL_MODEL_API_KEY: &str = "cursor-byok-local";
+
 const CONTEXTS: [(&str, &str); 5] = [
     ("200k", "200K"),
     ("356k", "356K"),
@@ -284,6 +310,94 @@ pub async fn usable_models(
             tracing::warn!(%error, "Cursor GetUsableModels upstream unavailable; using local catalog");
             Ok(local_response(local))
         }
+    }
+}
+
+pub async fn default_model_for_cli(
+    State(registry): State<TransportRegistry>,
+) -> Result<Response<Body>> {
+    let models = registry.store().models().await?;
+    let plugin_models = configured_plugin_models(&registry).await;
+    Ok(local_response(
+        agent::GetDefaultModelForCliResponse {
+            model: default_model_details(&models, &plugin_models),
+        }
+        .encode_to_vec(),
+    ))
+}
+
+pub async fn default_model(State(registry): State<TransportRegistry>) -> Result<Response<Body>> {
+    let models = registry.store().models().await?;
+    let plugin_models = configured_plugin_models(&registry).await;
+    Ok(local_response(
+        default_model_response(&models, &plugin_models).encode_to_vec(),
+    ))
+}
+
+pub async fn default_model_nudge(
+    State(registry): State<TransportRegistry>,
+) -> Result<Response<Body>> {
+    let models = registry.store().models().await?;
+    let plugin_models = configured_plugin_models(&registry).await;
+    Ok(local_response(
+        default_model_nudge_response(&models, &plugin_models).encode_to_vec(),
+    ))
+}
+
+async fn configured_plugin_models(registry: &TransportRegistry) -> Vec<PluginModelDescriptor> {
+    match registry.plugins() {
+        Some(plugins) => plugins.configured_models().await,
+        None => Vec::new(),
+    }
+}
+
+fn default_model_details(
+    models: &[ModelConfig],
+    plugin_models: &[PluginModelDescriptor],
+) -> Option<agent::ModelDetails> {
+    models
+        .first()
+        .map(usable_model)
+        .or_else(|| plugin_models.first().map(usable_plugin_model))
+}
+
+fn default_model_id<'a>(
+    models: &'a [ModelConfig],
+    plugin_models: &'a [PluginModelDescriptor],
+) -> &'a str {
+    models
+        .first()
+        .map(|model| model.model_hash.as_str())
+        .or_else(|| plugin_models.first().map(|model| model.id.as_str()))
+        .unwrap_or_default()
+}
+
+fn default_model_response(
+    models: &[ModelConfig],
+    plugin_models: &[PluginModelDescriptor],
+) -> DefaultModelResponse {
+    let model = default_model_id(models, plugin_models).to_owned();
+    DefaultModelResponse {
+        thinking_model: model.clone(),
+        model,
+        max_mode: false,
+        next_default_set_date: String::new(),
+    }
+}
+
+fn default_model_nudge_response(
+    models: &[ModelConfig],
+    plugin_models: &[PluginModelDescriptor],
+) -> DefaultModelNudgeDataResponse {
+    DefaultModelNudgeDataResponse {
+        nudge_date: "0".into(),
+        should_default_switch_on_new_chat: false,
+        models_with_no_default_switch: models
+            .iter()
+            .map(|model| model.model_hash.clone())
+            .chain(plugin_models.iter().map(|model| model.id.clone()))
+            .collect(),
+        conversion_model_override: String::new(),
     }
 }
 
@@ -622,6 +736,13 @@ fn available_plugin_model(model: &PluginModelDescriptor) -> AvailableModel {
     }
 }
 
+fn cli_local_model_credentials() -> agent::model_details::Credentials {
+    agent::model_details::Credentials::ApiKeyCredentials(agent::ApiKeyCredentials {
+        api_key: CLI_LOCAL_MODEL_API_KEY.into(),
+        base_url: None,
+    })
+}
+
 fn usable_plugin_model(model: &PluginModelDescriptor) -> agent::ModelDetails {
     agent::ModelDetails {
         model_id: model.id.clone(),
@@ -629,6 +750,7 @@ fn usable_plugin_model(model: &PluginModelDescriptor) -> agent::ModelDetails {
         display_name: model.display_name.clone(),
         display_name_short: model.display_name.clone(),
         thinking_details: Some(agent::ThinkingDetails::default()),
+        credentials: Some(cli_local_model_credentials()),
         ..Default::default()
     }
 }
@@ -640,6 +762,100 @@ fn usable_model(model: &ModelConfig) -> agent::ModelDetails {
         display_name: model.display_name.clone(),
         display_name_short: model.display_name.clone(),
         thinking_details: Some(agent::ThinkingDetails::default()),
+        credentials: Some(cli_local_model_credentials()),
         ..Default::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::{ModelType, OPENAI_CHAT_ENDPOINT};
+
+    fn model() -> ModelConfig {
+        ModelConfig {
+            model_hash: "local-model-hash".into(),
+            sort_order: 0,
+            display_name: "Local Model".into(),
+            group_name: None,
+            model_type: ModelType::OpenAi,
+            base_url: "https://provider.example/v1/chat/completions".into(),
+            use_full_url: true,
+            api_key: "provider-secret".into(),
+            tooltip_data: "Local Model".into(),
+            model_id: "upstream-model".into(),
+            reasoning_effort: None,
+            openai_endpoint: OPENAI_CHAT_ENDPOINT.into(),
+            openai_extra_params_enabled: false,
+            openai_extra_params: serde_json::json!({}),
+            custom_headers_enabled: false,
+            custom_headers: serde_json::json!({}),
+            anthropic_extra_params_enabled: false,
+            anthropic_extra_params: serde_json::json!({}),
+            context_window_tokens: None,
+            max_completion_tokens: None,
+            anthropic_max_tokens: None,
+            anthropic_thinking_effort: None,
+            thinking_budget_tokens: None,
+            created_at_ms: 0,
+            updated_at_ms: 0,
+        }
+    }
+
+    #[test]
+    fn cli_model_details_use_local_routing_credentials() {
+        let details = usable_model(&model());
+        assert_eq!(details.model_id, "local-model-hash");
+        assert_eq!(details.display_name, "Local Model");
+        let agent::model_details::Credentials::ApiKeyCredentials(credentials) =
+            details.credentials.expect("API credentials")
+        else {
+            panic!("expected API key credentials");
+        };
+        assert_eq!(credentials.api_key, CLI_LOCAL_MODEL_API_KEY);
+        assert_eq!(credentials.base_url, None);
+        assert_ne!(credentials.api_key, "provider-secret");
+    }
+
+    #[test]
+    fn cli_plugin_model_details_use_local_routing_credentials() {
+        let details = usable_plugin_model(&PluginModelDescriptor {
+            id: "plugin:test/provider/model".into(),
+            plugin_id: "plugin:test".into(),
+            plugin_name: "Test Plugin".into(),
+            provider_id: "provider".into(),
+            model_id: "model".into(),
+            display_name: "Plugin Model".into(),
+            description: None,
+            icon: String::new(),
+            provider_type: "test".into(),
+            max_output_tokens: None,
+            images: false,
+        });
+        assert_eq!(details.model_id, "plugin:test/provider/model");
+        let agent::model_details::Credentials::ApiKeyCredentials(credentials) =
+            details.credentials.expect("API credentials")
+        else {
+            panic!("expected API key credentials");
+        };
+        assert_eq!(credentials.api_key, CLI_LOCAL_MODEL_API_KEY);
+        assert_eq!(credentials.base_url, None);
+    }
+
+    #[test]
+    fn cli_default_responses_use_the_local_model_hash() {
+        let models = vec![model()];
+        let details = default_model_details(&models, &[]).expect("default model");
+        assert_eq!(details.model_id, "local-model-hash");
+
+        let response = default_model_response(&models, &[]);
+        assert_eq!(response.model, "local-model-hash");
+        assert_eq!(response.thinking_model, "local-model-hash");
+
+        let nudge = default_model_nudge_response(&models, &[]);
+        assert_eq!(
+            nudge.models_with_no_default_switch,
+            vec!["local-model-hash"]
+        );
     }
 }

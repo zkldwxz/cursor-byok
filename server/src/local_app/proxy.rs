@@ -152,9 +152,15 @@ fn is_local_path(path: &str) -> bool {
         path,
         "/agent.v1.AgentService/RunSSE"
             | "/aiserver.v1.BidiService/BidiAppend"
+            | "/aiserver.v1.AiService/GetServerConfig"
+            | "/aiserver.v1.ServerConfigService/GetServerConfig"
             | "/aiserver.v1.AiService/AvailableModels"
             | "/agent.v1.AgentService/GetUsableModels"
             | "/aiserver.v1.AiService/GetUsableModels"
+            | "/agent.v1.AgentService/GetDefaultModelForCli"
+            | "/aiserver.v1.AiService/GetDefaultModelForCli"
+            | "/aiserver.v1.AiService/GetDefaultModel"
+            | "/aiserver.v1.AiService/GetDefaultModelNudgeData"
             | "/aiserver.v1.AuthService/GetEmail"
             | "/aiserver.v1.DashboardService/GetMe"
             | "/aiserver.v1.DashboardService/GetTeams"
@@ -174,4 +180,23 @@ fn is_local_path(path: &str) -> bool {
 
 fn should_route_locally(path: &str, tab_mode: TabMode) -> bool {
     is_local_path(path) || (is_tab_path(path) && tab_mode != TabMode::Direct)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cursor_cli_transport_and_model_metadata_routes_stay_local() {
+        for path in [
+            "/aiserver.v1.AiService/GetServerConfig",
+            "/aiserver.v1.ServerConfigService/GetServerConfig",
+            "/agent.v1.AgentService/GetDefaultModelForCli",
+            "/aiserver.v1.AiService/GetDefaultModelForCli",
+            "/aiserver.v1.AiService/GetDefaultModel",
+            "/aiserver.v1.AiService/GetDefaultModelNudgeData",
+        ] {
+            assert!(is_local_path(path), "{path} must not reach Cursor upstream");
+        }
+    }
 }

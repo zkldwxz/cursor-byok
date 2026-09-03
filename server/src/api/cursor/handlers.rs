@@ -19,7 +19,9 @@ use crate::{
             connect,
             proto::{agent::v1 as agent, aiserver::v1 as ai},
         },
-        services::{account, analytics, commit_message, knowledge, model_catalog, tab},
+        services::{
+            account, analytics, commit_message, knowledge, model_catalog, server_config, tab,
+        },
         transport::{TransportParent, TransportRegistry},
     },
     Result,
@@ -45,6 +47,14 @@ fn router_with_proxy(
         .route("/agent.v1.AgentService/RunSSE", post(run_sse_handler))
         .route("/aiserver.v1.BidiService/BidiAppend", post(bidi_handler))
         .route(
+            "/aiserver.v1.AiService/GetServerConfig",
+            post(server_config::get),
+        )
+        .route(
+            "/aiserver.v1.ServerConfigService/GetServerConfig",
+            post(server_config::get),
+        )
+        .route(
             "/aiserver.v1.AiService/AvailableModels",
             post(model_catalog::available_models),
         )
@@ -63,6 +73,22 @@ fn router_with_proxy(
         .route(
             "/aiserver.v1.NetworkService/IsConnected",
             post(is_connected),
+        )
+        .route(
+            "/agent.v1.AgentService/GetDefaultModelForCli",
+            post(model_catalog::default_model_for_cli),
+        )
+        .route(
+            "/aiserver.v1.AiService/GetDefaultModelForCli",
+            post(model_catalog::default_model_for_cli),
+        )
+        .route(
+            "/aiserver.v1.AiService/GetDefaultModel",
+            post(model_catalog::default_model),
+        )
+        .route(
+            "/aiserver.v1.AiService/GetDefaultModelNudgeData",
+            post(model_catalog::default_model_nudge),
         )
         .route(
             "/aiserver.v1.AuthService/GetEmail",
