@@ -10,6 +10,10 @@ const PROXY_SETTINGS_KEY: &str = "outbound_proxy";
 const TAB_SETTINGS_KEY: &str = "cursor_tab";
 const INSTALLATION_ID_KEY: &str = "installation_id";
 const DESKTOP_SETTINGS_KEY: &str = "desktop_lifecycle";
+const COMMIT_SETTINGS_KEY: &str = "commit_settings";
+
+/// Embedded default system prompt for commit message generation.
+pub const DEFAULT_COMMIT_PROMPT: &str = include_str!("../../prompt/cursor/commit/prompt.md");
 
 pub const PUBLIC_TAB_SERVICE_URL: &str = "https://tab.leokun.cn";
 
@@ -75,6 +79,34 @@ impl TabSettings {
             TabMode::Public => Some(PUBLIC_TAB_SERVICE_URL),
             TabMode::Direct => None,
             TabMode::Custom => Some(&self.address),
+        }
+    }
+}
+
+/// User preferences for Git commit message generation.
+///
+/// Empty `model_id` means 直连: forward the original Cursor RPC unchanged.
+/// A non-empty value is the `model_hash` of a model configured on the Cursor
+/// page, and the request is generated locally through that model.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+pub struct CommitSettings {
+    #[serde(default)]
+    pub model_id: String,
+    #[serde(default)]
+    pub prompt: String,
+}
+
+impl CommitSettings {
+    pub fn is_direct(&self) -> bool {
+        self.model_id.trim().is_empty()
+    }
+
+    pub fn effective_prompt(&self) -> &str {
+        let trimmed = self.prompt.trim();
+        if trimmed.is_empty() {
+            DEFAULT_COMMIT_PROMPT.trim()
+        } else {
+            trimmed
         }
     }
 }
@@ -298,5 +330,35 @@ impl Store {
         .execute(&self.pool)
         .await?;
         Ok(())
+    }
+
+    pub async fn commit_settings(&self) -> Result<CommitSettings> {
+        let value = sqlx::query_scalar::<_, String>(
+            "SELECT value_json FROM service_settings WHERE setting_key = ?",
+        )
+        .bind(COMMIT_SETTINGS_KEY)
+        .fetch_optional(&self.pool)
+        .await?;
+        value
+            .map(|value| serde_json::from_str(&value).map_err(Into::into))
+            .unwrap_or_else(|| Ok(CommitSettings::default()))
+    }
+
+    pub async fn set_commit_settings(&self, settings: CommitSettings) -> Result<CommitSettings> {
+        let settings = CommitSettings {
+            model_id: settings.model_id.trim().to_owned(),
+            prompt: settings.prompt.trim().to_owned(),
+        };
+        let value_json = serde_json::to_string(&settings)?;
+        let _write = self.writes.lock().await;
+        sqlx::query(
+            "INSERT INTO service_settings(setting_key, value_json, updated_at_ms) VALUES (?, ?, ?) ON CONFLICT(setting_key) DO UPDATE SET value_json = excluded.value_json, updated_at_ms = excluded.updated_at_ms",
+        )
+        .bind(COMMIT_SETTINGS_KEY)
+        .bind(value_json)
+        .bind(now_ms())
+        .execute(&self.pool)
+        .await?;
+        Ok(settings)
     }
 }

@@ -1,0 +1,53 @@
+@use "../../styles/typography" as type;
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px;
+
+  > div:first-child {
+    display: grid;
+    gap: 5px;
+  }
+
+  small {
+    color: var(--vscode-descriptionForeground);
+    font-size: type.$font-size-xs;
+  }
+}
+
+.select {
+  min-width: 280px;
+}
+
+.textButton {
+  padding: 4px;
+  color: var(--vscode-textLink-foreground);
+  background: transparent;
+  border: 0;
+
+  &:hover { color: var(--vscode-textLink-activeForeground); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.promptEditor {
+  width: 100%;
+  flex: 1;
+  min-height: 320px;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, var(--vscode-sideBar-border));
+  border-radius: 6px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: type.$font-size-xs;
+  line-height: 1.6;
+  resize: none;
+
+  &:focus {
+    outline: 1px solid var(--vscode-focusBorder);
+  }
+}

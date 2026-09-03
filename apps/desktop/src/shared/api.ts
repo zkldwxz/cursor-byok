@@ -150,6 +150,15 @@ export interface DesktopSettings {
   show_dock_icon: boolean;
 }
 
+export interface CommitSettings {
+  model_id: string;
+  prompt: string;
+}
+
+export interface CommitSettingsView extends CommitSettings {
+  default_prompt: string;
+}
+
 export type PluginRuntimeState = "uninitialized" | "initializing" | "ready" | "failed" | "unsupported";
 export type PluginRuntimePhase = "checking" | "downloading" | "verifying" | "installing" | "validating";
 
@@ -508,4 +517,6 @@ export const api = {
   setTabSettings: (settings: TabSettings) => request<TabSettings>("/settings/tab", { method: "PUT", body: JSON.stringify(settings) }),
   desktopSettings: () => request<DesktopSettings>("/settings/desktop"),
   setDesktopSettings: (settings: DesktopSettings) => request<DesktopSettings>("/settings/desktop", { method: "PUT", body: JSON.stringify(settings) }),
+  commitSettings: () => request<CommitSettingsView>("/settings/commit"),
+  setCommitSettings: (settings: CommitSettings) => request<CommitSettingsView>("/settings/commit", { method: "PUT", body: JSON.stringify(settings) }),
 };
