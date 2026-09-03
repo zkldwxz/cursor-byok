@@ -31,7 +31,7 @@ export function SettingsPage() {
   const [clearScope, setClearScope] = useState<StatisticsStorageScope>("details");
   const [clearing, setClearing] = useState(false);
   const [outboundProxy, setOutboundProxy] = useState<ProxySettings | null>(null);
-  const [proxyDraft, setProxyDraft] = useState<ProxySettingsInput>({ mode: "system", address: "", auth_enabled: false, username: "", password: "" });
+  const [proxyDraft, setProxyDraft] = useState<ProxySettingsInput>({ mode: "default", address: "", auth_enabled: false, username: "", password: "" });
   const [editingProxy, setEditingProxy] = useState(false);
   const [savingProxy, setSavingProxy] = useState(false);
   const [tabSettings, setTabSettings] = useState<TabSettings | null>(null);

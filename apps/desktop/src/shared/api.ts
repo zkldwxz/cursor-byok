@@ -120,7 +120,7 @@ export interface StatisticsStorage {
 
 export type StatisticsStorageScope = "details" | "all";
 
-export type ProxyMode = "system" | "custom";
+export type ProxyMode = "default" | "custom";
 
 export interface ProxySettings {
   mode: ProxyMode;

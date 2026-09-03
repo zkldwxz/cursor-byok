@@ -33,6 +33,13 @@ impl ProxyRuntime {
     pub fn url(&self) -> Option<String> {
         self.running().then(|| self.url.clone()).flatten()
     }
+    pub fn port(&self) -> Option<u16> {
+        if self.running() {
+            self.port
+        } else {
+            None
+        }
+    }
 
     pub async fn start(
         &mut self,

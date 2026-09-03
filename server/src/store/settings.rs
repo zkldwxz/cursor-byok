@@ -27,7 +27,7 @@ pub struct PortSettings {
 #[serde(rename_all = "snake_case")]
 pub enum ProxyMode {
     #[default]
-    System,
+    Default,
     Custom,
 }
 
@@ -360,5 +360,24 @@ impl Store {
         .execute(&self.pool)
         .await?;
         Ok(settings)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ProxyMode;
+
+    #[test]
+    fn default_proxy_mode_uses_the_default_wire_value() {
+        assert_eq!(ProxyMode::default(), ProxyMode::Default);
+        assert_eq!(
+            serde_json::to_string(&ProxyMode::default()).unwrap(),
+            "\"default\""
+        );
+        assert_eq!(
+            serde_json::from_str::<ProxyMode>("\"default\"").unwrap(),
+            ProxyMode::Default
+        );
+        assert!(serde_json::from_str::<ProxyMode>("\"system\"").is_err());
     }
 }

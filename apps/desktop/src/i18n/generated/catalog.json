@@ -1944,12 +1944,12 @@
         {
           "file": "features/settings/ProxySettingsCard.tsx",
           "line": 29,
-          "column": 93
+          "column": 90
         },
         {
           "file": "features/settings/ProxySettingsCard.tsx",
           "line": 46,
-          "column": 169
+          "column": 166
         },
         {
           "file": "features/settings/TabSettingsCard.tsx",
@@ -2953,6 +2953,23 @@
           "file": "features/models/LegacyModelImport.tsx",
           "line": 55,
           "column": 14
+        }
+      ]
+    },
+    "844b8cc8dff7c1d8": {
+      "source": "默认",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/ProxySettingsCard.tsx",
+          "line": 29,
+          "column": 80
+        },
+        {
+          "file": "features/settings/ProxySettingsCard.tsx",
+          "line": 46,
+          "column": 129
         }
       ]
     },
@@ -4805,23 +4822,6 @@
           "file": "features/models/CursorSettingsPage.tsx",
           "line": 319,
           "column": 27
-        }
-      ]
-    },
-    "d86fa42c3848c680": {
-      "source": "使用系统代理",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/settings/ProxySettingsCard.tsx",
-          "line": 29,
-          "column": 79
-        },
-        {
-          "file": "features/settings/ProxySettingsCard.tsx",
-          "line": 46,
-          "column": 128
         }
       ]
     },

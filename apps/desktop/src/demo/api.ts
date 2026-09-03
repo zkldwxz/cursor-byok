@@ -86,7 +86,7 @@ const harnessStatus: CursorHarnessStatus = {
 let detailed = true;
 let portSettings = { proxy_port: 0, service_port: 0 };
 let proxySettings: ProxySettings = {
-  mode: "system",
+  mode: "default",
   address: "",
   auth_enabled: false,
   username: "",

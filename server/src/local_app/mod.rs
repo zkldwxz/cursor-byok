@@ -90,6 +90,10 @@ impl CursorHarness {
         *self.inner.backend_addr.write() = Some(addr);
     }
 
+    pub async fn proxy_port(&self) -> Option<u16> {
+        self.inner.proxy.lock().await.port()
+    }
+
     pub async fn cleanup_stale_settings(&self) -> Result<()> {
         settings::clear_stale_managed_settings()
     }

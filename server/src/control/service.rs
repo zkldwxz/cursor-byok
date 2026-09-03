@@ -683,6 +683,13 @@ impl ControlService {
     }
 
     pub async fn set_proxy_settings(&self, settings: ProxySettingsInput) -> Result<ProxySettings> {
+        if settings.mode.is_custom() {
+            let local_proxy_port = match self.cursor_harness.proxy_port().await {
+                Some(port) => port,
+                None => self.store.port_settings().await?.proxy_port,
+            };
+            crate::network::reject_self_proxy(&settings.address, local_proxy_port)?;
+        }
         let settings = self.store.set_proxy_settings(settings).await?;
         self.clients.invalidate().await;
         Ok(settings)
