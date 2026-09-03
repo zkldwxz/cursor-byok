@@ -165,6 +165,8 @@ fn is_local_path(path: &str) -> bool {
             | "/aiserver.v1.AiService/KnowledgeBaseList"
             | "/aiserver.v1.AiService/KnowledgeBaseUpdate"
             | "/aiserver.v1.AiService/KnowledgeBaseRemove"
+            | "/aiserver.v1.AiService/WriteGitCommitMessage"
+            | "/aiserver.v1.NetworkService/IsConnected"
             | "/aiserver.v1.AnalyticsService/BootstrapStatsig"
             | "/auth/full_stripe_profile"
     )

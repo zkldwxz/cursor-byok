@@ -1,11 +1,11 @@
 //! Implements settings management endpoints.
 use crate::Result;
 use axum::{extract::State, Json};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::store::{
-    DesktopSettings, PortSettings, ProxySettings, ProxySettingsInput, StatisticsStorage,
-    StatisticsStorageScope, TabSettings,
+    CommitSettings, DesktopSettings, PortSettings, ProxySettings, ProxySettingsInput,
+    StatisticsStorage, StatisticsStorageScope, TabSettings, DEFAULT_COMMIT_PROMPT,
 };
 
 use super::{ControlService, ObservabilitySettings};
@@ -86,4 +86,37 @@ pub async fn update_desktop(
 ) -> Result<Json<DesktopSettings>> {
     service.set_desktop_settings(settings).await?;
     get_desktop(State(service)).await
+}
+
+/// Settings view for commit message generation. Empty `model_id` means 直连
+/// (forward the original Cursor RPC). A non-empty value is a configured
+/// Cursor model hash. Empty `prompt` means "use the built-in default".
+#[derive(Serialize)]
+pub struct CommitSettingsView {
+    pub model_id: String,
+    pub prompt: String,
+    pub default_prompt: &'static str,
+}
+
+impl From<CommitSettings> for CommitSettingsView {
+    fn from(settings: CommitSettings) -> Self {
+        Self {
+            model_id: settings.model_id,
+            prompt: settings.prompt,
+            default_prompt: DEFAULT_COMMIT_PROMPT.trim(),
+        }
+    }
+}
+
+pub async fn get_commit(State(service): State<ControlService>) -> Result<Json<CommitSettingsView>> {
+    let settings = service.commit_settings().await?;
+    Ok(Json(CommitSettingsView::from(settings)))
+}
+
+pub async fn update_commit(
+    State(service): State<ControlService>,
+    Json(settings): Json<CommitSettings>,
+) -> Result<Json<CommitSettingsView>> {
+    let saved = service.set_commit_settings(settings).await?;
+    Ok(Json(CommitSettingsView::from(saved)))
 }

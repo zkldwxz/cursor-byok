@@ -19,7 +19,7 @@ use crate::{
             connect,
             proto::{agent::v1 as agent, aiserver::v1 as ai},
         },
-        services::{account, analytics, knowledge, model_catalog, tab},
+        services::{account, analytics, commit_message, knowledge, model_catalog, tab},
         transport::{TransportParent, TransportRegistry},
     },
     Result,
@@ -55,6 +55,14 @@ fn router_with_proxy(
         .route(
             "/aiserver.v1.AiService/GetUsableModels",
             post(model_catalog::usable_models),
+        )
+        .route(
+            "/aiserver.v1.AiService/WriteGitCommitMessage",
+            post(commit_message::write_git_commit_message),
+        )
+        .route(
+            "/aiserver.v1.NetworkService/IsConnected",
+            post(is_connected),
         )
         .route(
             "/aiserver.v1.AuthService/GetEmail",
@@ -111,6 +119,23 @@ fn router_with_proxy(
 
 async fn health() -> StatusCode {
     StatusCode::NO_CONTENT
+}
+
+/// `NetworkService/IsConnected` probe. Cursor's always-local extension checks
+/// connectivity roughly 10s after any slow request starts; a 404/error here is
+/// treated as "network disconnected" and aborts in-flight work (e.g. commit
+/// message generation) even while the model is still streaming. Always answer
+/// connected with an empty `IsConnectedResponse` so local BYOK generation is
+/// never cancelled by this probe.
+async fn is_connected() -> Result<Response<Body>> {
+    let payload = connect::encode_message(&ai::IsConnectedResponse {})?;
+    let mut response = Response::new(Body::from(payload));
+    *response.status_mut() = StatusCode::OK;
+    response.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/proto"),
+    );
+    Ok(response)
 }
 
 async fn run_sse_handler(

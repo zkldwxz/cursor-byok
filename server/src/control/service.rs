@@ -28,8 +28,8 @@ use crate::{
     plugin::{PluginDescriptor, PluginRegistry, PluginRuntime, PluginRuntimeStatus},
     provider::{is_valid_response_event, ModelEvent, Provider},
     store::{
-        DesktopSettings, PortSettings, ProxySettings, ProxySettingsInput, StatisticsStorage, Store,
-        TabSettings,
+        CommitSettings, DesktopSettings, PortSettings, ProxySettings, ProxySettingsInput,
+        StatisticsStorage, Store, TabSettings,
     },
     Error, Result,
 };
@@ -702,6 +702,14 @@ impl ControlService {
 
     pub async fn set_desktop_settings(&self, settings: DesktopSettings) -> Result<()> {
         self.store.set_desktop_settings(settings).await
+    }
+
+    pub async fn commit_settings(&self) -> Result<CommitSettings> {
+        self.store.commit_settings().await
+    }
+
+    pub async fn set_commit_settings(&self, settings: CommitSettings) -> Result<CommitSettings> {
+        self.store.set_commit_settings(settings).await
     }
 }
 
