@@ -24,14 +24,14 @@
   padding: 0 32px 0 8px;
   color: inherit;
   text-align: left;
-  background: transparent;
+  background: color-mix(in srgb, var(--vscode-foreground) 4%, transparent);
   border: 1px solid var(--vscode-sideBar-border);
   border-radius: 6px;
 
   &:hover,
   &[aria-expanded="true"] {
-    background: var(--vscode-list-hoverBackground);
-     border: 1px solid var(--vscode-sideBar-border);
+    background: color-mix(in srgb, var(--vscode-foreground) 9%, transparent);
+    border-color: var(--vscode-sideBar-border);
   }
 
   &:focus-visible {
