@@ -160,6 +160,22 @@ pub(crate) struct ProxySettingsSecret {
     pub password: String,
 }
 
+/// Reads the persisted outbound proxy row, falling back to "no proxy" when it
+/// no longer parses.
+///
+/// `mode` is a closed enum whose stored wire value has already changed once, so
+/// a row written by an older build can be unreadable by this one. Propagating
+/// that error would be unrecoverable rather than merely noisy: every outbound
+/// client is built from this value, and `set_proxy_settings` reads the row
+/// before it writes, so the settings page could neither load nor replace the
+/// row that broke it.
+fn read_proxy_settings(value: &str) -> ProxySettingsSecret {
+    serde_json::from_str(value).unwrap_or_else(|error| {
+        tracing::warn!(%error, "ignoring unreadable outbound proxy settings");
+        ProxySettingsSecret::default()
+    })
+}
+
 impl Store {
     pub(crate) async fn cursor_takeover_enabled(&self) -> Result<bool> {
         let value = sqlx::query_scalar::<_, String>(
@@ -218,9 +234,9 @@ impl Store {
         .bind(PROXY_SETTINGS_KEY)
         .fetch_optional(&self.pool)
         .await?;
-        value
-            .map(|value| serde_json::from_str(&value).map_err(Into::into))
-            .unwrap_or_else(|| Ok(ProxySettingsSecret::default()))
+        Ok(value
+            .as_deref()
+            .map_or_else(ProxySettingsSecret::default, read_proxy_settings))
     }
 
     pub async fn proxy_settings(&self) -> Result<ProxySettings> {
@@ -415,9 +431,15 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::{
-        CommitPromptLocale, CommitSettings, ProxyMode, DEFAULT_COMMIT_PROMPT_EN_US,
-        DEFAULT_COMMIT_PROMPT_ZH_CN,
+        read_proxy_settings, CommitPromptLocale, CommitSettings, ProxyMode, ProxySettingsInput,
+        ProxySettingsSecret, Store, DEFAULT_COMMIT_PROMPT_EN_US, DEFAULT_COMMIT_PROMPT_ZH_CN,
+        PROXY_SETTINGS_KEY,
     };
+
+    /// The `outbound_proxy` row exactly as builds before the `system` -> `default`
+    /// rename wrote it.
+    const LEGACY_PROXY_ROW: &str =
+        r#"{"mode":"system","address":"","auth_enabled":false,"username":"","password":""}"#;
 
     #[test]
     fn default_commit_prompt_follows_its_saved_locale() {
@@ -457,5 +479,50 @@ mod tests {
             ProxyMode::Default
         );
         assert!(serde_json::from_str::<ProxyMode>("\"system\"").is_err());
+    }
+
+    #[test]
+    fn an_unreadable_proxy_row_reads_as_no_proxy() {
+        assert!(serde_json::from_str::<ProxySettingsSecret>(LEGACY_PROXY_ROW).is_err());
+
+        let settings = read_proxy_settings(LEGACY_PROXY_ROW);
+        assert_eq!(settings.mode, ProxyMode::Default);
+        assert!(settings.address.is_empty());
+        assert!(!settings.auth_enabled);
+    }
+
+    #[tokio::test]
+    async fn a_proxy_row_from_an_older_build_stays_replaceable() {
+        let directory = tempfile::tempdir().unwrap();
+        let url = format!("sqlite://{}", directory.path().join("test.db").display());
+        let store = Store::connect(&url).await.unwrap();
+        sqlx::query(
+            "INSERT INTO service_settings(setting_key, value_json, updated_at_ms) VALUES (?, ?, 0)",
+        )
+        .bind(PROXY_SETTINGS_KEY)
+        .bind(LEGACY_PROXY_ROW)
+        .execute(store.pool())
+        .await
+        .unwrap();
+
+        // Reading must not fail: every outbound client is built from this value.
+        assert_eq!(
+            store.proxy_settings().await.unwrap().mode,
+            ProxyMode::Default
+        );
+
+        // And the settings page must be able to overwrite the row that broke it.
+        let saved = store
+            .set_proxy_settings(ProxySettingsInput {
+                mode: ProxyMode::Custom,
+                address: "http://127.0.0.1:7890".into(),
+                auth_enabled: false,
+                username: String::new(),
+                password: None,
+            })
+            .await
+            .unwrap();
+        assert_eq!(saved.mode, ProxyMode::Custom);
+        assert_eq!(saved.address, "http://127.0.0.1:7890");
     }
 }
