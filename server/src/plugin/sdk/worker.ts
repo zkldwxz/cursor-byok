@@ -142,9 +142,7 @@ async function dispatch(message: { id: string; method: string; params?: JsonValu
       case "oauth.begin": {
         const support = resourceSupport(params.resourceType);
         const method = addMethod(support, params.methodId);
-        result = method.type === "oauth2.authorization-code"
-          ? await method.begin(params.authorization as never, context)
-          : await method.begin(context);
+        result = method.type === "oauth2.authorization-code" ? await method.begin(params.authorization as never, context) : await method.begin(context);
         break;
       }
       case "oauth.poll": {

@@ -2,8 +2,8 @@ import { defineProviderPlugin } from "cursor-byok:plugin";
 import { codexDeviceOAuth } from "./oauth.ts";
 import { codexProvider } from "./provider.ts";
 import {
-  credentialImport,
   consumeResetCardAction,
+  credentialImport,
   listResetCardsAction,
   presentAccount,
   refreshAccount,

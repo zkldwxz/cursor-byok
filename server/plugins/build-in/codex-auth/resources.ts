@@ -350,7 +350,9 @@ async function fetchResetCredits(
   const availableCount = number(root.available_count ?? root.availableCount);
   return {
     cards,
-    availableCount: availableCount === null ? cards.filter((card) => card.status === "available").length : Math.max(0, Math.floor(availableCount)),
+    availableCount: availableCount === null
+      ? cards.filter((card) => card.status === "available").length
+      : Math.max(0, Math.floor(availableCount)),
   };
 }
 
@@ -426,7 +428,10 @@ async function consumeResetCard(
 export const listResetCardsAction: ResourceAction = {
   id: LIST_RESET_CARDS_ACTION_ID,
   displayName: { "en-US": "View reset cards", "zh-CN": "查看重置卡" },
-  description: { "en-US": "List available Codex reset cards.", "zh-CN": "查看当前账号的 Codex 重置卡。" },
+  description: {
+    "en-US": "List available Codex reset cards.",
+    "zh-CN": "查看当前账号的 Codex 重置卡。",
+  },
   target: "resource",
   run: listResetCards,
 };
@@ -434,7 +439,10 @@ export const listResetCardsAction: ResourceAction = {
 export const consumeResetCardAction: ResourceAction = {
   id: CONSUME_RESET_CARD_ACTION_ID,
   displayName: { "en-US": "Use reset card", "zh-CN": "使用重置卡" },
-  description: { "en-US": "Redeem one available Codex reset card.", "zh-CN": "消耗一张可用的 Codex 重置卡。" },
+  description: {
+    "en-US": "Redeem one available Codex reset card.",
+    "zh-CN": "消耗一张可用的 Codex 重置卡。",
+  },
   target: "card",
   destructive: true,
   run: consumeResetCard,
