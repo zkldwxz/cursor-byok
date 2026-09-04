@@ -21,24 +21,41 @@ type OverflowTextProps = {
 };
 
 function OverflowText({ children, className }: OverflowTextProps) {
+  const container = useRef<HTMLDivElement>(null);
   const text = useRef<HTMLSpanElement>(null);
   const [overflowing, setOverflowing] = useState(false);
 
   useLayoutEffect(() => {
-    const element = text.current;
-    if (!element) return;
-    const update = () => setOverflowing(element.scrollWidth > element.clientWidth + 1);
+    const viewport = container.current;
+    if (!viewport) return;
+
+    const update = () => {
+      const element = text.current;
+      if (!element) return;
+      setOverflowing(element.scrollWidth > viewport.clientWidth + 1);
+    };
+
     update();
     const observer = new ResizeObserver(update);
-    observer.observe(element);
-    if (element.parentElement) observer.observe(element.parentElement);
-    return () => observer.disconnect();
-  }, [children]);
+    observer.observe(viewport);
+    if (text.current) observer.observe(text.current);
+    let disposed = false;
+    void document.fonts?.ready.then(() => {
+      if (!disposed) update();
+    });
+    return () => {
+      disposed = true;
+      observer.disconnect();
+    };
+  }, [children, overflowing]);
 
-  if (!overflowing) return <span ref={text} className={className}>{children}</span>;
-  return <Marquee className={styles.menuMarquee} repeat loop={0} speed={4} gap={24}>
-    <span ref={text} className={className}>{children}</span>
-  </Marquee>;
+  return <div ref={container} className={styles.menuOverflow}>
+    {overflowing
+      ? <Marquee className={styles.menuMarquee} repeat loop={0} speed={4} gap={24}>
+        <span ref={text} className={className}>{children}</span>
+      </Marquee>
+      : <span ref={text} className={className}>{children}</span>}
+  </div>;
 }
 
 export function AdMenu({ ads, activeAdId, dismissingAdId, readAdIds, triggerRefs, onOpen, onDismiss }: AdMenuProps) {
@@ -60,10 +77,10 @@ export function AdMenu({ ads, activeAdId, dismissingAdId, readAdIds, triggerRefs
       >
         {!readAdIds.has(ad.id) && <span className={styles.unreadDot} aria-hidden="true" />}
         <img className={styles.menuImage} src={ad.target.imageUrl} alt="" />
-        <span className={styles.menuCopy}>
+        <div className={styles.menuCopy}>
           <OverflowText className={styles.menuTitle}>{ad.target.title}</OverflowText>
           <OverflowText className={styles.menuSubtitle}>{ad.target.description}</OverflowText>
-        </span>
+        </div>
       </button>
       <button
         type="button"

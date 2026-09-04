@@ -84,7 +84,9 @@
 }
 
 .menuCopy {
+  flex: 1 1 0;
   min-width: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -98,16 +100,35 @@
   text-overflow: ellipsis;
 }
 
+.menuOverflow {
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .menuMarquee {
+  display: block;
+  flex: 0 0 auto;
+  width: 100%;
   min-width: 0;
   overflow: hidden;
 }
 
 .menuMarquee .menuTitle,
 .menuMarquee .menuSubtitle {
+  flex: 0 0 auto;
   width: max-content;
+  min-width: max-content;
+  max-width: none;
   overflow: visible;
   text-overflow: clip;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menuMarquee [data-rcm-t] {
+    animation-play-state: running !important;
+  }
 }
 
 .menuTitle {

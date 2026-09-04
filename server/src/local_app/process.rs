@@ -4,6 +4,14 @@ use tokio::process::Command;
 
 use crate::{Error, Result};
 
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+#[cfg(windows)]
+fn hide_console(command: &mut Command) {
+    command.creation_flags(CREATE_NO_WINDOW);
+}
+
 pub async fn terminate_cursor() -> Result<()> {
     terminate_platform_cursor().await
 }
@@ -42,7 +50,9 @@ async fn terminate_unix_process(name: &str) -> Result<()> {
 
 #[cfg(target_os = "windows")]
 async fn terminate_platform_cursor() -> Result<()> {
-    let processes = Command::new("tasklist")
+    let mut list = Command::new("tasklist");
+    hide_console(&mut list);
+    let processes = list
         .args(["/FI", "IMAGENAME eq Cursor.exe", "/NH", "/FO", "CSV"])
         .output()
         .await?;
@@ -57,7 +67,9 @@ async fn terminate_platform_cursor() -> Result<()> {
     {
         return Ok(());
     }
-    let terminated = Command::new("taskkill")
+    let mut kill = Command::new("taskkill");
+    hide_console(&mut kill);
+    let terminated = kill
         .args(["/F", "/T", "/IM", "Cursor.exe"])
         .status()
         .await?;
