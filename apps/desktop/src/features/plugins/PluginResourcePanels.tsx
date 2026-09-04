@@ -420,12 +420,13 @@ function ResourceActionModal({ action, cardAction, result, busy, error, onClose,
   const cardActions = cardAction ? [cardAction] : [];
 
   return <>
-    <Modal open title={title} busy={busy} onClose={onClose} submitLabel={t("关闭")} onSubmit={onClose}>
-      {result?.description && <span className={styles.actionDescription}>{pluginText(result.description, locale)}</span>}
-      {busy && <span className={styles.empty}>{t("正在加载…")}</span>}
-      {error && <span className={styles.error} role="alert">{error}</span>}
-      {!busy && !error && result && result.cards.length === 0 && <span className={styles.empty}>{t("没有可用的重置卡。")}</span>}
-      {!busy && !error && result && <div className={styles.actionCardList}>
+    <Modal compact open title={title} busy={busy} onClose={onClose} submitLabel={t("关闭")} onSubmit={onClose}>
+      <div className={styles.actionBody}>
+        {result?.description && <span className={styles.actionDescription}>{pluginText(result.description, locale)}</span>}
+        {busy && <span className={styles.empty}>{t("正在加载…")}</span>}
+        {error && <span className={styles.error} role="alert">{error}</span>}
+        {!busy && !error && result && result.cards.length === 0 && <span className={styles.empty}>{t("没有可用的重置卡。")}</span>}
+        {!busy && !error && result && <div className={styles.actionCardList}>
         {result.cards.map((card) => <Card key={card.id} className={styles.actionCard}>
           <div className={styles.actionCardMain}>
             <strong>{pluginText(card.title, locale)}</strong>
@@ -444,6 +445,7 @@ function ResourceActionModal({ action, cardAction, result, busy, error, onClose,
           </div>}
         </Card>)}
       </div>}
+      </div>
     </Modal>
     {pendingCard && cardAction && <ConfirmDialog
       open

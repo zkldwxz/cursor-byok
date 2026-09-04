@@ -162,6 +162,12 @@
   }
 }
 
+.actionBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .actionDescription {
   color: var(--vscode-descriptionForeground);
   font-size: type.$font-size-xs;
