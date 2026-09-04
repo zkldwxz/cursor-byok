@@ -106,13 +106,18 @@
       "refs": [
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 165,
+          "line": 171,
           "column": 64
         },
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 279,
+          "line": 285,
           "column": 70
+        },
+        {
+          "file": "features/settings/CommitSettingsCard.tsx",
+          "line": 176,
+          "column": 10
         },
         {
           "file": "features/settings/ProxySettingsCard.tsx",
@@ -121,13 +126,25 @@
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 185,
+          "line": 186,
           "column": 82
         },
         {
           "file": "features/settings/TabSettingsCard.tsx",
           "line": 40,
           "column": 98
+        }
+      ]
+    },
+    "0525054436acdb6e": {
+      "source": "提交信息提示词",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/CommitSettingsCard.tsx",
+          "line": 223,
+          "column": 23
         }
       ]
     },
@@ -141,7 +158,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 148,
+          "line": 151,
           "column": 27
         }
       ]
@@ -210,7 +227,7 @@
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 356,
+          "line": 386,
           "column": 73
         }
       ]
@@ -249,7 +266,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 367,
+          "line": 397,
           "column": 89
         }
       ]
@@ -345,7 +362,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 94,
+          "line": 95,
           "column": 38
         }
       ]
@@ -374,7 +391,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 277,
+          "line": 279,
           "column": 26
         }
       ]
@@ -408,6 +425,18 @@
           "file": "features/calls/CallDetailsPage.tsx",
           "line": 36,
           "column": 41
+        }
+      ]
+    },
+    "100fad4a0b3ab781": {
+      "source": "近24小时",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
+          "line": 43,
+          "column": 42
         }
       ]
     },
@@ -452,20 +481,8 @@
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 366,
+          "line": 396,
           "column": 36
-        }
-      ]
-    },
-    "12b86e89701b0241": {
-      "source": "输入模型名称后按 Enter 添加",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "shared/ui/Select.tsx",
-          "line": 199,
-          "column": 55
         }
       ]
     },
@@ -476,8 +493,8 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 304,
-          "column": 211
+          "line": 320,
+          "column": 213
         }
       ]
     },
@@ -546,17 +563,17 @@
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 307,
+          "line": 324,
           "column": 51
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 307,
+          "line": 324,
           "column": 130
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 309,
+          "line": 339,
           "column": 74
         }
       ]
@@ -606,8 +623,25 @@
       "refs": [
         {
           "file": "features/settings/AppLifecycleSettingsCard.tsx",
-          "line": 156,
+          "line": 158,
           "column": 27
+        }
+      ]
+    },
+    "19bb071f8c362695": {
+      "source": "提示词设置",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/CommitSettingsCard.tsx",
+          "line": 173,
+          "column": 10
+        },
+        {
+          "file": "features/settings/CommitSettingsCard.tsx",
+          "line": 205,
+          "column": 16
         }
       ]
     },
@@ -679,7 +713,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 330,
+          "line": 360,
           "column": 52
         }
       ]
@@ -691,7 +725,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 281,
+          "line": 283,
           "column": 60
         }
       ]
@@ -717,17 +751,17 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 64,
+          "line": 65,
           "column": 42
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 190,
+          "line": 191,
           "column": 22
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 217,
+          "line": 218,
           "column": 58
         }
       ]
@@ -765,8 +799,8 @@
       ],
       "refs": [
         {
-          "file": "shared/ui/MultiSelect.tsx",
-          "line": 74,
+          "file": "shared/ui/ModelSelect.tsx",
+          "line": 156,
           "column": 21
         }
       ]
@@ -802,7 +836,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 360,
+          "line": 390,
           "column": 89
         }
       ]
@@ -814,7 +848,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 255,
+          "line": 257,
           "column": 43
         }
       ]
@@ -826,7 +860,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 119,
+          "line": 120,
           "column": 15
         }
       ]
@@ -838,8 +872,8 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 302,
-          "column": 134
+          "line": 318,
+          "column": 136
         }
       ]
     },
@@ -850,7 +884,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 304,
+          "line": 306,
           "column": 24
         }
       ]
@@ -916,8 +950,20 @@
       "refs": [
         {
           "file": "features/settings/AppLifecycleSettingsCard.tsx",
-          "line": 152,
+          "line": 154,
           "column": 13
+        }
+      ]
+    },
+    "296da37506328d89": {
+      "source": "关闭接管Cursor",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/CursorSettingsPage.tsx",
+          "line": 48,
+          "column": 43
         }
       ]
     },
@@ -928,7 +974,7 @@
       "refs": [
         {
           "file": "shell/AppLayout.tsx",
-          "line": 240,
+          "line": 246,
           "column": 14
         }
       ]
@@ -957,7 +1003,7 @@
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 359,
+          "line": 389,
           "column": 186
         }
       ]
@@ -981,12 +1027,17 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 110,
+          "line": 176,
           "column": 105
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 330,
+          "line": 329,
+          "column": 20
+        },
+        {
+          "file": "features/models/CursorSettingsPage.tsx",
+          "line": 360,
           "column": 76
         },
         {
@@ -1000,18 +1051,28 @@
           "column": 70
         },
         {
+          "file": "features/settings/CommitSettingsCard.tsx",
+          "line": 165,
+          "column": 78
+        },
+        {
+          "file": "features/settings/CommitSettingsCard.tsx",
+          "line": 212,
+          "column": 21
+        },
+        {
           "file": "features/settings/ProxySettingsCard.tsx",
           "line": 32,
           "column": 66
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 181,
+          "line": 182,
           "column": 81
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 296,
+          "line": 298,
           "column": 22
         },
         {
@@ -1031,13 +1092,25 @@
         },
         {
           "file": "shell/AppLayout.tsx",
-          "line": 230,
+          "line": 236,
           "column": 20
         },
         {
           "file": "shell/AppLayout.tsx",
-          "line": 241,
+          "line": 247,
           "column": 20
+        }
+      ]
+    },
+    "2cdf7d3275016cc2": {
+      "source": "关闭接管Cursor？",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/CursorSettingsPage.tsx",
+          "line": 328,
+          "column": 14
         }
       ]
     },
@@ -1093,7 +1166,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 373,
+          "line": 403,
           "column": 70
         }
       ]
@@ -1105,7 +1178,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 143,
+          "line": 144,
           "column": 15
         }
       ]
@@ -1141,22 +1214,8 @@
       "refs": [
         {
           "file": "shell/AppLayout.tsx",
-          "line": 229,
+          "line": 235,
           "column": 14
-        }
-      ]
-    },
-    "2f7dec3be28d7597": {
-      "source": "已选择 {count} 个",
-      "kind": "template",
-      "placeholders": [
-        "count"
-      ],
-      "refs": [
-        {
-          "file": "shared/ui/Select.tsx",
-          "line": 180,
-          "column": 65
         }
       ]
     },
@@ -1167,17 +1226,17 @@
       "refs": [
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 167,
+          "line": 173,
           "column": 96
         },
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 281,
+          "line": 287,
           "column": 102
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 330,
+          "line": 360,
           "column": 99
         },
         {
@@ -1223,12 +1282,12 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 323,
+          "line": 353,
           "column": 35
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 326,
+          "line": 356,
           "column": 41
         }
       ]
@@ -1257,7 +1316,7 @@
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 240,
+          "line": 242,
           "column": 27
         }
       ]
@@ -1274,7 +1333,7 @@
         },
         {
           "file": "shell/AppLayout.tsx",
-          "line": 242,
+          "line": 248,
           "column": 21
         }
       ]
@@ -1286,7 +1345,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 358,
+          "line": 388,
           "column": 123
         }
       ]
@@ -1330,7 +1389,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 306,
+          "line": 308,
           "column": 42
         }
       ]
@@ -1356,18 +1415,6 @@
           "file": "features/calls/CallDetails.tsx",
           "line": 54,
           "column": 32
-        }
-      ]
-    },
-    "398f8e6c6f0a0b97": {
-      "source": "继续选择或输入",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "shared/ui/Select.tsx",
-          "line": 181,
-          "column": 68
         }
       ]
     },
@@ -1407,7 +1454,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 288,
+          "line": 290,
           "column": 14
         }
       ]
@@ -1418,9 +1465,9 @@
       "placeholders": [],
       "refs": [
         {
-          "file": "shared/ui/MultiSelect.tsx",
-          "line": 122,
-          "column": 96
+          "file": "shared/ui/ModelSelect.tsx",
+          "line": 232,
+          "column": 102
         }
       ]
     },
@@ -1431,7 +1478,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 240,
+          "line": 242,
           "column": 39
         }
       ]
@@ -1481,12 +1528,12 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 247,
+          "line": 249,
           "column": 22
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 253,
+          "line": 255,
           "column": 26
         }
       ]
@@ -1522,8 +1569,8 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 304,
-          "column": 197
+          "line": 320,
+          "column": 199
         }
       ]
     },
@@ -1534,7 +1581,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 314,
+          "line": 344,
           "column": 80
         },
         {
@@ -1563,7 +1610,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 158,
+          "line": 159,
           "column": 66
         }
       ]
@@ -1575,8 +1622,20 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 272,
+          "line": 274,
           "column": 52
+        }
+      ]
+    },
+    "4256064de039de89": {
+      "source": "显示粒度",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
+          "line": 185,
+          "column": 19
         }
       ]
     },
@@ -1647,7 +1706,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 157,
+          "line": 160,
           "column": 27
         }
       ]
@@ -1673,7 +1732,7 @@
       "refs": [
         {
           "file": "features/settings/AppLifecycleSettingsCard.tsx",
-          "line": 126,
+          "line": 128,
           "column": 17
         }
       ]
@@ -1725,7 +1784,7 @@
       "refs": [
         {
           "file": "features/settings/AppLifecycleSettingsCard.tsx",
-          "line": 151,
+          "line": 153,
           "column": 13
         }
       ]
@@ -1735,6 +1794,11 @@
       "kind": "text",
       "placeholders": [],
       "refs": [
+        {
+          "file": "features/settings/CommitSettingsCard.tsx",
+          "line": 162,
+          "column": 8
+        },
         {
           "file": "features/settings/ProxySettingsCard.tsx",
           "line": 69,
@@ -1776,7 +1840,7 @@
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 359,
+          "line": 389,
           "column": 34
         }
       ]
@@ -1788,22 +1852,22 @@
       "refs": [
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 164,
+          "line": 170,
           "column": 86
         },
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 187,
+          "line": 193,
           "column": 86
         },
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 278,
+          "line": 284,
           "column": 92
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 309,
+          "line": 339,
           "column": 703
         }
       ]
@@ -1904,18 +1968,18 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 86,
+          "line": 126,
           "column": 9
         },
         {
           "file": "features/settings/ProxySettingsCard.tsx",
           "line": 29,
-          "column": 93
+          "column": 90
         },
         {
           "file": "features/settings/ProxySettingsCard.tsx",
           "line": 46,
-          "column": 169
+          "column": 166
         },
         {
           "file": "features/settings/TabSettingsCard.tsx",
@@ -1929,6 +1993,18 @@
         }
       ]
     },
+    "4f0f45b0312ca4ba": {
+      "source": "1小时",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
+          "line": 49,
+          "column": 37
+        }
+      ]
+    },
     "51d04bc3d286f018": {
       "source": "近1自然日",
       "kind": "text",
@@ -1936,7 +2012,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 32,
+          "line": 36,
           "column": 30
         }
       ]
@@ -1950,7 +2026,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 194,
+          "line": 197,
           "column": 13
         }
       ]
@@ -1962,8 +2038,25 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 107,
+          "line": 173,
           "column": 70
+        }
+      ]
+    },
+    "5319e7374f78fb38": {
+      "source": "已接管",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/CursorSettingsPage.tsx",
+          "line": 304,
+          "column": 68
+        },
+        {
+          "file": "shell/AppLayout.tsx",
+          "line": 222,
+          "column": 51
         }
       ]
     },
@@ -1986,7 +2079,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 179,
+          "line": 180,
           "column": 26
         }
       ]
@@ -2010,7 +2103,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 252,
+          "line": 255,
           "column": 47
         }
       ]
@@ -2027,6 +2120,18 @@
         }
       ]
     },
+    "552a5d4baf45d878": {
+      "source": "Commit 提交代码模型设置",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/CommitSettingsCard.tsx",
+          "line": 183,
+          "column": 26
+        }
+      ]
+    },
     "56432ba297009bdc": {
       "source": "请先初始化 CA",
       "kind": "text",
@@ -2034,7 +2139,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 307,
+          "line": 324,
           "column": 63
         }
       ]
@@ -2056,7 +2161,7 @@
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 359,
+          "line": 389,
           "column": 83
         }
       ]
@@ -2068,7 +2173,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 233,
+          "line": 235,
           "column": 78
         }
       ]
@@ -2114,7 +2219,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 237,
+          "line": 239,
           "column": 21
         }
       ]
@@ -2157,8 +2262,8 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 303,
-          "column": 122
+          "line": 319,
+          "column": 124
         }
       ]
     },
@@ -2168,9 +2273,9 @@
       "placeholders": [],
       "refs": [
         {
-          "file": "shared/ui/MultiSelect.tsx",
-          "line": 56,
-          "column": 40
+          "file": "shared/ui/ModelSelect.tsx",
+          "line": 120,
+          "column": 34
         }
       ]
     },
@@ -2219,7 +2324,7 @@
       "refs": [
         {
           "file": "shell/AppLayout.tsx",
-          "line": 246,
+          "line": 252,
           "column": 11
         }
       ]
@@ -2252,6 +2357,18 @@
           "file": "features/home/charts/DailyTokenUsageChart.tsx",
           "line": 164,
           "column": 15
+        }
+      ]
+    },
+    "609640f72d422b57": {
+      "source": "快捷时间范围",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
+          "line": 150,
+          "column": 56
         }
       ]
     },
@@ -2319,7 +2436,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 111,
+          "line": 177,
           "column": 109
         }
       ]
@@ -2331,12 +2448,12 @@
       "refs": [
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 166,
+          "line": 172,
           "column": 64
         },
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 280,
+          "line": 286,
           "column": 70
         },
         {
@@ -2353,7 +2470,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 488,
+          "line": 487,
           "column": 43
         }
       ]
@@ -2365,7 +2482,7 @@
       "refs": [
         {
           "file": "features/settings/AppLifecycleSettingsCard.tsx",
-          "line": 149,
+          "line": 151,
           "column": 18
         }
       ]
@@ -2451,12 +2568,12 @@
       "refs": [
         {
           "file": "features/settings/AppLifecycleSettingsCard.tsx",
-          "line": 137,
+          "line": 139,
           "column": 18
         },
         {
           "file": "features/settings/AppLifecycleSettingsCard.tsx",
-          "line": 143,
+          "line": 145,
           "column": 16
         }
       ]
@@ -2468,7 +2585,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 94,
+          "line": 95,
           "column": 55
         }
       ]
@@ -2504,7 +2621,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 106,
+          "line": 172,
           "column": 21
         }
       ]
@@ -2516,17 +2633,17 @@
       "refs": [
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 164,
+          "line": 170,
           "column": 98
         },
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 187,
+          "line": 193,
           "column": 98
         },
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 278,
+          "line": 284,
           "column": 104
         }
       ]
@@ -2603,8 +2720,8 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 301,
-          "column": 103
+          "line": 317,
+          "column": 105
         }
       ]
     },
@@ -2632,7 +2749,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 169,
+          "line": 170,
           "column": 16
         }
       ]
@@ -2656,7 +2773,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 264,
+          "line": 266,
           "column": 26
         }
       ]
@@ -2680,7 +2797,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 483,
+          "line": 482,
           "column": 43
         }
       ]
@@ -2704,7 +2821,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 297,
+          "line": 299,
           "column": 23
         }
       ]
@@ -2733,7 +2850,7 @@
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 354,
+          "line": 384,
           "column": 67
         }
       ]
@@ -2747,8 +2864,8 @@
       "refs": [
         {
           "file": "App.tsx",
-          "line": 52,
-          "column": 19
+          "line": 61,
+          "column": 21
         }
       ]
     },
@@ -2759,7 +2876,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 137,
+          "line": 138,
           "column": 83
         }
       ]
@@ -2795,7 +2912,7 @@
       "refs": [
         {
           "file": "features/settings/AppLifecycleSettingsCard.tsx",
-          "line": 160,
+          "line": 162,
           "column": 37
         }
       ]
@@ -2834,7 +2951,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 420,
+          "line": 418,
           "column": 21
         }
       ]
@@ -2861,7 +2978,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 192,
+          "line": 195,
           "column": 11
         }
       ]
@@ -2900,12 +3017,12 @@
       "refs": [
         {
           "file": "features/settings/AppLifecycleSettingsCard.tsx",
-          "line": 113,
+          "line": 115,
           "column": 18
         },
         {
           "file": "features/settings/AppLifecycleSettingsCard.tsx",
-          "line": 119,
+          "line": 121,
           "column": 16
         }
       ]
@@ -2919,6 +3036,35 @@
           "file": "features/models/LegacyModelImport.tsx",
           "line": 55,
           "column": 14
+        }
+      ]
+    },
+    "844b8cc8dff7c1d8": {
+      "source": "默认",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/ProxySettingsCard.tsx",
+          "line": 29,
+          "column": 80
+        },
+        {
+          "file": "features/settings/ProxySettingsCard.tsx",
+          "line": 46,
+          "column": 129
+        }
+      ]
+    },
+    "859757ea792a73da": {
+      "source": "30分钟",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
+          "line": 48,
+          "column": 37
         }
       ]
     },
@@ -3062,7 +3208,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 236,
+          "line": 238,
           "column": 22
         }
       ]
@@ -3091,7 +3237,7 @@
       "refs": [
         {
           "file": "shell/AppLayout.tsx",
-          "line": 248,
+          "line": 254,
           "column": 16
         }
       ]
@@ -3141,7 +3287,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 374,
+          "line": 404,
           "column": 87
         }
       ]
@@ -3189,8 +3335,39 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 161,
+          "line": 162,
           "column": 7
+        }
+      ]
+    },
+    "92e26b27d5ea8f0e": {
+      "source": "检查更新失败：{error}",
+      "kind": "template",
+      "placeholders": [
+        "error"
+      ],
+      "refs": [
+        {
+          "file": "features/settings/AppLifecycleSettingsCard.tsx",
+          "line": 99,
+          "column": 15
+        }
+      ]
+    },
+    "9305c0e13642cab4": {
+      "source": "未接管",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/CursorSettingsPage.tsx",
+          "line": 304,
+          "column": 79
+        },
+        {
+          "file": "shell/AppLayout.tsx",
+          "line": 222,
+          "column": 62
         }
       ]
     },
@@ -3225,7 +3402,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 330,
+          "line": 360,
           "column": 250
         }
       ]
@@ -3264,6 +3441,18 @@
         }
       ]
     },
+    "96f7642963ca0dbf": {
+      "source": "开启接管Cursor",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/CursorSettingsPage.tsx",
+          "line": 48,
+          "column": 61
+        }
+      ]
+    },
     "9850ed41a5bfbb0c": {
       "source": "已选 {count} 项",
       "kind": "template",
@@ -3272,9 +3461,9 @@
       ],
       "refs": [
         {
-          "file": "shared/ui/MultiSelect.tsx",
-          "line": 56,
-          "column": 50
+          "file": "shared/ui/ModelSelect.tsx",
+          "line": 120,
+          "column": 44
         }
       ]
     },
@@ -3297,7 +3486,7 @@
       "refs": [
         {
           "file": "shell/AppLayout.tsx",
-          "line": 235,
+          "line": 241,
           "column": 11
         }
       ]
@@ -3377,7 +3566,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 106,
+          "line": 172,
           "column": 70
         }
       ]
@@ -3446,7 +3635,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 244,
+          "line": 246,
           "column": 26
         }
       ]
@@ -3458,7 +3647,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 34,
+          "line": 38,
           "column": 29
         }
       ]
@@ -3482,7 +3671,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 57,
+          "line": 58,
           "column": 34
         }
       ]
@@ -3496,7 +3685,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 203,
+          "line": 206,
           "column": 22
         }
       ]
@@ -3520,7 +3709,7 @@
       "refs": [
         {
           "file": "features/settings/AppLifecycleSettingsCard.tsx",
-          "line": 110,
+          "line": 112,
           "column": 29
         }
       ]
@@ -3532,12 +3721,12 @@
       "refs": [
         {
           "file": "features/settings/AppLifecycleSettingsCard.tsx",
-          "line": 125,
+          "line": 127,
           "column": 18
         },
         {
           "file": "features/settings/AppLifecycleSettingsCard.tsx",
-          "line": 131,
+          "line": 133,
           "column": 16
         }
       ]
@@ -3549,13 +3738,23 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 309,
+          "line": 339,
           "column": 432
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 317,
+          "line": 347,
           "column": 193
+        },
+        {
+          "file": "features/settings/CommitSettingsCard.tsx",
+          "line": 167,
+          "column": 36
+        },
+        {
+          "file": "features/settings/CommitSettingsCard.tsx",
+          "line": 211,
+          "column": 22
         },
         {
           "file": "features/settings/ProxySettingsCard.tsx",
@@ -3564,7 +3763,7 @@
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 182,
+          "line": 183,
           "column": 133
         },
         {
@@ -3638,7 +3837,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 131,
+          "line": 134,
           "column": 15
         }
       ]
@@ -3650,7 +3849,7 @@
       "refs": [
         {
           "file": "shell/AppLayout.tsx",
-          "line": 231,
+          "line": 237,
           "column": 21
         }
       ]
@@ -3693,7 +3892,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 309,
+          "line": 339,
           "column": 715
         }
       ]
@@ -3739,13 +3938,27 @@
       "refs": [
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 260,
+          "line": 266,
           "column": 113
         },
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 260,
+          "line": 266,
           "column": 131
+        }
+      ]
+    },
+    "a80b53f8848e6d27": {
+      "source": "安装更新失败：{error}",
+      "kind": "template",
+      "placeholders": [
+        "error"
+      ],
+      "refs": [
+        {
+          "file": "features/settings/AppLifecycleSettingsCard.tsx",
+          "line": 108,
+          "column": 15
         }
       ]
     },
@@ -3777,9 +3990,9 @@
       "placeholders": [],
       "refs": [
         {
-          "file": "shared/ui/MultiSelect.tsx",
-          "line": 123,
-          "column": 61
+          "file": "shared/ui/ModelSelect.tsx",
+          "line": 233,
+          "column": 67
         }
       ]
     },
@@ -3814,7 +4027,7 @@
       "refs": [
         {
           "file": "features/settings/AppLifecycleSettingsCard.tsx",
-          "line": 156,
+          "line": 158,
           "column": 39
         }
       ]
@@ -3854,7 +4067,7 @@
       "refs": [
         {
           "file": "features/settings/AppLifecycleSettingsCard.tsx",
-          "line": 138,
+          "line": 140,
           "column": 17
         }
       ]
@@ -3866,12 +4079,12 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 88,
+          "line": 128,
           "column": 28
         },
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 88,
+          "line": 128,
           "column": 89
         },
         {
@@ -3881,12 +4094,12 @@
         },
         {
           "file": "shell/AppLayout.tsx",
-          "line": 262,
+          "line": 268,
           "column": 64
         },
         {
           "file": "shell/AppLayout.tsx",
-          "line": 262,
+          "line": 268,
           "column": 125
         }
       ]
@@ -3896,6 +4109,11 @@
       "kind": "text",
       "placeholders": [],
       "refs": [
+        {
+          "file": "features/settings/CommitSettingsCard.tsx",
+          "line": 57,
+          "column": 63
+        },
         {
           "file": "features/settings/TabSettingsCard.tsx",
           "line": 31,
@@ -3944,12 +4162,12 @@
       "refs": [
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 132,
-          "column": 99
+          "line": 137,
+          "column": 10
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 317,
+          "line": 347,
           "column": 49
         }
       ]
@@ -4038,7 +4256,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 158,
+          "line": 159,
           "column": 45
         }
       ]
@@ -4064,7 +4282,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 280,
+          "line": 282,
           "column": 22
         }
       ]
@@ -4088,7 +4306,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 314,
+          "line": 344,
           "column": 103
         }
       ]
@@ -4139,6 +4357,18 @@
         }
       ]
     },
+    "ba2e93e73037c71e": {
+      "source": "恢复默认",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/CommitSettingsCard.tsx",
+          "line": 215,
+          "column": 14
+        }
+      ]
+    },
     "ba5865fbc734e672": {
       "source": "例如：主力模型",
       "kind": "text",
@@ -4173,7 +4403,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 195,
+          "line": 198,
           "column": 13
         }
       ]
@@ -4202,7 +4432,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 272,
+          "line": 274,
           "column": 40
         }
       ]
@@ -4214,7 +4444,7 @@
       "refs": [
         {
           "file": "shell/AppLayout.tsx",
-          "line": 253,
+          "line": 259,
           "column": 24
         }
       ]
@@ -4238,12 +4468,12 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 322,
+          "line": 352,
           "column": 45
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 325,
+          "line": 355,
           "column": 42
         }
       ]
@@ -4255,7 +4485,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 70,
+          "line": 110,
           "column": 51
         }
       ]
@@ -4348,7 +4578,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 309,
+          "line": 339,
           "column": 62
         }
       ]
@@ -4389,8 +4619,8 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 108,
-          "column": 61
+          "line": 174,
+          "column": 77
         }
       ]
     },
@@ -4483,12 +4713,12 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 167,
+          "line": 168,
           "column": 22
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 173,
+          "line": 174,
           "column": 20
         }
       ]
@@ -4500,7 +4730,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 204,
+          "line": 205,
           "column": 21
         }
       ]
@@ -4512,7 +4742,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 35,
+          "line": 39,
           "column": 30
         }
       ]
@@ -4536,7 +4766,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 160,
+          "line": 161,
           "column": 7
         }
       ]
@@ -4577,7 +4807,7 @@
       "refs": [
         {
           "file": "features/settings/AppLifecycleSettingsCard.tsx",
-          "line": 114,
+          "line": 116,
           "column": 17
         }
       ]
@@ -4594,7 +4824,7 @@
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 322,
+          "line": 352,
           "column": 27
         }
       ]
@@ -4606,7 +4836,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 309,
+          "line": 339,
           "column": 675
         },
         {
@@ -4686,6 +4916,18 @@
         }
       ]
     },
+    "d71b0171c44b668a": {
+      "source": "关闭后将移除 Cursor 本地代理配置。如果你需要登陆官方账号，通常不需要关闭操作，推荐直接登陆你的账号即可(byok模型与官方账号的模型已支持无缝衔接)，是否继续关闭并清理代理？",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/CursorSettingsPage.tsx",
+          "line": 337,
+          "column": 11
+        }
+      ]
+    },
     "d766536c18e8e990": {
       "source": "插件运行时 {version} 已安装，可以开始使用插件。",
       "kind": "template",
@@ -4707,25 +4949,8 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 319,
+          "line": 349,
           "column": 27
-        }
-      ]
-    },
-    "d86fa42c3848c680": {
-      "source": "使用系统代理",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/settings/ProxySettingsCard.tsx",
-          "line": 29,
-          "column": 79
-        },
-        {
-          "file": "features/settings/ProxySettingsCard.tsx",
-          "line": 46,
-          "column": 128
         }
       ]
     },
@@ -4741,6 +4966,18 @@
         }
       ]
     },
+    "d8c589c455675b46": {
+      "source": "提示词设置已保存",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/CommitSettingsCard.tsx",
+          "line": 147,
+          "column": 15
+        }
+      ]
+    },
     "da521d1c1cbd36af": {
       "source": "需要授权安装证书",
       "kind": "text",
@@ -4748,7 +4985,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 315,
+          "line": 345,
           "column": 47
         }
       ]
@@ -4760,7 +4997,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 31,
+          "line": 35,
           "column": 29
         }
       ]
@@ -4796,6 +5033,18 @@
           "file": "features/models/CursorModelTestResult.tsx",
           "line": 29,
           "column": 92
+        }
+      ]
+    },
+    "dbaa1c565cb1f108": {
+      "source": "15分钟",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
+          "line": 47,
+          "column": 37
         }
       ]
     },
@@ -4866,12 +5115,12 @@
       "refs": [
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 188,
+          "line": 194,
           "column": 64
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 316,
+          "line": 318,
           "column": 30
         },
         {
@@ -4991,7 +5240,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 215,
+          "line": 218,
           "column": 26
         }
       ]
@@ -5058,6 +5307,23 @@
         }
       ]
     },
+    "e2ebc59779f012ed": {
+      "source": "生成模型",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/CommitSettingsCard.tsx",
+          "line": 187,
+          "column": 24
+        },
+        {
+          "file": "features/settings/CommitSettingsCard.tsx",
+          "line": 195,
+          "column": 24
+        }
+      ]
+    },
     "e3fee05f688708b4": {
       "source": "LLM 调用",
       "kind": "text",
@@ -5089,7 +5355,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 33,
+          "line": 37,
           "column": 36
         }
       ]
@@ -5118,7 +5384,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 70,
+          "line": 71,
           "column": 17
         }
       ]
@@ -5181,6 +5447,18 @@
         }
       ]
     },
+    "e85373502c372776": {
+      "source": "1分钟",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
+          "line": 46,
+          "column": 32
+        }
+      ]
+    },
     "e8b1268c1e3610f2": {
       "source": "已存在",
       "kind": "text",
@@ -5200,7 +5478,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 164,
+          "line": 165,
           "column": 26
         }
       ]
@@ -5236,7 +5514,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 319,
+          "line": 349,
           "column": 44
         }
       ]
@@ -5248,7 +5526,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 315,
+          "line": 345,
           "column": 77
         }
       ]
@@ -5277,8 +5555,8 @@
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 300,
-          "column": 69
+          "line": 316,
+          "column": 98
         }
       ]
     },
@@ -5289,7 +5567,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 314,
+          "line": 344,
           "column": 53
         }
       ]
@@ -5313,7 +5591,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 223,
+          "line": 224,
           "column": 16
         }
       ]
@@ -5364,7 +5642,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 107,
+          "line": 173,
           "column": 21
         }
       ]
@@ -5419,8 +5697,20 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 248,
+          "line": 250,
           "column": 21
+        }
+      ]
+    },
+    "f784b165bd3fcb0e": {
+      "source": "近4小时",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
+          "line": 42,
+          "column": 35
         }
       ]
     },
@@ -5431,7 +5721,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 96,
+          "line": 136,
           "column": 19
         }
       ]
@@ -5456,9 +5746,9 @@
       ],
       "refs": [
         {
-          "file": "shared/ui/MultiSelect.tsx",
-          "line": 83,
-          "column": 87
+          "file": "shared/ui/ModelSelect.tsx",
+          "line": 168,
+          "column": 21
         }
       ]
     },
@@ -5493,7 +5783,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 191,
+          "line": 192,
           "column": 21
         }
       ]
@@ -5522,7 +5812,7 @@
         },
         {
           "file": "features/settings/AppLifecycleSettingsCard.tsx",
-          "line": 160,
+          "line": 162,
           "column": 25
         }
       ]
@@ -5571,6 +5861,18 @@
         }
       ]
     },
+    "fc50d0b72bc871db": {
+      "source": "关闭接管",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/CursorSettingsPage.tsx",
+          "line": 330,
+          "column": 21
+        }
+      ]
+    },
     "fcd311fd8ad42462": {
       "source": "打开模型列表",
       "kind": "text",
@@ -5580,11 +5882,6 @@
           "file": "shared/ui/Select.tsx",
           "line": 111,
           "column": 90
-        },
-        {
-          "file": "shared/ui/Select.tsx",
-          "line": 195,
-          "column": 109
         }
       ]
     },
@@ -5618,8 +5915,8 @@
       "placeholders": [],
       "refs": [
         {
-          "file": "shared/ui/MultiSelect.tsx",
-          "line": 109,
+          "file": "shared/ui/ModelSelect.tsx",
+          "line": 194,
           "column": 49
         }
       ]
@@ -5631,7 +5928,7 @@
       "refs": [
         {
           "file": "features/home/HomePage.tsx",
-          "line": 155,
+          "line": 188,
           "column": 25
         }
       ]
@@ -5655,7 +5952,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 307,
+          "line": 309,
           "column": 38
         }
       ]
@@ -5666,13 +5963,18 @@
       "placeholders": [],
       "refs": [
         {
+          "file": "features/settings/CommitSettingsCard.tsx",
+          "line": 167,
+          "column": 24
+        },
+        {
           "file": "features/settings/ProxySettingsCard.tsx",
           "line": 33,
           "column": 91
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 182,
+          "line": 183,
           "column": 121
         },
         {
@@ -5701,17 +6003,17 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 65,
+          "line": 66,
           "column": 46
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 203,
+          "line": 204,
           "column": 22
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 218,
+          "line": 219,
           "column": 58
         }
       ]

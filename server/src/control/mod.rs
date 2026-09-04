@@ -112,6 +112,7 @@ fn proxy_error(error: impl std::fmt::Display) -> Response<Body> {
 pub fn api_router(service: ControlService) -> Router {
     Router::new()
         .route("/__byok-api__/api/ads", get(ads::get))
+        .route("/__byok-api__/api/ads/images/{file_name}", get(ads::image))
         .route(
             "/__byok-api__/api/ads/{ad_id}/dismissals",
             post(ads::dismiss),
@@ -138,14 +139,6 @@ pub fn api_router(service: ControlService) -> Router {
         .route("/__byok-api__/api/llm-calls", get(calls::list))
         .route("/__byok-api__/api/llm-calls/{call_id}", get(calls::detail))
         .route("/__byok-api__/api/plugins", get(plugins::list))
-        .route(
-            "/__byok-api__/api/plugins/disabled-models",
-            get(plugins::get_disabled_models).put(plugins::set_disabled_models),
-        )
-        .route(
-            "/__byok-api__/api/plugins/disabled-accounts",
-            get(plugins::get_disabled_accounts).put(plugins::set_disabled_accounts),
-        )
         .route(
             "/__byok-api__/api/plugins/runtime",
             get(plugins::runtime_status)
@@ -207,6 +200,10 @@ pub fn api_router(service: ControlService) -> Router {
         .route(
             "/__byok-api__/api/settings/desktop",
             get(settings::get_desktop).put(settings::update_desktop),
+        )
+        .route(
+            "/__byok-api__/api/settings/commit",
+            get(settings::get_commit).put(settings::update_commit),
         )
         .route(
             "/__byok-api__/api/harness/cursor/status",

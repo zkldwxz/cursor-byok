@@ -43,7 +43,7 @@ function loadStoredAdIds(key: string): Set<string> {
 }
 
 export function AppLayout() {
-  const { busy } = useAppStore();
+  const { busy, cursorHarness } = useAppStore();
   const { availableVersion } = useUpdateStore();
   const { locale } = useI18n();
   const message = useMessage();
@@ -215,6 +215,12 @@ export function AppLayout() {
                 ? <Icon src={item.icon} size="1.3em" />
                 : <Icon icon={item.icon} size="1.3em" />}
               <span>{item.label}</span>
+              {item.path === "/harness/cursor" && cursorHarness && <span
+                className={styles.menuStatusTag}
+                data-taken={cursorHarness.settings_applied || undefined}
+              >
+                {cursorHarness.settings_applied ? t("已接管") : t("未接管")}
+              </span>}
               {item.path === "/settings" && availableVersion && <span className={styles.menuIndicatorDot} aria-hidden="true" />}
             </NavLink>
           </div>}

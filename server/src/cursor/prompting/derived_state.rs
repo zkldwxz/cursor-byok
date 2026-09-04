@@ -11,7 +11,13 @@ pub struct DerivedState {
 }
 
 pub fn fold_derived_state(messages: &[CanonicalMessage]) -> DerivedState {
-    let mut state = DerivedState::default();
+    fold_derived_state_from(messages, DerivedState::default())
+}
+
+pub fn fold_derived_state_from(
+    messages: &[CanonicalMessage],
+    mut state: DerivedState,
+) -> DerivedState {
     let mut calls = std::collections::HashMap::<String, (String, Value)>::new();
     for message in messages {
         match &message.content {
@@ -80,4 +86,83 @@ fn normalize(value: &str) -> String {
         .filter(|character| character.is_ascii_alphanumeric())
         .flat_map(char::to_lowercase)
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::{json, Value};
+
+    use super::{fold_derived_state_from, DerivedState};
+    use crate::model::{
+        CanonicalMessage, MessageContent, Origin, Role, ToolCallContent, ToolResultContent,
+    };
+
+    #[test]
+    fn merge_patch_inherits_content_from_checkpoint_todo_state() {
+        let messages = todo_write_messages(json!({
+            "merge": true,
+            "todos": [{"id": "tests", "status": "completed"}],
+        }));
+        let initial = DerivedState {
+            todos: Some(json!({
+                "merge": false,
+                "todos": [{
+                    "id": "tests",
+                    "content": "Run focused tests",
+                    "status": "in_progress",
+                }],
+            })),
+            plan: None,
+        };
+
+        let state = fold_derived_state_from(&messages, initial);
+        assert_eq!(
+            state.todos,
+            Some(json!({
+                "merge": false,
+                "todos": [{
+                    "id": "tests",
+                    "content": "Run focused tests",
+                    "status": "completed",
+                }],
+            }))
+        );
+    }
+
+    fn todo_write_messages(arguments: Value) -> Vec<CanonicalMessage> {
+        vec![
+            CanonicalMessage {
+                message_id: "assistant".into(),
+                role: Role::Assistant,
+                origin: Origin::Assistant,
+                content: MessageContent::Assistant {
+                    text: String::new(),
+                    thinking: String::new(),
+                    tool_round_id: None,
+                    replay_state: None,
+                    tool_calls: vec![ToolCallContent {
+                        index: 0,
+                        call_id: "todo-call".into(),
+                        name: "TodoWrite".into(),
+                        arguments,
+                    }],
+                },
+                runtime_event_id: None,
+            },
+            CanonicalMessage {
+                message_id: "result".into(),
+                role: Role::Tool,
+                origin: Origin::Tool,
+                content: MessageContent::ToolResult(ToolResultContent {
+                    call_id: "todo-call".into(),
+                    name: "TodoWrite".into(),
+                    content: "{}".into(),
+                    is_error: false,
+                    image: None,
+                    provider_parts: Vec::new(),
+                }),
+                runtime_event_id: None,
+            },
+        ]
+    }
 }

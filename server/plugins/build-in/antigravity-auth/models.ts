@@ -277,7 +277,9 @@ export function parseAntigravityModels(payload: unknown): ModelDefinition[] {
     models.push({
       id,
       displayName,
-      capabilities: { images: model.supportsImages === true || id.includes("gemini") || id.includes("claude") },
+      capabilities: {
+        images: model.supportsImages === true || id.includes("gemini") || id.includes("claude"),
+      },
       maxOutputTokens,
       privateData: { reasoningEfforts },
     });
@@ -318,16 +320,19 @@ export const antigravityModels: ModelSupport = {
     for (const endpoint of ANTIGRAVITY_ENDPOINTS) {
       for (const bodyPayload of payloads) {
         try {
-          const response = await context.network.fetch(`${endpoint}${FETCH_AVAILABLE_MODELS_PATH}`, {
-            method: "POST",
-            headers: {
-              authorization: `Bearer ${data.accessToken}`,
-              "content-type": "application/json",
-              "user-agent": ANTIGRAVITY_USER_AGENT,
-              ...ANTIGRAVITY_CLIENT_HEADERS,
+          const response = await context.network.fetch(
+            `${endpoint}${FETCH_AVAILABLE_MODELS_PATH}`,
+            {
+              method: "POST",
+              headers: {
+                authorization: `Bearer ${data.accessToken}`,
+                "content-type": "application/json",
+                "user-agent": ANTIGRAVITY_USER_AGENT,
+                ...ANTIGRAVITY_CLIENT_HEADERS,
+              },
+              body: bodyPayload,
             },
-            body: bodyPayload,
-          });
+          );
           if (response.status >= 200 && response.status < 300) {
             const body = JSON.parse(response.body);
             const models = parseAntigravityModels(body);

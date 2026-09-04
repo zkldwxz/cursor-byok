@@ -28,8 +28,8 @@ use crate::{
     plugin::{PluginDescriptor, PluginRegistry, PluginRuntime, PluginRuntimeStatus},
     provider::{is_valid_response_event, ModelEvent, Provider},
     store::{
-        DesktopSettings, PortSettings, ProxySettings, ProxySettingsInput, StatisticsStorage, Store,
-        TabSettings,
+        CommitSettings, DesktopSettings, PortSettings, ProxySettings, ProxySettingsInput,
+        StatisticsStorage, Store, TabSettings,
     },
     Error, Result,
 };
@@ -41,6 +41,8 @@ pub struct ControlService {
     provider: Arc<dyn Provider>,
     plugin_runtime: PluginRuntime,
     plugins: PluginRegistry,
+    clients: crate::network::NetworkClients,
+    app_version: String,
     model_tests: Arc<Mutex<BTreeMap<String, CancellationToken>>>,
 }
 
@@ -151,6 +153,8 @@ impl ControlService {
         provider: Arc<dyn Provider>,
         plugin_runtime: PluginRuntime,
         plugins: PluginRegistry,
+        clients: crate::network::NetworkClients,
+        app_version: String,
     ) -> Result<Self> {
         Ok(Self {
             cursor_harness: CursorHarness::new(store.clone())?,
@@ -158,6 +162,8 @@ impl ControlService {
             provider,
             plugin_runtime,
             plugins,
+            clients,
+            app_version,
             model_tests: Arc::new(Mutex::new(BTreeMap::new())),
         })
     }
@@ -251,40 +257,18 @@ impl ControlService {
         self.plugin_runtime.cancel_initialization()
     }
 
-    pub async fn disabled_plugin_models(&self) -> Result<Vec<String>> {
-        let mut list: Vec<_> = self.store.disabled_plugin_models().await?.into_iter().collect();
-        list.sort();
-        Ok(list)
-    }
-
-    pub async fn set_disabled_plugin_models(&self, model_ids: Vec<String>) -> Result<()> {
-        let set = model_ids.into_iter().collect();
-        self.store.set_disabled_plugin_models(&set).await
-    }
-
-    pub async fn disabled_plugin_accounts(&self) -> Result<Vec<String>> {
-        let mut list: Vec<_> = self.store.disabled_plugin_accounts().await?.into_iter().collect();
-        list.sort();
-        Ok(list)
-    }
-
-    pub async fn set_disabled_plugin_accounts(&self, account_ids: Vec<String>) -> Result<()> {
-        let set = account_ids.into_iter().collect();
-        self.store.set_disabled_plugin_accounts(&set).await
-    }
-
     pub(super) async fn ads(
         &self,
         disabled_ad_ids: Option<&str>,
         language: &str,
     ) -> Result<AdRuntime> {
-        let client = crate::network::client(&self.store).await?;
+        let client = self.clients.default_client().await?;
         let installation_id = self.store.installation_id().await?;
         let mut request = client
             .get(ADS_ENDPOINT)
             .header(DEVICE_ID_HEADER, installation_id)
             .header(OS_HEADER, std::env::consts::OS)
-            .header(APP_VERSION_HEADER, env!("CARGO_PKG_VERSION"))
+            .header(APP_VERSION_HEADER, &self.app_version)
             .header(LANGUAGE_HEADER, language)
             .timeout(std::time::Duration::from_secs(60));
         if let Some(disabled_ad_ids) = disabled_ad_ids.filter(|value| !value.is_empty()) {
@@ -299,11 +283,13 @@ impl ControlService {
                 message.chars().take(200).collect::<String>()
             )));
         }
-        response.json::<AdRuntime>().await?.into_menu_slots()
+        let mut runtime = response.json::<AdRuntime>().await?.into_menu_slots()?;
+        runtime.cache_images(&client).await;
+        Ok(runtime)
     }
 
     pub(super) async fn dismiss_ad(&self, ad_id: &str, input: &AdDismissalInput) -> Result<()> {
-        let client = crate::network::client(&self.store).await?;
+        let client = self.clients.default_client().await?;
         let installation_id = self.store.installation_id().await?;
         let mut endpoint = Url::parse(ADS_ENDPOINT).map_err(|error| {
             Error::Config(format!("advertisement endpoint is invalid: {error}"))
@@ -318,7 +304,7 @@ impl ControlService {
             .post(endpoint)
             .header(DEVICE_ID_HEADER, installation_id)
             .header(OS_HEADER, std::env::consts::OS)
-            .header(APP_VERSION_HEADER, env!("CARGO_PKG_VERSION"))
+            .header(APP_VERSION_HEADER, &self.app_version)
             .json(input)
             .timeout(std::time::Duration::from_secs(5))
             .send()
@@ -343,8 +329,11 @@ impl ControlService {
         start_ms: Option<i64>,
         end_ms: Option<i64>,
         model_hashes: Option<&str>,
+        bucket_ms: Option<i64>,
     ) -> Result<Overview> {
-        self.store.overview(start_ms, end_ms, model_hashes).await
+        self.store
+            .overview(start_ms, end_ms, model_hashes, bucket_ms)
+            .await
     }
 
     pub async fn create_models(&self, models: &[ModelConfigInput]) -> Result<Vec<ModelConfig>> {
@@ -532,7 +521,7 @@ impl ControlService {
     }
 
     pub async fn discover_models(&self, input: &ModelDiscoveryInput) -> Result<DiscoveredModels> {
-        let client = crate::network::client(&self.store).await?;
+        let client = self.clients.default_client().await?;
         let base_url = crate::model::normalize_request_url(&input.base_url)?;
         discover_models_from_endpoint(
             &client,
@@ -699,7 +688,16 @@ impl ControlService {
     }
 
     pub async fn set_proxy_settings(&self, settings: ProxySettingsInput) -> Result<ProxySettings> {
-        self.store.set_proxy_settings(settings).await
+        if settings.mode.is_custom() {
+            let local_proxy_port = match self.cursor_harness.proxy_port().await {
+                Some(port) => port,
+                None => self.store.port_settings().await?.proxy_port,
+            };
+            crate::network::reject_self_proxy(&settings.address, local_proxy_port)?;
+        }
+        let settings = self.store.set_proxy_settings(settings).await?;
+        self.clients.invalidate().await;
+        Ok(settings)
     }
 
     pub async fn tab_settings(&self) -> Result<TabSettings> {
@@ -716,6 +714,14 @@ impl ControlService {
 
     pub async fn set_desktop_settings(&self, settings: DesktopSettings) -> Result<()> {
         self.store.set_desktop_settings(settings).await
+    }
+
+    pub async fn commit_settings(&self) -> Result<CommitSettings> {
+        self.store.commit_settings().await
+    }
+
+    pub async fn set_commit_settings(&self, settings: CommitSettings) -> Result<CommitSettings> {
+        self.store.set_commit_settings(settings).await
     }
 }
 

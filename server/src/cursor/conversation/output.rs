@@ -34,7 +34,7 @@ use crate::{
     Error, Result,
 };
 
-use super::{CompiledMessages, ConversationRegistry, MessageDelivery};
+use super::{CompiledMessages, ConversationRegistry, MessageDelivery, RunFinish, TransportFinish};
 use crate::cursor::transport::TransportHandle;
 
 pub struct ConversationOutput {
@@ -110,7 +110,7 @@ impl ConversationOutput {
         }
     }
 
-    pub async fn run(mut self) -> Result<()> {
+    pub async fn run(mut self) -> Result<RunFinish> {
         let result = self.run_inner().await;
         if let Err(error) = &result {
             if !self.superseded.is_cancelled() {
@@ -143,7 +143,7 @@ impl ConversationOutput {
         result
     }
 
-    async fn run_inner(&mut self) -> Result<()> {
+    async fn run_inner(&mut self) -> Result<RunFinish> {
         if self.context.compacting {
             self.handle.emit(&events::summary_started())?;
         }
@@ -158,6 +158,7 @@ impl ConversationOutput {
         let mut streams = BTreeMap::<usize, ToolCallStream>::new();
         let mut completions = HashMap::<String, ToolCompletion>::new();
         let mut completed = HashSet::<String>::new();
+        let mut completed_round = None::<ToolRoundId>;
         let mut response_text = String::new();
         let mut response_thinking = String::new();
         let mut active_round = None::<ToolRoundId>;
@@ -175,7 +176,7 @@ impl ConversationOutput {
             if self.superseded.is_cancelled() {
                 worker.abort();
                 self.abort_execs().await;
-                return Ok(());
+                return Ok(RunFinish::Transport(TransportFinish::Cancelled));
             }
             let input = if let Ok(action) = self.runtime_actions.try_recv() {
                 Input::RuntimeAction(Some(Box::new(action)))
@@ -187,7 +188,7 @@ impl ConversationOutput {
                     _ = self.superseded.cancelled() => {
                         worker.abort();
                         self.abort_execs().await;
-                        return Ok(());
+                        return Ok(RunFinish::Transport(TransportFinish::Cancelled));
                     }
                     action = self.runtime_actions.recv() => Input::RuntimeAction(action.map(Box::new)),
                     event = self.core.events.recv() => Input::Event(event),
@@ -399,6 +400,14 @@ impl ConversationOutput {
                                 .unwrap_or_else(|_| serde_json::json!({}))
                         };
                     }
+                    RunEvent::UsageSnapshot(usage) => {
+                        if !self.context.compacting {
+                            if let Some(output_tokens) = usage.output_tokens {
+                                self.handle.emit(&events::token_delta(output_tokens))?;
+                            }
+                            context_tokens = usage.context_input_tokens;
+                        }
+                    }
                     RunEvent::Usage(usage) => {
                         if !self.context.compacting {
                             if let Some(output_tokens) = usage.output_tokens {
@@ -417,6 +426,16 @@ impl ConversationOutput {
                         round_id,
                         calls: round_calls,
                     } => {
+                        // `completed` exists so that replaying ExecuteToolRound for a round
+                        // does not dispatch a call this round already committed. Tool call ids
+                        // are only unique *within* a round -- the schema says as much with
+                        // `UNIQUE (round_id, call_id)` -- so an id retained from an earlier
+                        // round would make start_batch skip a fresh call, and tool_round wait
+                        // forever for a result nothing will ever produce.
+                        if completed_round.as_ref() != Some(&round_id) {
+                            completed.clear();
+                            completed_round = Some(round_id.clone());
+                        }
                         active_round = Some(round_id.clone());
                         active_tool_calls = round_calls
                             .iter()
@@ -711,7 +730,7 @@ impl ConversationOutput {
                         if self.superseded.is_cancelled() {
                             worker.abort();
                             self.abort_execs().await;
-                            return Ok(());
+                            return Ok(RunFinish::Transport(TransportFinish::Cancelled));
                         }
                         return match outcome {
                             RunOutcome::Completed => {
@@ -727,8 +746,7 @@ impl ConversationOutput {
                                     for _ in 0..3 {
                                         self.checkpoint.publish(&self.handle, &checkpoint).await?;
                                     }
-                                    finish_success(&self.handle);
-                                    return Ok(());
+                                    return Ok(RunFinish::TurnCompleted);
                                 }
                                 let checkpoints = final_checkpoint.take().ok_or_else(|| {
                                     Error::Protocol("Completed without final state".into())
@@ -744,18 +762,19 @@ impl ConversationOutput {
                                     ttft_breakdown: None,
                                     message: Some(pb::agent_server_message::Message::ConversationCheckpointUpdate(checkpoints.settled)),
                                 })?;
-                                finish_success(&self.handle);
-                                Ok(())
+                                Ok(RunFinish::TurnCompleted)
                             }
                             RunOutcome::Cancelled => {
                                 worker.abort();
                                 self.abort_execs().await;
-                                finish_cancelled(&self.handle)
+                                Ok(RunFinish::Transport(TransportFinish::Cancelled))
                             }
                             RunOutcome::Failed(failure) => {
                                 worker.abort();
                                 self.abort_execs().await;
-                                finish_failed(&self.handle, &cursor_error(failure))
+                                Ok(RunFinish::Transport(TransportFinish::Failed(cursor_error(
+                                    failure,
+                                ))))
                             }
                         };
                     }

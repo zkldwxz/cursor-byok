@@ -119,11 +119,7 @@ fn from_requested(
                         ))
                     })?);
             }
-            other => {
-                return Err(Error::Protocol(format!(
-                    "unsupported Cursor model parameter: {other}"
-                )))
-            }
+            _ => {}
         }
     }
     Ok(spec)
@@ -137,5 +133,28 @@ fn parse_bool(parameter: &pb::requested_model::ModelParameterValue) -> Result<bo
             "invalid Cursor boolean model parameter {}={}",
             parameter.id, parameter.value
         ))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ignores_unknown_cursor_model_parameters() {
+        let requested = pb::RequestedModel {
+            model_id: "test-model".into(),
+            parameters: vec![pb::requested_model::ModelParameterValue {
+                id: "optimize_for".into(),
+                value: "quality".into(),
+            }],
+            ..Default::default()
+        };
+
+        let model = from_requested(&requested, None).expect("unknown parameter should be ignored");
+
+        assert_eq!(model.model_id, "test-model");
+        assert_eq!(model.latency, ModelLatency::Standard);
+        assert!(!model.reasoning.enabled);
     }
 }

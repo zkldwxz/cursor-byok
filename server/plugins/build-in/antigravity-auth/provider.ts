@@ -88,16 +88,23 @@ function resolveAntigravityModel(modelId: string): string {
   }
 
   // 2. Canonical Antigravity-Manager mapping for aliases
-  if (lower === "claude-3-7-sonnet" || lower === "claude-3-5-sonnet" || lower === "claude-sonnet-4-5") {
+  if (
+    lower === "claude-3-7-sonnet" || lower === "claude-3-5-sonnet" || lower === "claude-sonnet-4-5"
+  ) {
     return "claude-sonnet-4-6";
   }
   if (lower === "claude-3-5-haiku" || lower === "claude-haiku-4") {
     return "claude-sonnet-4-6";
   }
-  if (lower === "claude-3-7-opus" || lower === "claude-opus-4" || lower === "claude-opus-4.6" || lower === "claude-opus-4-5-thinking") {
+  if (
+    lower === "claude-3-7-opus" || lower === "claude-opus-4" || lower === "claude-opus-4.6" ||
+    lower === "claude-opus-4-5-thinking"
+  ) {
     return "claude-opus-4-6-thinking";
   }
-  if (lower === "gpt-4" || lower === "gpt-4o" || lower === "gpt-4o-mini" || lower === "gpt-3.5-turbo") {
+  if (
+    lower === "gpt-4" || lower === "gpt-4o" || lower === "gpt-4o-mini" || lower === "gpt-3.5-turbo"
+  ) {
     return "gemini-2.5-flash";
   }
   if (lower === "gemini-2.5-flash-lite") {
@@ -195,7 +202,7 @@ function convertToCloudCodeContents(
   messages: LlmMessage[],
 ): {
   contents: Array<{ role: string; parts: Array<Record<string, unknown>> }>;
-  systemInstruction?: { parts: Array<{ text: string }> };
+  systemInstruction?: { role: string; parts: Array<{ text: string }> };
 } {
   const rawContents: Array<{ role: string; parts: Array<Record<string, unknown>> }> = [];
   let systemText = instructions || "";
@@ -221,13 +228,17 @@ function convertToCloudCodeContents(
       const replayVal = msg.replayState?.providerKind === "antigravity"
         ? (msg.replayState.value as Record<string, unknown> | null)
         : null;
-      const sig = typeof replayVal?.thoughtSignature === "string" ? replayVal.thoughtSignature : null;
+      const sig = typeof replayVal?.thoughtSignature === "string"
+        ? replayVal.thoughtSignature
+        : null;
 
       for (const call of msg.toolCalls) {
         parts.push({
           functionCall: {
             name: call.name,
-            args: typeof call.arguments === "object" && call.arguments !== null ? call.arguments : {},
+            args: typeof call.arguments === "object" && call.arguments !== null
+              ? call.arguments
+              : {},
           },
           thoughtSignature: sig || "skip_thought_signature_validator",
         });
@@ -287,7 +298,9 @@ function convertToCloudCodeContents(
 
   return {
     contents,
-    ...(systemText.trim() ? { systemInstruction: { role: "system", parts: [{ text: systemText.trim() }] } } : {}),
+    ...(systemText.trim()
+      ? { systemInstruction: { role: "system", parts: [{ text: systemText.trim() }] } }
+      : {}),
   };
 }
 
@@ -307,20 +320,20 @@ async function streamCloudCode(
 
   const tools = input.request.tools && input.request.tools.length > 0
     ? [
-        {
-          functionDeclarations: input.request.tools.map((t) => ({
-            name: t.name,
-            description: t.description || "",
-            parameters: sanitizeSchema(t.parameters),
-          })),
-        },
-      ]
+      {
+        functionDeclarations: input.request.tools.map((t) => ({
+          name: t.name,
+          description: t.description || "",
+          parameters: sanitizeSchema(t.parameters),
+        })),
+      },
+    ]
     : undefined;
 
   const toolConfig = tools
     ? {
-        functionCallingConfig: { mode: "AUTO" },
-      }
+      functionCallingConfig: { mode: "AUTO" },
+    }
     : undefined;
 
   const payload = {
@@ -348,7 +361,8 @@ async function streamCloudCode(
     ...ANTIGRAVITY_CLIENT_HEADERS,
   };
   if (actualModel.toLowerCase().includes("claude")) {
-    headers["anthropic-beta"] = "claude-code-20250219,interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14";
+    headers["anthropic-beta"] =
+      "claude-code-20250219,interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14";
   }
 
   let lastError: Error | null = null;
@@ -370,7 +384,10 @@ async function streamCloudCode(
       if (response.status < 200 || response.status >= 300) {
         const errorBody = await readBody(response.lines);
         lastError = new HttpError(response.status, errorBody);
-        if (response.status === 503 || response.status === 502 || response.status === 504 || response.status === 404) {
+        if (
+          response.status === 503 || response.status === 502 || response.status === 504 ||
+          response.status === 404
+        ) {
           continue;
         }
         throw lastError;
@@ -382,7 +399,11 @@ async function streamCloudCode(
       let hasTools = false;
       let toolIndex = 0;
       let lastThoughtSignature: string | null = null;
-      let finalUsage: { inputTokens: number | null; outputTokens: number | null; totalTokens: number | null } | null = null;
+      let finalUsage: {
+        inputTokens: number | null;
+        outputTokens: number | null;
+        totalTokens: number | null;
+      } | null = null;
 
       for await (const line of response.lines) {
         if (!line.startsWith("data:")) continue;
@@ -403,7 +424,9 @@ async function streamCloudCode(
         if (usage) {
           finalUsage = {
             inputTokens: typeof usage.promptTokenCount === "number" ? usage.promptTokenCount : null,
-            outputTokens: typeof usage.candidatesTokenCount === "number" ? usage.candidatesTokenCount : null,
+            outputTokens: typeof usage.candidatesTokenCount === "number"
+              ? usage.candidatesTokenCount
+              : null,
             totalTokens: typeof usage.totalTokenCount === "number" ? usage.totalTokenCount : null,
           };
         }
@@ -485,7 +508,9 @@ async function streamCloudCode(
           }
         }
 
-        const finishReason = typeof candidate?.finishReason === "string" ? candidate.finishReason : null;
+        const finishReason = typeof candidate?.finishReason === "string"
+          ? candidate.finishReason
+          : null;
         if (finishReason) {
           if (thinkingStarted) {
             thinkingStarted = false;
@@ -517,7 +542,8 @@ async function streamCloudCode(
             });
             finalUsage = null;
           }
-          const isTool = finishReason === "STOP" && (hasTools || parts?.some((p) => p.functionCall));
+          const isTool = finishReason === "STOP" &&
+            (hasTools || parts?.some((p) => p.functionCall));
           output.emit({
             type: "done",
             reason: isTool ? "tool-use" : "stop",
@@ -610,17 +636,30 @@ async function invoke(
   try {
     await streamCloudCode(data.accessToken, projectId, input.model.id, input, output, context);
     return patchData
-      ? { status: "completed", patch: { privateData: patchData as unknown as JsonValue, state: { status: "ready" } } }
+      ? {
+        status: "completed",
+        patch: { privateData: patchData as unknown as JsonValue, state: { status: "ready" } },
+      }
       : { status: "completed" };
   } catch (error) {
     if (error instanceof HttpError) {
-      if ((error.status === 401 || error.status === 403) && data.refreshToken && !isQuotaHttpError(error)) {
+      if (
+        (error.status === 401 || error.status === 403) && data.refreshToken &&
+        !isQuotaHttpError(error)
+      ) {
         try {
           const refreshed = await refreshAccount(input.resource, context);
           if (refreshed.privateData) {
             const freshData = refreshed.privateData as unknown as AccountData;
             const freshProj = freshData.projectId ?? projectId;
-            await streamCloudCode(freshData.accessToken, freshProj, input.model.id, input, output, context);
+            await streamCloudCode(
+              freshData.accessToken,
+              freshProj,
+              input.model.id,
+              input,
+              output,
+              context,
+            );
             return {
               status: "completed",
               patch: { privateData: freshData as unknown as JsonValue, state: { status: "ready" } },

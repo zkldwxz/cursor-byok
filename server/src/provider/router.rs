@@ -21,6 +21,7 @@ use super::{
 pub struct ProviderRouter {
     store: Store,
     plugins: PluginRegistry,
+    clients: crate::network::NetworkClients,
     request_timeout: Duration,
     stream_idle_timeout: Duration,
 }
@@ -29,12 +30,14 @@ impl ProviderRouter {
     pub fn new(
         store: Store,
         plugins: PluginRegistry,
+        clients: crate::network::NetworkClients,
         request_timeout: Duration,
         stream_idle_timeout: Duration,
     ) -> Self {
         Self {
             store,
             plugins,
+            clients,
             request_timeout,
             stream_idle_timeout,
         }
@@ -49,6 +52,7 @@ impl Provider for ProviderRouter {
     ) -> ProviderStream {
         let store = self.store.clone();
         let plugins = self.plugins.clone();
+        let clients = self.clients.clone();
         let request_timeout = self.request_timeout;
         let stream_idle_timeout = self.stream_idle_timeout;
         Box::pin(try_stream! {
@@ -62,7 +66,6 @@ impl Provider for ProviderRouter {
                     let plan = plugins.plan_model(&selected).await?;
                     let recorder = start_recorder(&store, &invocation, &selected, &plan.model.display_name, ProviderType::Plugin, &plan.request_url, &plan.model.model_id).await?;
                     let guard = recorder.cancel_on_drop();
-                    recorder.request(serde_json::json!({}), &crate::plugin::plugin_llm_request(&invocation)?).await?;
                     let mut routed = invocation.clone();
                     routed.request.model.display_name = Some(plan.model.display_name.clone());
                     if let Some(tokens) = plan.model.max_output_tokens {
@@ -70,6 +73,7 @@ impl Provider for ProviderRouter {
                     }
                     let provider: Arc<dyn Provider> = Arc::new(NormalizedProvider::new(Arc::new(PluginModelProvider {
                         registry: plugins.clone(),
+                        recorder: recorder.clone(),
                     })));
                     (recorder, guard, provider.stream(routed, cancellation.clone()))
                 } else {
@@ -78,7 +82,11 @@ impl Provider for ProviderRouter {
                     let provider_type = model.provider_type();
                     let request_url = model.request_url()?;
                     model.configure(&mut routed.request.model);
-                    routed.request.model.extra_params = model.extra_params().clone();
+                    routed.request.model.extra_params =
+                        super::request_template::render_json_strings(
+                            model.extra_params(),
+                            &invocation.conversation_id,
+                        );
                     routed.request.model.model_id = model.model_id.clone();
                     let recorder = start_recorder(&store, &invocation, &model.model_hash, &model.display_name, provider_type, &request_url, &model.model_id).await?;
                     let guard = recorder.cancel_on_drop();
@@ -86,12 +94,19 @@ impl Provider for ProviderRouter {
                         kind: provider_kind(provider_type),
                         request_url,
                         api_key: model.api_key.clone(),
-                        custom_headers: if model.custom_headers_enabled { custom_headers(&model.custom_headers)? } else { reqwest::header::HeaderMap::new() },
+                        custom_headers: if model.custom_headers_enabled {
+                            custom_headers(
+                                &model.custom_headers,
+                                &invocation.conversation_id,
+                            )?
+                        } else {
+                            reqwest::header::HeaderMap::new()
+                        },
                         max_output_tokens: model.max_output_tokens(),
                         request_timeout,
                         allowed_body_fields: None,
                     };
-                    let client = crate::network::client_builder(&store).await?.timeout(request_timeout).build()?;
+                    let client = clients.provider_client(request_timeout).await?;
                     let provider = build_observed(&config, recorder.clone(), client)?;
                     (recorder, guard, provider.stream(routed, cancellation.clone()))
                 };
@@ -227,6 +242,7 @@ async fn finish_stream(recorder: &CallRecorder, cancellation: &CancellationToken
 /// 插件模型的 Provider 实现;对路由与规范化层完全等同于内置 Provider。
 struct PluginModelProvider {
     registry: PluginRegistry,
+    recorder: CallRecorder,
 }
 
 impl Provider for PluginModelProvider {
@@ -235,7 +251,8 @@ impl Provider for PluginModelProvider {
         invocation: ModelInvocation,
         cancellation: CancellationToken,
     ) -> ProviderStream {
-        self.registry.stream_model(invocation, cancellation)
+        self.registry
+            .stream_model(invocation, cancellation, self.recorder.clone())
     }
 }
 
@@ -291,8 +308,12 @@ fn root_error_message(error: &(dyn std::error::Error + 'static)) -> String {
     current.to_string()
 }
 
-fn custom_headers(value: &serde_json::Value) -> Result<reqwest::header::HeaderMap> {
-    let object = value
+fn custom_headers(
+    value: &serde_json::Value,
+    conversation_id: &str,
+) -> Result<reqwest::header::HeaderMap> {
+    let rendered = super::request_template::render_json_strings(value, conversation_id);
+    let object = rendered
         .as_object()
         .ok_or_else(|| Error::Config("custom headers must be an object".into()))?;
     let mut headers = reqwest::header::HeaderMap::new();
@@ -349,6 +370,26 @@ fn build_inner(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn renders_cursor_conversation_id_in_custom_header_values() {
+        let template = serde_json::json!({
+            "x-opencode-session-id": "{{SessionId}}",
+            "x-label": "cursor/{{SessionId}}"
+        });
+
+        let headers = custom_headers(&template, "cursor-conversation-id").unwrap();
+
+        assert_eq!(
+            headers.get("x-opencode-session-id").unwrap(),
+            "cursor-conversation-id"
+        );
+        assert_eq!(
+            headers.get("x-label").unwrap(),
+            "cursor/cursor-conversation-id"
+        );
+        assert_eq!(template["x-opencode-session-id"], "{{SessionId}}");
+    }
 
     #[tokio::test]
     async fn pending_provider_event_hits_the_idle_timeout() {

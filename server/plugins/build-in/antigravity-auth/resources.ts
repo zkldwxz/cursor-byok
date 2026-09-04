@@ -1,4 +1,4 @@
-import type { JsonValue, PluginContext } from "cursor-byok:plugin";
+import type { JsonValue, NetworkRequestInit, PluginContext } from "cursor-byok:plugin";
 import type {
   ResourceDraft,
   ResourceImportFile,
@@ -15,10 +15,24 @@ import {
   ANTIGRAVITY_ENDPOINTS,
   ANTIGRAVITY_USER_AGENT,
 } from "./models.ts";
+import { CLIENT_ID, CLIENT_SECRET } from "./google_oauth.ts";
 
 export const RESOURCE_TYPE = "antigravity-account";
 
 const REFRESH_TOKEN_URL = "https://oauth2.googleapis.com/token";
+
+async function fetchText(
+  network: PluginContext["network"] | undefined,
+  url: string,
+  init: NetworkRequestInit,
+): Promise<{ status: number; body: string }> {
+  if (network) {
+    const response = await network.fetch(url, init);
+    return { status: response.status, body: response.body };
+  }
+  const response = await fetch(url, init);
+  return { status: response.status, body: await response.text() };
+}
 
 export type QuotaMetric = {
   remainingPercent: number;
@@ -73,12 +87,15 @@ export async function fetchAccountProjectAndTier(
         const project = text(body?.cloudaicompanionProject);
         const paid = object(body?.paidTier);
         const current = object(body?.currentTier);
-        const tierName = text(paid?.name) ?? text(paid?.id) ?? text(current?.name) ?? text(current?.id);
+        const tierName = text(paid?.name) ?? text(paid?.id) ?? text(current?.name) ??
+          text(current?.id);
         let planLabel = "FREE";
         if (tierName) {
           const lower = tierName.toLowerCase();
           if (lower.includes("ultra")) planLabel = "ULTRA";
-          else if (lower.includes("pro") || lower.includes("premium") || lower.includes("advanced")) planLabel = "PRO";
+          else if (
+            lower.includes("pro") || lower.includes("premium") || lower.includes("advanced")
+          ) planLabel = "PRO";
         }
         return { projectId: project ?? "bamboo-precept-lgxtn", planLabel };
       }
@@ -121,7 +138,9 @@ export async function queryAccountQuota(
       for (const [key, value] of Object.entries(models)) {
         const info = object(value);
         const quota = object(info?.quotaInfo);
-        const fraction = typeof quota?.remainingFraction === "number" ? quota.remainingFraction : null;
+        const fraction = typeof quota?.remainingFraction === "number"
+          ? quota.remainingFraction
+          : null;
         const resetTime = text(quota?.resetTime);
         const resetAtMs = resetTime ? Date.parse(resetTime) : null;
         if (fraction === null) continue;
@@ -147,8 +166,12 @@ export async function queryAccountQuota(
           limitReached: false,
           coolingUntilMs: null,
           updatedAtMs: Date.now(),
-          claude: claudeFraction !== null ? { remainingPercent: Math.round(claudeFraction * 100), resetAtMs: claudeResetAtMs } : null,
-          gemini: geminiFraction !== null ? { remainingPercent: Math.round(geminiFraction * 100), resetAtMs: geminiResetAtMs } : null,
+          claude: claudeFraction !== null
+            ? { remainingPercent: Math.round(claudeFraction * 100), resetAtMs: claudeResetAtMs }
+            : null,
+          gemini: geminiFraction !== null
+            ? { remainingPercent: Math.round(geminiFraction * 100), resetAtMs: geminiResetAtMs }
+            : null,
         },
       };
     } catch {
@@ -235,7 +258,8 @@ export async function accountIdentity(
   const identity = (providedDisplayName && !providedDisplayName.includes("Antigravity"))
     ? providedDisplayName
     : (email ?? sub ?? fingerprint);
-  const displayName = providedDisplayName ?? email ?? name ?? (token.startsWith("AIza") ? `API Key (${fingerprint.slice(0, 6)})` : identity);
+  const displayName = providedDisplayName ?? email ?? name ??
+    (token.startsWith("AIza") ? `API Key (${fingerprint.slice(0, 6)})` : identity);
   return { key: `antigravity:${identity}`, displayName };
 }
 
@@ -246,7 +270,8 @@ export async function credentialDraft(credential: CredentialCandidate): Promise<
     refreshToken: credential.refreshToken,
     displayName: credential.displayName ?? identity.displayName,
     projectId: credential.projectId ?? "bamboo-precept-lgxtn",
-    expiresAtMs: credential.expiresAtMs ?? (credential.refreshToken ? Date.now() + 3500 * 1000 : null),
+    expiresAtMs: credential.expiresAtMs ??
+      (credential.refreshToken ? Date.now() + 3500 * 1000 : null),
     quota: credential.quota ?? null,
   };
   return { key: identity.key, privateData: data as unknown as JsonValue };
@@ -346,8 +371,6 @@ export function presentAccount(resource: ResourceSnapshot): ResourceView {
   };
 }
 
-import { CLIENT_ID, CLIENT_SECRET } from "./oauth.ts";
-
 export async function refreshAccount(
   resource: ResourceSnapshot,
   context: PluginContext,
@@ -378,7 +401,10 @@ export async function refreshAccount(
       // Only mark invalid if token is revoked or client is invalid
       if (bodyText.includes("invalid_grant") || bodyText.includes("unauthorized_client")) {
         return {
-          state: { status: "invalid", message: "Google authorization expired or revoked; please sign in again" },
+          state: {
+            status: "invalid",
+            message: "Google authorization expired or revoked; please sign in again",
+          },
         };
       }
       // On network glitches or temporary Google server errors, keep ready
@@ -461,17 +487,17 @@ function collectCredentials(value: unknown, output: CredentialCandidate[]): void
     firstText(item, ["refresh", "refresh_token", "refreshToken"]);
   const displayName = firstText(item, ["email", "display_name", "displayName", "name"]) ??
     firstText(tokens, ["email", "display_name", "displayName", "name"]);
-  const projectId = firstText(item, ["project", "projectId", "project_id", "cloudaicompanionProject"]) ??
-    firstText(tokens, ["project", "projectId", "project_id", "cloudaicompanionProject"]);
+  const projectId =
+    firstText(item, ["project", "projectId", "project_id", "cloudaicompanionProject"]) ??
+      firstText(tokens, ["project", "projectId", "project_id", "cloudaicompanionProject"]);
 
   if (!accessToken && !refreshToken) return;
   if (!accessToken && refreshToken) {
     accessToken = refreshToken;
   }
+  if (!accessToken) return;
   output.push({ accessToken, refreshToken, displayName, projectId });
 }
-
-import { REDIRECT_URI } from "./oauth.ts";
 
 export async function parseCredentialFiles(
   files: ResourceImportFile[],
@@ -486,41 +512,6 @@ export async function parseCredentialFiles(
     const raw = file.content.trim();
     if (!raw) continue;
 
-    // Check if user pasted the Google OAuth callback URL or raw auth code (4/0ATs...)
-    const authCodeMatch = raw.match(/code=([40][a-zA-Z0-9_\-%]+)/) || (raw.startsWith("4/") ? [null, raw] : null);
-    if (authCodeMatch?.[1]) {
-      const code = decodeURIComponent(authCodeMatch[1]);
-      try {
-        const fetcher = network ? (url: string, init: RequestInit) => network.fetch(url, init) : (url: string, init: RequestInit) => fetch(url, init).then(async (r) => ({ status: r.status, body: await r.text() }));
-        const response = await fetcher(REFRESH_TOKEN_URL, {
-          method: "POST",
-          headers: {
-            accept: "application/json",
-            "content-type": "application/x-www-form-urlencoded",
-          },
-          body: new URLSearchParams({
-            client_id: CLIENT_ID,
-            client_secret: CLIENT_SECRET,
-            code,
-            grant_type: "authorization_code",
-            redirect_uri: REDIRECT_URI,
-          }).toString(),
-        });
-        const tokenBody = object(JSON.parse(response.body));
-        if (response.status >= 200 && response.status < 300 && text(tokenBody?.access_token)) {
-          credentials.push({
-            accessToken: text(tokenBody?.access_token)!,
-            refreshToken: text(tokenBody?.refresh_token),
-            displayName: text(tokenBody?.email) ?? "Google Antigravity Account",
-            expiresAtMs: Date.now() + ((typeof tokenBody?.expires_in === "number" ? tokenBody.expires_in : 3600) * 1000),
-          });
-          continue;
-        }
-      } catch {
-        // Fallback to normal parsing
-      }
-    }
-
     // Check if file is raw API key or JWT token string
     if (raw.startsWith("AIza") || (raw.split(".").length === 3 && !raw.includes(" "))) {
       credentials.push({ accessToken: raw, refreshToken: null, displayName: file.name });
@@ -532,9 +523,15 @@ export async function parseCredentialFiles(
     try {
       content = JSON.parse(raw);
     } catch {
-      const envMatch = raw.match(/(?:API_KEY|TOKEN|GEMINI_API_KEY|GOOGLE_API_KEY|ANTIGRAVITY_API_KEY)\s*=\s*["']?([^"'\r\n]+)/i);
+      const envMatch = raw.match(
+        /(?:API_KEY|TOKEN|GEMINI_API_KEY|GOOGLE_API_KEY|ANTIGRAVITY_API_KEY)\s*=\s*["']?([^"'\r\n]+)/i,
+      );
       if (envMatch?.[1]) {
-        credentials.push({ accessToken: envMatch[1].trim(), refreshToken: null, displayName: file.name });
+        credentials.push({
+          accessToken: envMatch[1].trim(),
+          refreshToken: null,
+          displayName: file.name,
+        });
         continue;
       }
       const keyMatch = raw.match(/AIza[0-9A-Za-z-_]{35}/);
@@ -560,11 +557,7 @@ export async function parseCredentialFiles(
     for (const candidate of found) {
       if (candidate.refreshToken && candidate.accessToken === candidate.refreshToken) {
         try {
-          const fetcher = network
-            ? (url: string, init: RequestInit) => network.fetch(url, init)
-            : (url: string, init: RequestInit) =>
-              fetch(url, init).then(async (r) => ({ status: r.status, body: await r.text() }));
-          const response = await fetcher(REFRESH_TOKEN_URL, {
+          const response = await fetchText(network, REFRESH_TOKEN_URL, {
             method: "POST",
             headers: {
               accept: "application/json",
@@ -581,7 +574,8 @@ export async function parseCredentialFiles(
           if (response.status >= 200 && response.status < 300 && text(body?.access_token)) {
             candidate.accessToken = text(body?.access_token)!;
             candidate.refreshToken = text(body?.refresh_token) ?? candidate.refreshToken;
-            candidate.expiresAtMs = Date.now() + ((typeof body?.expires_in === "number" ? body.expires_in : 3600) * 1000);
+            candidate.expiresAtMs = Date.now() +
+              ((typeof body?.expires_in === "number" ? body.expires_in : 3600) * 1000);
           }
         } catch {
           // Keep placeholder
@@ -599,15 +593,22 @@ export const credentialImport: ResourceImportSupport = {
     "zh-CN": "导入 Google / Antigravity 凭证",
   },
   description: {
-    "en-US": "Import a JSON, TXT, or Callback URL containing Antigravity tokens or Google API keys.",
-    "zh-CN": "导入包含 Antigravity Token、Google API Key 或授权回调 URL 的 JSON/TXT 文件。",
+    "en-US":
+      "Import a JSON, TXT, or environment file containing Antigravity tokens or Google API keys.",
+    "zh-CN": "导入包含 Antigravity Token 或 Google API Key 的 JSON、TXT 或环境变量文件。",
   },
   accept: [".json", ".txt", ".key", ".env"],
   multiple: true,
-  parse: async (files: ResourceImportFile[], context: PluginContext): Promise<ResourceImportResult> => {
+  parse: async (
+    files: ResourceImportFile[],
+    context: PluginContext,
+  ): Promise<ResourceImportResult> => {
     const { credentials, warnings } = await parseCredentialFiles(files, context.network);
     if (credentials.length === 0) {
-      throw new Error(warnings.join("; ") || "credential file does not contain a valid token, authorization code, or API key");
+      throw new Error(
+        warnings.join("; ") ||
+          "credential file does not contain a valid token or API key",
+      );
     }
     const drafts = await Promise.all(
       credentials.map(async (c) => {

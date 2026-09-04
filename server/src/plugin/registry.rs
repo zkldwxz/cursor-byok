@@ -1,8 +1,10 @@
 //! Orchestrates plugin capabilities: resources, model catalogs, and invocation.
-use std::{collections::HashMap, path::Path, sync::Arc};
+use std::{collections::HashMap, path::Path, sync::Arc, time::Duration};
 
 use async_stream::try_stream;
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 use tokio::sync::{Mutex, RwLock};
 use tokio_util::sync::CancellationToken;
 
@@ -12,16 +14,20 @@ use super::{
     descriptor::{
         parse_model_id, PluginDescriptor, PluginModelDescriptor, PluginProviderDescriptor,
         PluginResourceDescriptor, PluginResourceView, ProviderDefinition, ResourceDefinition,
-        ResourcePresentation, OAUTH2_ADD_METHOD,
+        ResourcePresentation, OAUTH2_ADD_METHOD, OAUTH2_AUTHORIZATION_CODE_ADD_METHOD,
     },
+    oauth_callback::{self, CallbackHandle, CallbackOutcome, CallbackRequest},
     runtime::PluginRuntime,
     state::{now_ms, PluginStateStore, ResourceDraft, ResourcePatch, ResourceRecord, StoredModel},
     wire,
     worker::{PluginWorker, WorkerStreamItem},
 };
 use crate::{
-    model::ModelInvocation, provider::ModelEvent, provider::ProviderStream, store::Store, Error,
-    Result,
+    model::ModelInvocation,
+    provider::ProviderStream,
+    provider::{CallRecorder, ModelEvent},
+    store::Store,
+    Error, Result,
 };
 
 const OAUTH_SLOW_DOWN_STEP_MS: i64 = 5_000;
@@ -40,7 +46,6 @@ struct RegistryInner {
     entries: RwLock<Option<Vec<PluginEntry>>>,
     workers: Mutex<HashMap<String, Arc<PluginWorker>>>,
     oauth_sessions: Mutex<HashMap<String, OAuthSession>>,
-    rr_counter: std::sync::atomic::AtomicUsize,
 }
 
 struct OAuthSession {
@@ -51,13 +56,42 @@ struct OAuthSession {
     expires_at_ms: i64,
     poll_interval_ms: i64,
     next_poll_at_ms: i64,
+    flow: OAuthFlow,
+}
+
+enum OAuthFlow {
+    DeviceCode,
+    AuthorizationCode {
+        redirect_uri: String,
+        code_verifier: String,
+        callback: CallbackHandle,
+    },
+}
+
+enum OAuthPollWork {
+    DeviceCode {
+        plugin_id: String,
+        resource_type: String,
+        method_id: String,
+        session: serde_json::Value,
+        poll_interval_ms: i64,
+    },
+    AuthorizationCode {
+        plugin_id: String,
+        resource_type: String,
+        method_id: String,
+        session: serde_json::Value,
+        redirect_uri: String,
+        code_verifier: String,
+        callback_request: CallbackRequest,
+    },
 }
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OAuthBeginResponse {
     pub session_id: String,
-    pub user_code: String,
+    pub user_code: Option<String>,
     pub verification_url: String,
     pub verification_url_complete: Option<String>,
     pub expires_at_ms: i64,
@@ -109,7 +143,6 @@ impl PluginRegistry {
                 entries: RwLock::new(None),
                 workers: Mutex::new(HashMap::new()),
                 oauth_sessions: Mutex::new(HashMap::new()),
-                rr_counter: std::sync::atomic::AtomicUsize::new(0),
             }),
         })
     }
@@ -144,12 +177,6 @@ impl PluginRegistry {
         let Some(executable) = self.inner.runtime.executable() else {
             return Vec::new();
         };
-        let disabled_models = self
-            .inner
-            .store
-            .disabled_plugin_models()
-            .await
-            .unwrap_or_default();
         let mut models = Vec::new();
         for entry in self.entries(&executable).await {
             for provider in &entry.definition.providers {
@@ -162,19 +189,14 @@ impl PluginRegistry {
                     .models(&entry.manifest.id, &provider.id)
                     .await
                     .unwrap_or_default();
-                models.extend(stored.iter().filter_map(|model| {
-                    let descriptor = PluginModelDescriptor::new(
+                models.extend(stored.iter().map(|model| {
+                    PluginModelDescriptor::new(
                         &entry.manifest.id,
                         &entry.manifest.name,
                         &entry.icon,
                         provider,
                         model,
-                    );
-                    if disabled_models.contains(&descriptor.id) {
-                        None
-                    } else {
-                        Some(descriptor)
-                    }
+                    )
                 }));
             }
         }
@@ -205,15 +227,6 @@ impl PluginRegistry {
     }
 
     pub async fn plan_model(&self, model_id: &str) -> Result<PluginInvocationPlan> {
-        let disabled_models = self
-            .inner
-            .store
-            .disabled_plugin_models()
-            .await
-            .unwrap_or_default();
-        if disabled_models.contains(model_id) {
-            return Err(Error::Provider(format!("plugin model '{model_id}' is disabled")));
-        }
         let model = self.model_descriptor(model_id).await?;
         let request_url = format!("plugin://{}/{}", model.plugin_id, model.provider_id);
         Ok(PluginInvocationPlan { model, request_url })
@@ -225,6 +238,7 @@ impl PluginRegistry {
         &self,
         invocation: ModelInvocation,
         cancellation: CancellationToken,
+        recorder: CallRecorder,
     ) -> ProviderStream {
         let registry = self.clone();
         Box::pin(try_stream! {
@@ -254,7 +268,7 @@ impl PluginRegistry {
                 "request": request,
             });
             let worker = registry.worker(&entry, &executable).await;
-            let mut items = worker.invoke_streaming("provider.invoke", params, cancellation.clone()).await?;
+            let mut items = worker.invoke_streaming("provider.invoke", params, cancellation.clone(), Some(recorder)).await?;
             yield ModelEvent::Start { model_call_id: invocation.call_id.clone() };
             while let Some(item) = items.recv().await {
                 match item {
@@ -306,48 +320,145 @@ impl PluginRegistry {
         let method = resource
             .add
             .iter()
-            .find(|method| method.id == method_id && method.method_type == OAUTH2_ADD_METHOD)
+            .find(|method| method.id == method_id)
             .ok_or_else(|| {
                 Error::Config(format!(
                     "plugin '{plugin_id}' does not define OAuth method '{method_id}'"
                 ))
             })?;
-        let value = self
-            .worker(&entry, &executable)
-            .await
-            .invoke(
-                "oauth.begin",
-                serde_json::json!({ "resourceType": resource_type, "methodId": method.id }),
-                CancellationToken::new(),
-            )
-            .await?;
-        let begin: OAuth2Begin = serde_json::from_value(value)?;
+        let worker = self.worker(&entry, &executable).await;
         let session_id = uuid::Uuid::new_v4().to_string();
+
+        let (
+            session,
+            verification_url,
+            verification_url_complete,
+            expires_at_ms,
+            poll_interval_ms,
+            flow,
+            user_code,
+        ) = match method.method_type.as_str() {
+            OAUTH2_ADD_METHOD => {
+                let value = worker
+                    .invoke(
+                        "oauth.begin",
+                        serde_json::json!({
+                            "resourceType": resource_type,
+                            "methodId": method.id,
+                        }),
+                        CancellationToken::new(),
+                    )
+                    .await?;
+                let begin: OAuth2Begin = serde_json::from_value(value)?;
+                (
+                    begin.session,
+                    begin.verification_url,
+                    begin.verification_url_complete,
+                    begin.expires_at_ms,
+                    begin.poll_interval_ms.max(1_000),
+                    OAuthFlow::DeviceCode,
+                    Some(begin.user_code),
+                )
+            }
+            OAUTH2_AUTHORIZATION_CODE_ADD_METHOD => {
+                let state = oauth_random_secret();
+                let code_verifier = oauth_random_secret();
+                let code_challenge =
+                    URL_SAFE_NO_PAD.encode(Sha256::digest(code_verifier.as_bytes()));
+                let callback = method.callback.as_ref();
+                let callback = oauth_callback::bind(
+                    callback.and_then(|value| value.port),
+                    callback
+                        .and_then(|value| value.path.as_deref())
+                        .unwrap_or("/oauth-callback"),
+                    state.clone(),
+                    entry.manifest.name.clone(),
+                    entry.icon.clone(),
+                    serde_json::to_value(&resource.display_name)?,
+                )
+                .await?;
+                let redirect_uri = callback.redirect_uri.clone();
+                let value = worker
+                    .invoke(
+                        "oauth.begin",
+                        serde_json::json!({
+                            "resourceType": resource_type,
+                            "methodId": method.id,
+                            "authorization": {
+                                "redirectUri": redirect_uri,
+                                "state": state,
+                                "codeChallenge": code_challenge,
+                            },
+                        }),
+                        CancellationToken::new(),
+                    )
+                    .await?;
+                let begin: OAuth2AuthorizationCodeBegin = serde_json::from_value(value)?;
+                let poll_interval_ms = begin.poll_interval_ms.unwrap_or(1_000).max(1_000);
+                (
+                    begin.session,
+                    begin.authorization_url,
+                    None,
+                    begin.expires_at_ms,
+                    poll_interval_ms,
+                    OAuthFlow::AuthorizationCode {
+                        redirect_uri,
+                        code_verifier,
+                        callback,
+                    },
+                    None,
+                )
+            }
+            method_type => {
+                return Err(Error::Config(format!(
+                        "plugin '{plugin_id}' OAuth method '{method_id}' uses unsupported type '{method_type}'"
+                    )));
+            }
+        };
+
+        if expires_at_ms <= now_ms() {
+            return Err(Error::Protocol(format!(
+                "plugin '{plugin_id}' OAuth method '{method_id}' returned an expired session"
+            )));
+        }
         self.inner.oauth_sessions.lock().await.insert(
             session_id.clone(),
             OAuthSession {
                 plugin_id: plugin_id.to_owned(),
                 resource_type: resource_type.to_owned(),
                 method_id: method_id.to_owned(),
-                session: begin.session,
-                expires_at_ms: begin.expires_at_ms,
-                poll_interval_ms: begin.poll_interval_ms.max(1_000),
-                next_poll_at_ms: now_ms() + begin.poll_interval_ms.max(1_000),
+                session,
+                expires_at_ms,
+                poll_interval_ms,
+                next_poll_at_ms: now_ms() + poll_interval_ms,
+                flow,
             },
         );
+        let cleanup = self.clone();
+        let cleanup_session_id = session_id.clone();
+        let cleanup_delay_ms = expires_at_ms.saturating_sub(now_ms()) as u64;
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(cleanup_delay_ms)).await;
+            cleanup
+                .inner
+                .oauth_sessions
+                .lock()
+                .await
+                .remove(&cleanup_session_id);
+        });
         Ok(OAuthBeginResponse {
             session_id,
-            user_code: begin.user_code,
-            verification_url: begin.verification_url,
-            verification_url_complete: begin.verification_url_complete,
-            expires_at_ms: begin.expires_at_ms,
-            poll_interval_ms: begin.poll_interval_ms.max(1_000),
+            user_code,
+            verification_url,
+            verification_url_complete,
+            expires_at_ms,
+            poll_interval_ms,
         })
     }
 
     pub async fn oauth_poll(&self, session_id: &str) -> Result<OAuthPollResponse> {
-        let now = now_ms();
-        let (plugin_id, resource_type, method_id, session, poll_interval_ms) = {
+        let work = {
+            let now = now_ms();
             let mut sessions = self.inner.oauth_sessions.lock().await;
             let Some(state) = sessions.get_mut(session_id) else {
                 return Ok(OAuthPollResponse::Failed {
@@ -357,7 +468,7 @@ impl PluginRegistry {
             if now >= state.expires_at_ms {
                 sessions.remove(session_id);
                 return Ok(OAuthPollResponse::Failed {
-                    message: "device authorization expired".into(),
+                    message: "authorization expired".into(),
                 });
             }
             if now < state.next_poll_at_ms {
@@ -366,14 +477,101 @@ impl PluginRegistry {
                 });
             }
             state.next_poll_at_ms = now + state.poll_interval_ms;
-            (
+
+            let common = (
                 state.plugin_id.clone(),
                 state.resource_type.clone(),
                 state.method_id.clone(),
                 state.session.clone(),
-                state.poll_interval_ms,
-            )
+            );
+            match &mut state.flow {
+                OAuthFlow::DeviceCode => OAuthPollWork::DeviceCode {
+                    plugin_id: common.0,
+                    resource_type: common.1,
+                    method_id: common.2,
+                    session: common.3,
+                    poll_interval_ms: state.poll_interval_ms,
+                },
+                OAuthFlow::AuthorizationCode {
+                    redirect_uri,
+                    code_verifier,
+                    callback,
+                } => match callback.receiver.try_recv() {
+                    Ok(callback_request) => OAuthPollWork::AuthorizationCode {
+                        plugin_id: common.0,
+                        resource_type: common.1,
+                        method_id: common.2,
+                        session: common.3,
+                        redirect_uri: redirect_uri.clone(),
+                        code_verifier: code_verifier.clone(),
+                        callback_request,
+                    },
+                    Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {
+                        return Ok(OAuthPollResponse::Pending {
+                            poll_interval_ms: state.poll_interval_ms,
+                        });
+                    }
+                    Err(tokio::sync::oneshot::error::TryRecvError::Closed) => {
+                        sessions.remove(session_id);
+                        return Ok(OAuthPollResponse::Failed {
+                            message: "authorization callback stopped before completion".into(),
+                        });
+                    }
+                },
+            }
         };
+
+        match work {
+            OAuthPollWork::DeviceCode {
+                plugin_id,
+                resource_type,
+                method_id,
+                session,
+                poll_interval_ms,
+            } => {
+                self.poll_device_code(
+                    session_id,
+                    plugin_id,
+                    resource_type,
+                    method_id,
+                    session,
+                    poll_interval_ms,
+                )
+                .await
+            }
+            OAuthPollWork::AuthorizationCode {
+                plugin_id,
+                resource_type,
+                method_id,
+                session,
+                redirect_uri,
+                code_verifier,
+                callback_request,
+            } => {
+                self.complete_authorization_code(
+                    session_id,
+                    plugin_id,
+                    resource_type,
+                    method_id,
+                    session,
+                    redirect_uri,
+                    code_verifier,
+                    callback_request,
+                )
+                .await
+            }
+        }
+    }
+
+    async fn poll_device_code(
+        &self,
+        session_id: &str,
+        plugin_id: String,
+        resource_type: String,
+        method_id: String,
+        session: serde_json::Value,
+        poll_interval_ms: i64,
+    ) -> Result<OAuthPollResponse> {
         let executable = self.executable()?;
         let entry = self.find_entry(&executable, &plugin_id).await?;
         let value = self
@@ -404,21 +602,18 @@ impl PluginRegistry {
                 })
             }
             OAuth2Poll::Completed { resources } => {
-                // 持久化成功后才销毁会话:写盘瞬时失败时下次轮询还能重试。
-                let outcome = self
-                    .inner
-                    .state
-                    .upsert_resources(&plugin_id, &resource_type, resources)
+                // 持久化成功后才销毁设备码会话:写盘瞬时失败时下次轮询还能重试。
+                let response = self
+                    .persist_oauth_resources(
+                        &entry,
+                        &executable,
+                        &plugin_id,
+                        &resource_type,
+                        resources,
+                    )
                     .await?;
                 self.inner.oauth_sessions.lock().await.remove(session_id);
-                let model_sync_error = self
-                    .sync_provider_models_for_resource(&entry, &executable, &resource_type)
-                    .await;
-                Ok(OAuthPollResponse::Completed {
-                    added: outcome.added,
-                    updated: outcome.updated,
-                    model_sync_error,
-                })
+                Ok(response)
             }
             OAuth2Poll::Denied { message } => {
                 self.inner.oauth_sessions.lock().await.remove(session_id);
@@ -429,6 +624,103 @@ impl PluginRegistry {
                 Ok(OAuthPollResponse::Failed { message })
             }
         }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn complete_authorization_code(
+        &self,
+        session_id: &str,
+        plugin_id: String,
+        resource_type: String,
+        method_id: String,
+        session: serde_json::Value,
+        redirect_uri: String,
+        code_verifier: String,
+        callback_request: CallbackRequest,
+    ) -> Result<OAuthPollResponse> {
+        let CallbackRequest { result, response } = callback_request;
+        let code = match result {
+            Ok(code) => code,
+            Err(message) => {
+                self.inner.oauth_sessions.lock().await.remove(session_id);
+                let _ = response.send(CallbackOutcome {
+                    success: false,
+                    message: Some(message.clone()),
+                });
+                return Ok(OAuthPollResponse::Denied {
+                    message: Some(message),
+                });
+            }
+        };
+
+        let result = async {
+            let executable = self.executable()?;
+            let entry = self.find_entry(&executable, &plugin_id).await?;
+            let value = self
+                .worker(&entry, &executable)
+                .await
+                .invoke(
+                    "oauth.complete",
+                    serde_json::json!({
+                        "resourceType": resource_type,
+                        "methodId": method_id,
+                        "session": session,
+                        "authorization": {
+                            "code": code,
+                            "redirectUri": redirect_uri,
+                            "codeVerifier": code_verifier,
+                        },
+                    }),
+                    CancellationToken::new(),
+                )
+                .await?;
+            let resources: Vec<ResourceDraft> = serde_json::from_value(value)?;
+            self.persist_oauth_resources(&entry, &executable, &plugin_id, &resource_type, resources)
+                .await
+        }
+        .await;
+
+        self.inner.oauth_sessions.lock().await.remove(session_id);
+        match result {
+            Ok(completed) => {
+                let _ = response.send(CallbackOutcome {
+                    success: true,
+                    message: None,
+                });
+                Ok(completed)
+            }
+            Err(error) => {
+                let message = error.to_string();
+                let _ = response.send(CallbackOutcome {
+                    success: false,
+                    message: Some(message.clone()),
+                });
+                Ok(OAuthPollResponse::Failed { message })
+            }
+        }
+    }
+
+    async fn persist_oauth_resources(
+        &self,
+        entry: &PluginEntry,
+        executable: &Path,
+        plugin_id: &str,
+        resource_type: &str,
+        resources: Vec<ResourceDraft>,
+    ) -> Result<OAuthPollResponse> {
+        let outcome = self
+            .inner
+            .state
+            .upsert_resources(plugin_id, resource_type, resources)
+            .await?;
+        let model_sync_error = self
+            .sync_provider_models_for_resource(entry, executable, resource_type)
+            .await;
+        Ok(OAuthPollResponse::Completed {
+            added: outcome.added,
+            updated: outcome.updated,
+            model_sync_error,
+        })
     }
 
     pub async fn import_resources(
@@ -726,21 +1018,13 @@ impl PluginRegistry {
             }
         }
         match &provider.resource_type {
-            Some(resource_type) => {
-                let disabled_accounts = self
-                    .inner
-                    .store
-                    .disabled_plugin_accounts()
-                    .await
-                    .unwrap_or_default();
-                let resources = self
-                    .inner
-                    .state
-                    .resources(plugin_id, resource_type)
-                    .await
-                    .unwrap_or_default();
-                resources.iter().any(|r| !disabled_accounts.contains(&r.id))
-            }
+            Some(resource_type) => !self
+                .inner
+                .state
+                .resources(plugin_id, resource_type)
+                .await
+                .unwrap_or_default()
+                .is_empty(),
             None => true,
         }
     }
@@ -826,54 +1110,19 @@ impl PluginRegistry {
         plugin_id: &str,
         resource_type: &str,
     ) -> Result<ResourceRecord> {
-        let disabled_accounts = self
-            .inner
-            .store
-            .disabled_plugin_accounts()
-            .await
-            .unwrap_or_default();
         let records = self.inner.state.resources(plugin_id, resource_type).await?;
-        let active_records: Vec<_> = records
-            .into_iter()
-            .filter(|record| !disabled_accounts.contains(&record.id))
-            .collect();
-        if active_records.is_empty() {
+        if records.is_empty() {
             return Err(Error::Provider(format!(
-                "plugin '{plugin_id}' has no enabled '{resource_type}' resource; enable or add one first"
+                "plugin '{plugin_id}' has no '{resource_type}' resource; add one first"
             )));
         }
         let now = now_ms();
-        let mut ready_records: Vec<_> = active_records
-            .into_iter()
-            .filter(|record| record.state.is_ready(now))
-            .collect();
-        if ready_records.is_empty() {
-            return Err(Error::Provider(format!(
-                "all enabled accounts for plugin '{plugin_id}' are currently cooling or rate-limited"
-            )));
-        }
-
-        let get_priority = |r: &ResourceRecord| -> u8 {
-            let label = r.private_data.get("quota").and_then(|q| q.get("planLabel")).and_then(|l| l.as_str()).unwrap_or("");
-            let lower = label.to_lowercase();
-            if label.contains("🔥") || lower.contains("pro") || lower.contains("ultra") || lower.contains("premium") || lower.contains("advanced") {
-                0
-            } else {
-                1
-            }
-        };
-
-        ready_records.sort_by_key(|r| get_priority(r));
-        if let Some(best_prio) = ready_records.first().map(|r| get_priority(r)) {
-            ready_records.retain(|r| get_priority(r) == best_prio);
-        }
-
-        let index = self
-            .inner
-            .rr_counter
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-            % ready_records.len();
-        Ok(ready_records[index].clone())
+        records
+            .iter()
+            .find(|record| record.state.is_ready(now))
+            .or_else(|| records.first())
+            .cloned()
+            .ok_or_else(|| Error::Provider("no plugin resource is available".into()))
     }
 
     async fn find_record(
@@ -958,6 +1207,25 @@ struct OAuth2Begin {
     verification_url_complete: Option<String>,
     expires_at_ms: i64,
     poll_interval_ms: i64,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct OAuth2AuthorizationCodeBegin {
+    session: serde_json::Value,
+    authorization_url: String,
+    expires_at_ms: i64,
+    #[serde(default)]
+    poll_interval_ms: Option<i64>,
+}
+
+fn oauth_random_secret() -> String {
+    let first = uuid::Uuid::new_v4();
+    let second = uuid::Uuid::new_v4();
+    let mut bytes = [0_u8; 32];
+    bytes[..16].copy_from_slice(first.as_bytes());
+    bytes[16..].copy_from_slice(second.as_bytes());
+    URL_SAFE_NO_PAD.encode(bytes)
 }
 
 #[derive(Debug, serde::Deserialize)]

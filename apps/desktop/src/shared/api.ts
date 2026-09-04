@@ -103,6 +103,7 @@ export interface CursorHarnessStatus {
   configured_models: number;
   enabled_models: number;
   integration: IntegrationState;
+  settings_applied: boolean;
   proxy_url: string | null;
   ca_install_command: string | null;
 }
@@ -120,7 +121,7 @@ export interface StatisticsStorage {
 
 export type StatisticsStorageScope = "details" | "all";
 
-export type ProxyMode = "system" | "custom";
+export type ProxyMode = "default" | "custom";
 
 export interface ProxySettings {
   mode: ProxyMode;
@@ -148,6 +149,16 @@ export interface TabSettings {
 export interface DesktopSettings {
   silent_start: boolean;
   show_dock_icon: boolean;
+}
+
+export interface CommitSettings {
+  model_id: string;
+  prompt: string;
+  prompt_locale: Locale;
+}
+
+export interface CommitSettingsView extends CommitSettings {
+  default_prompt: string;
 }
 
 export type PluginRuntimeState = "uninitialized" | "initializing" | "ready" | "failed" | "unsupported";
@@ -202,10 +213,11 @@ export interface PluginResourceView {
 }
 
 export interface PluginAddMethod {
-  type: "oauth2.0";
+  type: "oauth2.0" | "oauth2.authorization-code";
   id: string;
   displayName: PluginLocalizedText;
   description: PluginLocalizedText | null;
+  callback?: { port: number | null; path: string | null };
 }
 
 export interface PluginImportDescriptor {
@@ -263,7 +275,7 @@ export interface PluginDescriptor {
 
 export interface PluginOAuthBegin {
   sessionId: string;
-  userCode: string;
+  userCode: string | null;
   verificationUrl: string;
   verificationUrlComplete: string | null;
   expiresAtMs: number;
@@ -288,94 +300,9 @@ export interface PluginImportResult {
   modelSyncError: string | null;
 }
 
-export type ConfiguredModel =
-  | { kind: "builtin"; id: string; name: string; builtin: Model }
-  | { kind: "plugin"; id: string; name: string; plugin: PluginModelDescriptor };
-
-let cachedDisabledPluginModelIds: Set<string> = new Set();
-let cachedDisabledPluginAccountIds: Set<string> = new Set();
-let modelsLoaded = false;
-let accountsLoaded = false;
-
-export function getDisabledPluginModelIds(): Set<string> {
-  if (!modelsLoaded) {
-    modelsLoaded = true;
-    void api.disabledPluginModels().then((ids) => {
-      cachedDisabledPluginModelIds = new Set(ids);
-      window.dispatchEvent(new CustomEvent("cursor_plugin_models_changed"));
-    }).catch(() => {});
-  }
-  return new Set(cachedDisabledPluginModelIds);
-}
-
-export function setPluginModelEnabled(modelId: string, enabled: boolean): void {
-  if (enabled) {
-    cachedDisabledPluginModelIds.delete(modelId);
-  } else {
-    cachedDisabledPluginModelIds.add(modelId);
-  }
-  window.dispatchEvent(new CustomEvent("cursor_plugin_models_changed"));
-  void api.setDisabledPluginModels([...cachedDisabledPluginModelIds]).catch(() => {});
-}
-
-export function setMultiplePluginModelsEnabled(modelIds: string[], enabled: boolean): void {
-  if (enabled) {
-    for (const id of modelIds) {
-      cachedDisabledPluginModelIds.delete(id);
-    }
-  } else {
-    for (const id of modelIds) {
-      cachedDisabledPluginModelIds.add(id);
-    }
-  }
-  window.dispatchEvent(new CustomEvent("cursor_plugin_models_changed"));
-  void api.setDisabledPluginModels([...cachedDisabledPluginModelIds]).catch(() => {});
-}
-
-export function getDisabledPluginAccountIds(): Set<string> {
-  if (!accountsLoaded) {
-    accountsLoaded = true;
-    void api.disabledPluginAccounts().then((ids) => {
-      cachedDisabledPluginAccountIds = new Set(ids);
-      window.dispatchEvent(new CustomEvent("cursor_plugin_accounts_changed"));
-    }).catch(() => {});
-  }
-  return new Set(cachedDisabledPluginAccountIds);
-}
-
-export function setPluginAccountEnabled(accountId: string, enabled: boolean): void {
-  if (enabled) {
-    cachedDisabledPluginAccountIds.delete(accountId);
-  } else {
-    cachedDisabledPluginAccountIds.add(accountId);
-  }
-  window.dispatchEvent(new CustomEvent("cursor_plugin_accounts_changed"));
-  void api.setDisabledPluginAccounts([...cachedDisabledPluginAccountIds]).catch(() => {});
-}
-
-export function updateCachedDisabledStates(models: string[], accounts: string[]): void {
-  cachedDisabledPluginModelIds = new Set(models);
-  cachedDisabledPluginAccountIds = new Set(accounts);
-  modelsLoaded = true;
-  accountsLoaded = true;
-  window.dispatchEvent(new CustomEvent("cursor_plugin_models_changed"));
-  window.dispatchEvent(new CustomEvent("cursor_plugin_accounts_changed"));
-}
-
 export function configuredPluginModels(plugins: PluginDescriptor[]): PluginModelDescriptor[] {
-  const disabled = getDisabledPluginModelIds();
   return plugins.flatMap((plugin) =>
-    plugin.providers.flatMap((provider) =>
-      provider.configured ? provider.models.filter((m) => !disabled.has(m.id)) : []
-    )
-  );
-}
-
-export function configuredModels(models: Model[], plugins: PluginDescriptor[]): ConfiguredModel[] {
-  return [
-    ...models.map((model): ConfiguredModel => ({ kind: "builtin", id: model.model_hash, name: model.display_name, builtin: model })),
-    ...configuredPluginModels(plugins).map((model): ConfiguredModel => ({ kind: "plugin", id: model.id, name: model.displayName, plugin: model })),
-  ];
+    plugin.providers.flatMap((provider) => provider.configured ? provider.models : []));
 }
 
 export interface OverviewMetrics {
@@ -527,12 +454,13 @@ export const api = {
   deleteModel: (hash: string) => request<void>(`/models/${hash}`, { method: "DELETE" }),
   testModel: (hash: string, testId: string, signal?: AbortSignal) => request<ModelConnectivityResult>(`/models/${encodeURIComponent(hash)}/test/${encodeURIComponent(testId)}`, { method: "POST", signal }),
   cancelModelTest: (hash: string, testId: string) => request<void>(`/models/${encodeURIComponent(hash)}/test/${encodeURIComponent(testId)}`, { method: "DELETE" }),
-  overview: (filter?: { startMs: number; endMs: number; modelHashes?: string[] }) => {
+  overview: (filter?: { startMs: number; endMs: number; modelHashes?: string[]; bucketMs?: number }) => {
     const params = new URLSearchParams();
     if (filter) {
       params.set("start_ms", String(filter.startMs));
       params.set("end_ms", String(filter.endMs));
       if (filter.modelHashes?.length) params.set("model_hashes", JSON.stringify(filter.modelHashes));
+      if (filter.bucketMs) params.set("bucket_ms", String(filter.bucketMs));
     }
     const query = params.toString();
     return request<Overview>(`/overview${query ? `?${query}` : ""}`);
@@ -540,10 +468,6 @@ export const api = {
   cursorHarness: () => request<CursorHarnessStatus>("/harness/cursor/status"),
   initializeCursorCa: () => request<CursorHarnessStatus>("/harness/cursor/ca/initialize", { method: "POST" }),
   plugins: () => request<PluginDescriptor[]>("/plugins"),
-  disabledPluginModels: () => request<string[]>("/plugins/disabled-models"),
-  setDisabledPluginModels: (modelIds: string[]) => request<string[]>("/plugins/disabled-models", { method: "PUT", body: JSON.stringify({ modelIds }) }),
-  disabledPluginAccounts: () => request<string[]>("/plugins/disabled-accounts"),
-  setDisabledPluginAccounts: (accountIds: string[]) => request<string[]>("/plugins/disabled-accounts", { method: "PUT", body: JSON.stringify({ accountIds }) }),
   pluginOAuthBegin: (pluginId: string, resourceType: string, methodId: string) => request<PluginOAuthBegin>(`/plugins/${encodeURIComponent(pluginId)}/resources/${encodeURIComponent(resourceType)}/add/${encodeURIComponent(methodId)}/begin`, { method: "POST" }),
   pluginOAuthPoll: (sessionId: string, signal?: AbortSignal) => request<PluginOAuthPoll>(`/plugins/oauth/${encodeURIComponent(sessionId)}/poll`, { method: "POST", signal }),
   importPluginResources: (pluginId: string, resourceType: string, files: PluginImportFile[]) => request<PluginImportResult>(`/plugins/${encodeURIComponent(pluginId)}/resources/${encodeURIComponent(resourceType)}/import`, { method: "POST", body: JSON.stringify(files) }),
@@ -586,4 +510,6 @@ export const api = {
   setTabSettings: (settings: TabSettings) => request<TabSettings>("/settings/tab", { method: "PUT", body: JSON.stringify(settings) }),
   desktopSettings: () => request<DesktopSettings>("/settings/desktop"),
   setDesktopSettings: (settings: DesktopSettings) => request<DesktopSettings>("/settings/desktop", { method: "PUT", body: JSON.stringify(settings) }),
+  commitSettings: (locale: Locale) => request<CommitSettingsView>("/settings/commit", { headers: { "accept-language": locale } }),
+  setCommitSettings: (settings: CommitSettings) => request<CommitSettingsView>("/settings/commit", { method: "PUT", body: JSON.stringify(settings) }),
 };
