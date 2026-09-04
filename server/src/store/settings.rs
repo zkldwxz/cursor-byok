@@ -11,9 +11,11 @@ const TAB_SETTINGS_KEY: &str = "cursor_tab";
 const INSTALLATION_ID_KEY: &str = "installation_id";
 const DESKTOP_SETTINGS_KEY: &str = "desktop_lifecycle";
 const COMMIT_SETTINGS_KEY: &str = "commit_settings";
+const CURSOR_TAKEOVER_ENABLED_KEY: &str = "cursor_takeover_enabled";
 
-/// Embedded default system prompt for commit message generation.
-pub const DEFAULT_COMMIT_PROMPT: &str = include_str!("../../prompt/cursor/commit/prompt.md");
+/// Embedded default system prompts for commit message generation.
+pub const DEFAULT_COMMIT_PROMPT_ZH_CN: &str = include_str!("../../prompt/cursor/commit/zh-CN.md");
+pub const DEFAULT_COMMIT_PROMPT_EN_US: &str = include_str!("../../prompt/cursor/commit/en-US.md");
 
 pub const PUBLIC_TAB_SERVICE_URL: &str = "https://tab.leokun.cn";
 
@@ -83,17 +85,37 @@ impl TabSettings {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+pub enum CommitPromptLocale {
+    #[default]
+    #[serde(rename = "zh-CN")]
+    ZhCn,
+    #[serde(rename = "en-US")]
+    EnUs,
+}
+
+impl CommitPromptLocale {
+    pub fn default_prompt(self) -> &'static str {
+        match self {
+            Self::ZhCn => DEFAULT_COMMIT_PROMPT_ZH_CN.trim(),
+            Self::EnUs => DEFAULT_COMMIT_PROMPT_EN_US.trim(),
+        }
+    }
+}
+
 /// User preferences for Git commit message generation.
 ///
 /// Empty `model_id` means 直连: forward the original Cursor RPC unchanged.
-/// A non-empty value is the `model_hash` of a model configured on the Cursor
-/// page, and the request is generated locally through that model.
+/// A non-empty value is the stable identifier of a configured built-in or
+/// plugin model, and the request is generated locally through that model.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
 pub struct CommitSettings {
     #[serde(default)]
     pub model_id: String,
     #[serde(default)]
     pub prompt: String,
+    #[serde(default)]
+    pub prompt_locale: CommitPromptLocale,
 }
 
 impl CommitSettings {
@@ -104,7 +126,7 @@ impl CommitSettings {
     pub fn effective_prompt(&self) -> &str {
         let trimmed = self.prompt.trim();
         if trimmed.is_empty() {
-            DEFAULT_COMMIT_PROMPT.trim()
+            self.prompt_locale.default_prompt()
         } else {
             trimmed
         }
@@ -139,6 +161,32 @@ pub(crate) struct ProxySettingsSecret {
 }
 
 impl Store {
+    pub(crate) async fn cursor_takeover_enabled(&self) -> Result<bool> {
+        let value = sqlx::query_scalar::<_, String>(
+            "SELECT value_json FROM service_settings WHERE setting_key = ?",
+        )
+        .bind(CURSOR_TAKEOVER_ENABLED_KEY)
+        .fetch_optional(&self.pool)
+        .await?;
+        value
+            .map(|value| serde_json::from_str(&value).map_err(Into::into))
+            .unwrap_or(Ok(true))
+    }
+
+    pub(crate) async fn set_cursor_takeover_enabled(&self, enabled: bool) -> Result<()> {
+        let value_json = serde_json::to_string(&enabled)?;
+        let _write = self.writes.lock().await;
+        sqlx::query(
+            "INSERT INTO service_settings(setting_key, value_json, updated_at_ms) VALUES (?, ?, ?) ON CONFLICT(setting_key) DO UPDATE SET value_json = excluded.value_json, updated_at_ms = excluded.updated_at_ms",
+        )
+        .bind(CURSOR_TAKEOVER_ENABLED_KEY)
+        .bind(value_json)
+        .bind(now_ms())
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     pub(crate) async fn installation_id(&self) -> Result<String> {
         let generated = uuid::Uuid::new_v4().to_string();
         let _write = self.writes.lock().await;
@@ -348,6 +396,7 @@ impl Store {
         let settings = CommitSettings {
             model_id: settings.model_id.trim().to_owned(),
             prompt: settings.prompt.trim().to_owned(),
+            prompt_locale: settings.prompt_locale,
         };
         let value_json = serde_json::to_string(&settings)?;
         let _write = self.writes.lock().await;
@@ -365,7 +414,36 @@ impl Store {
 
 #[cfg(test)]
 mod tests {
-    use super::ProxyMode;
+    use super::{
+        CommitPromptLocale, CommitSettings, ProxyMode, DEFAULT_COMMIT_PROMPT_EN_US,
+        DEFAULT_COMMIT_PROMPT_ZH_CN,
+    };
+
+    #[test]
+    fn default_commit_prompt_follows_its_saved_locale() {
+        for (prompt_locale, expected) in [
+            (CommitPromptLocale::ZhCn, DEFAULT_COMMIT_PROMPT_ZH_CN),
+            (CommitPromptLocale::EnUs, DEFAULT_COMMIT_PROMPT_EN_US),
+        ] {
+            let settings = CommitSettings {
+                prompt_locale,
+                ..CommitSettings::default()
+            };
+            assert_eq!(settings.effective_prompt(), expected.trim());
+        }
+    }
+
+    #[test]
+    fn custom_commit_prompt_does_not_change_with_locale() {
+        for prompt_locale in [CommitPromptLocale::ZhCn, CommitPromptLocale::EnUs] {
+            let settings = CommitSettings {
+                prompt: "custom prompt".into(),
+                prompt_locale,
+                ..CommitSettings::default()
+            };
+            assert_eq!(settings.effective_prompt(), "custom prompt");
+        }
+    }
 
     #[test]
     fn default_proxy_mode_uses_the_default_wire_value() {

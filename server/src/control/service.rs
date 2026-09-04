@@ -283,7 +283,9 @@ impl ControlService {
                 message.chars().take(200).collect::<String>()
             )));
         }
-        response.json::<AdRuntime>().await?.into_menu_slots()
+        let mut runtime = response.json::<AdRuntime>().await?.into_menu_slots()?;
+        runtime.cache_images(&client).await;
+        Ok(runtime)
     }
 
     pub(super) async fn dismiss_ad(&self, ad_id: &str, input: &AdDismissalInput) -> Result<()> {

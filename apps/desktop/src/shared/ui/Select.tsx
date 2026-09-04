@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { VirtualList } from "../virtual/VirtualList";
 import type { VirtualListApi } from "../virtual/virtualTypes";
 import { Icon, type IconProps } from "./Icon";
-import { checkIcon, chevronDownIcon } from "./icons";
+import { chevronDownIcon } from "./icons";
 import styles from "./Select.module.scss";
 
 export type SelectOption = { value: string; label: string; icon?: IconProps["icon"]; iconSrc?: string };
@@ -117,86 +117,3 @@ export function Combobox({ value, options = [], placeholder, disabled, append, o
   </div>{append}</div>;
 }
 
-export function MultiCombobox({ value, options = [], placeholder, disabled, append, onChange }: {
-  value: string[];
-  options?: string[];
-  placeholder?: string;
-  disabled?: boolean;
-  append?: ReactNode;
-  onChange: (value: string[]) => void;
-}) {
-  const root = useRef<HTMLDivElement>(null);
-  const input = useRef<HTMLInputElement>(null);
-  const menu = useRef<HTMLDivElement>(null);
-  const listApi = useRef<VirtualListApi | null>(null);
-  const menuId = useId();
-  const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(0);
-  const [position, setPosition] = useState({ left: 0, top: 0, width: 0, maxHeight: 280 });
-  const selected = useMemo(() => new Set(value), [value]);
-  const filtered = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase();
-    return options.filter((option) => !normalized || option.toLocaleLowerCase().includes(normalized));
-  }, [options, query]);
-
-  useLayoutEffect(() => {
-    if (!open || !root.current || !menu.current) return;
-    return autoUpdate(root.current, menu.current, () => void computePosition(root.current!, menu.current!, {
-      placement: "bottom-start",
-      middleware: [offset(6), flip({ padding: 12 }), shift({ padding: 12 }), size({ padding: 12, apply: ({ rects, availableHeight }) => setPosition((current) => ({ ...current, width: rects.reference.width, maxHeight: Math.max(160, availableHeight) })) })],
-    }).then(({ x, y }) => setPosition((current) => ({ ...current, left: x, top: y }))));
-  }, [filtered.length, open]);
-  useEffect(() => {
-    if (!open) return;
-    const outside = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node) && !menu.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
-  }, [open]);
-  useEffect(() => {
-    if (open && active >= 0) listApi.current?.scrollToIndex(active);
-  }, [active, open]);
-
-  const add = (modelId: string) => {
-    const normalized = modelId.trim();
-    if (normalized && !selected.has(normalized)) onChange([...value, normalized]);
-    setQuery("");
-  };
-  const toggle = (modelId: string) => {
-    onChange(selected.has(modelId) ? value.filter((item) => item !== modelId) : [...value, modelId]);
-    setQuery("");
-    input.current?.focus();
-  };
-  const move = (step: number) => {
-    if (!filtered.length) return;
-    setOpen(true);
-    setActive((index) => (index + step + filtered.length) % filtered.length);
-  };
-
-  return <div className={styles.comboRow}><div ref={root} className={styles.multiCombo} data-open={open || undefined}>
-    <div className={styles.multiValues}>
-      {value.length > 0 && <span className={styles.multiCount}>{t("已选择 {count} 个", { count: value.length })}</span>}
-      <input ref={input} value={query} placeholder={value.length ? t("继续选择或输入") : placeholder} disabled={disabled} role="combobox" aria-haspopup="listbox" aria-controls={open ? menuId : undefined} aria-expanded={open} aria-autocomplete="list" onFocus={() => { if (options.length) setOpen(true); }} onBlur={() => add(query)} onChange={(event) => { setQuery(event.target.value); setActive(0); if (options.length) setOpen(true); }} onKeyDown={(event) => {
-        if (event.key === "ArrowDown") { event.preventDefault(); move(1); }
-        if (event.key === "ArrowUp") { event.preventDefault(); move(-1); }
-        if (event.key === "Enter") {
-          event.preventDefault();
-          const normalized = query.trim();
-          const exact = filtered.find((option) => option.toLocaleLowerCase() === normalized.toLocaleLowerCase());
-          if (normalized && !exact) add(normalized);
-          else if (open && filtered[active]) toggle(filtered[active]);
-        }
-        if (event.key === "Backspace" && !query && value.length) onChange(value.slice(0, -1));
-        if (event.key === "Escape") { setOpen(false); input.current?.focus(); }
-      }} />
-    </div>
-    <button type="button" className={styles.comboToggle} disabled={disabled || !options.length} aria-label={t("打开模型列表")} aria-expanded={open} tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={() => { setOpen(!open); input.current?.focus(); }}><Icon icon={chevronDownIcon} size="1.1em" className={[styles.dropdownIcon, open && styles.dropdownIconOpen].filter(Boolean).join(" ")} /></button>
-    {open && createPortal(<div id={menuId} ref={menu} className={styles.menu} role="listbox" aria-multiselectable="true" style={{ left: position.left, top: position.top, width: position.width }} onPointerDown={(event) => event.stopPropagation()} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); setOpen(false); input.current?.focus(); } }}>
-      {filtered.length ? <VirtualList items={filtered} itemKey={(option) => option} estimatedItemHeight={30} onReady={(api) => { listApi.current = api; api.scrollToIndex(active); }} style={{ height: Math.min(filtered.length * 30, Math.max(30, position.maxHeight - 8)) }}>
-        {(option, index) => <button type="button" className={styles.multiOption} role="option" aria-selected={selected.has(option)} data-active={index === active || undefined} onMouseEnter={() => setActive(index)} onMouseDown={(event) => event.preventDefault()} onClick={() => toggle(option)}><span>{option}</span>{selected.has(option) && <Icon icon={checkIcon} size="1.1em" />}</button>}
-      </VirtualList> : <div className={styles.empty}>{t("输入模型名称后按 Enter 添加")}</div>}
-    </div>, document.body)}
-  </div>{append}</div>;
-}

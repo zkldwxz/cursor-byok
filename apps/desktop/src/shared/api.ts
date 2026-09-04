@@ -103,6 +103,7 @@ export interface CursorHarnessStatus {
   configured_models: number;
   enabled_models: number;
   integration: IntegrationState;
+  settings_applied: boolean;
   proxy_url: string | null;
   ca_install_command: string | null;
 }
@@ -153,6 +154,7 @@ export interface DesktopSettings {
 export interface CommitSettings {
   model_id: string;
   prompt: string;
+  prompt_locale: Locale;
 }
 
 export interface CommitSettingsView extends CommitSettings {
@@ -297,20 +299,9 @@ export interface PluginImportResult {
   modelSyncError: string | null;
 }
 
-export type ConfiguredModel =
-  | { kind: "builtin"; id: string; name: string; builtin: Model }
-  | { kind: "plugin"; id: string; name: string; plugin: PluginModelDescriptor };
-
 export function configuredPluginModels(plugins: PluginDescriptor[]): PluginModelDescriptor[] {
   return plugins.flatMap((plugin) =>
     plugin.providers.flatMap((provider) => provider.configured ? provider.models : []));
-}
-
-export function configuredModels(models: Model[], plugins: PluginDescriptor[]): ConfiguredModel[] {
-  return [
-    ...models.map((model): ConfiguredModel => ({ kind: "builtin", id: model.model_hash, name: model.display_name, builtin: model })),
-    ...configuredPluginModels(plugins).map((model): ConfiguredModel => ({ kind: "plugin", id: model.id, name: model.displayName, plugin: model })),
-  ];
 }
 
 export interface OverviewMetrics {
@@ -517,6 +508,6 @@ export const api = {
   setTabSettings: (settings: TabSettings) => request<TabSettings>("/settings/tab", { method: "PUT", body: JSON.stringify(settings) }),
   desktopSettings: () => request<DesktopSettings>("/settings/desktop"),
   setDesktopSettings: (settings: DesktopSettings) => request<DesktopSettings>("/settings/desktop", { method: "PUT", body: JSON.stringify(settings) }),
-  commitSettings: () => request<CommitSettingsView>("/settings/commit"),
+  commitSettings: (locale: Locale) => request<CommitSettingsView>("/settings/commit", { headers: { "accept-language": locale } }),
   setCommitSettings: (settings: CommitSettings) => request<CommitSettingsView>("/settings/commit", { method: "PUT", body: JSON.stringify(settings) }),
 };

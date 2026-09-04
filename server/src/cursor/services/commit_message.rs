@@ -2,8 +2,8 @@
 //!
 //! Cursor sends `aiserver.v1.AiService/WriteGitCommitMessage` with the staged
 //! diffs. Empty commit-settings `model_id` keeps the original behaviour and
-//! forwards the RPC unchanged (直连). A configured Cursor model hash answers
-//! the request locally: truncated diffs + previous commits form the user
+//! forwards the RPC unchanged (直连). A configured local model identifier
+//! answers the request locally: truncated diffs + previous commits form the user
 //! message, the customizable commit prompt is the system prompt, and the raw
 //! completion is cleaned before being returned.
 use std::{
@@ -30,6 +30,7 @@ use crate::{
         ContentPart, ModelInvocation, ModelRequest, ModelSpec, ProjectedContent, ProjectedMessage,
         PromptSpec, Role,
     },
+    plugin::ADAPTER_ID_PREFIX,
     provider::{ModelEvent, Provider},
     store::CommitSettings,
     Error, Result,
@@ -85,19 +86,11 @@ async fn generate_local(
     if diffs.is_empty() {
         return Err(Error::Protocol("diffs are required".into()));
     }
-    let model_hash = settings.model_id.trim();
-    let model = registry
-        .store()
-        .model(model_hash)
-        .await?
-        .ok_or_else(|| {
-            Error::Provider(format!(
-                "commit model {model_hash} is not configured; select a Cursor model in the commit settings"
-            ))
-        })?;
+    let model_id = settings.model_id.trim();
+    ensure_configured_model(registry, model_id).await?;
     let invocation = build_invocation(
         &settings,
-        &model.model_hash,
+        model_id,
         build_user_content(&request, &diffs),
     );
     let provider = registry.conversations().dependencies().provider.clone();
@@ -121,9 +114,25 @@ async fn generate_local(
     Ok(response)
 }
 
+async fn ensure_configured_model(registry: &TransportRegistry, model_id: &str) -> Result<()> {
+    if model_id.starts_with(ADAPTER_ID_PREFIX) {
+        let plugins = registry.plugins().ok_or_else(|| {
+            Error::Provider(format!("commit plugin model {model_id} is unavailable"))
+        })?;
+        plugins.model_descriptor(model_id).await?;
+        return Ok(());
+    }
+    if registry.store().model(model_id).await?.is_some() {
+        return Ok(());
+    }
+    Err(Error::Provider(format!(
+        "commit model {model_id} is not configured; select a configured model in the commit settings"
+    )))
+}
+
 fn build_invocation(
     settings: &CommitSettings,
-    model_hash: &str,
+    model_id: &str,
     user_content: String,
 ) -> ModelInvocation {
     let call_id = format!("commit-message-{}", uuid::Uuid::new_v4());
@@ -137,7 +146,7 @@ fn build_invocation(
                 instructions: settings.effective_prompt().to_owned(),
                 tools: Vec::new(),
             },
-            model: ModelSpec::new(model_hash.to_owned()),
+            model: ModelSpec::new(model_id.to_owned()),
             history: vec![ProjectedMessage {
                 message_id: "commit-message".into(),
                 role: Role::User,
@@ -360,12 +369,12 @@ mod tests {
         assert!(CommitSettings::default().is_direct());
         assert!(CommitSettings {
             model_id: "  ".into(),
-            prompt: String::new(),
+            ..CommitSettings::default()
         }
         .is_direct());
         assert!(!CommitSettings {
             model_id: "abc".into(),
-            prompt: String::new(),
+            ..CommitSettings::default()
         }
         .is_direct());
     }
