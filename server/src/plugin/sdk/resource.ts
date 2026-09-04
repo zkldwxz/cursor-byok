@@ -66,7 +66,7 @@ export type OAuth2AddMethod = {
 };
 
 export type OAuth2Begin = {
-  /** 不透明流程状态(设备码、PKCE verifier 等);永远不会持久化。 */
+  /** 不透明流程状态(如设备码);永远不会持久化。 */
   session: JsonValue;
   userCode: string;
   verificationUrl: string;
@@ -82,7 +82,41 @@ export type OAuth2Poll =
   | { status: "denied"; message?: string }
   | { status: "failed"; message: string };
 
-export type ResourceAddMethod = OAuth2AddMethod;
+/** Core 托管浏览器回调、state 与 PKCE 的 OAuth 2.0 授权码流程。 */
+export type OAuth2AuthorizationCodeAddMethod = {
+  type: "oauth2.authorization-code";
+  id: string;
+  displayName: LocalizedText;
+  description?: LocalizedText;
+  /** 仅在上游 OAuth 客户端要求固定 loopback 地址时指定。 */
+  callback?: { port?: number; path?: string };
+  begin(
+    input: {
+      redirectUri: string;
+      state: string;
+      codeChallenge: string;
+    },
+    context: PluginContext,
+  ): Promise<OAuth2AuthorizationCodeBegin>;
+  complete(
+    session: JsonValue,
+    input: {
+      code: string;
+      redirectUri: string;
+      codeVerifier: string;
+    },
+    context: PluginContext,
+  ): Promise<ResourceDraft[]>;
+};
+
+export type OAuth2AuthorizationCodeBegin = {
+  session: JsonValue;
+  authorizationUrl: string;
+  expiresAtMs: number;
+  pollIntervalMs?: number;
+};
+
+export type ResourceAddMethod = OAuth2AddMethod | OAuth2AuthorizationCodeAddMethod;
 
 export type ResourceImportFile = {
   name: string;

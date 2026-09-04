@@ -51,6 +51,17 @@ pub struct AddMethodDefinition {
     pub display_name: LocalizedText,
     #[serde(default)]
     pub description: LocalizedText,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub callback: Option<OAuthCallbackDefinition>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OAuthCallbackDefinition {
+    #[serde(default)]
+    pub port: Option<u16>,
+    #[serde(default)]
+    pub path: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -64,6 +75,7 @@ pub struct ImportDefinition {
 }
 
 pub const OAUTH2_ADD_METHOD: &str = "oauth2.0";
+pub const OAUTH2_AUTHORIZATION_CODE_ADD_METHOD: &str = "oauth2.authorization-code";
 
 /// 桌面端看到的插件全貌。
 #[derive(Clone, Debug, Serialize)]

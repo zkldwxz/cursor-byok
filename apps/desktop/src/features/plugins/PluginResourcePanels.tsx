@@ -109,7 +109,7 @@ function OAuthMethodCard({ pluginId, resourceType, method, onConfigured }: {
       const next = await api.pluginOAuthBegin(pluginId, resourceType, method.id);
       setBegun(next);
       setStatus("polling");
-      await api.copyCursorText(next.userCode).catch(() => undefined);
+      if (next.userCode) await api.copyCursorText(next.userCode).catch(() => undefined);
       await api.openExternalUrl(next.verificationUrlComplete || next.verificationUrl);
     } catch (cause) {
       setStatus("error");
@@ -117,13 +117,14 @@ function OAuthMethodCard({ pluginId, resourceType, method, onConfigured }: {
     }
   };
 
+  const userCode = begun?.userCode;
   return <Card className={styles.methodCard}>
     <strong>{pluginText(method.displayName, locale)}</strong>
     {method.description && <span>{pluginText(method.description, locale)}</span>}
-    {begun && status === "polling" && <div className={styles.deviceCode}>
+    {userCode && status === "polling" && <div className={styles.deviceCode}>
       <small>{t("设备验证码")}</small>
-      <button type="button" onClick={() => void copyCode(begun.userCode)}>{begun.userCode}</button>
-      <button type="button" className={styles.copy} onClick={() => void copyCode(begun.userCode)}>
+      <button type="button" onClick={() => void copyCode(userCode)}>{userCode}</button>
+      <button type="button" className={styles.copy} onClick={() => void copyCode(userCode)}>
         {copied ? t("已复制") : t("复制")}
       </button>
     </div>}

@@ -213,10 +213,11 @@ export interface PluginResourceView {
 }
 
 export interface PluginAddMethod {
-  type: "oauth2.0";
+  type: "oauth2.0" | "oauth2.authorization-code";
   id: string;
   displayName: PluginLocalizedText;
   description: PluginLocalizedText | null;
+  callback?: { port: number | null; path: string | null };
 }
 
 export interface PluginImportDescriptor {
@@ -274,7 +275,7 @@ export interface PluginDescriptor {
 
 export interface PluginOAuthBegin {
   sessionId: string;
-  userCode: string;
+  userCode: string | null;
   verificationUrl: string;
   verificationUrlComplete: string | null;
   expiresAtMs: number;

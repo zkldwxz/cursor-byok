@@ -84,6 +84,12 @@ export function __descriptor(definition: ProviderPluginDefinition) {
         id: method.id,
         displayName: method.displayName,
         description: method.description ?? null,
+        callback: method.type === "oauth2.authorization-code"
+          ? {
+            port: method.callback?.port ?? null,
+            path: method.callback?.path ?? "/oauth-callback",
+          }
+          : null,
       })),
       import: resource.import
         ? {

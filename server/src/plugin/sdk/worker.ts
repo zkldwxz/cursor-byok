@@ -130,12 +130,30 @@ async function dispatch(message: { id: string; method: string; params?: JsonValu
       }
       case "oauth.begin": {
         const support = resourceSupport(params.resourceType);
-        result = await addMethod(support, params.methodId).begin(context);
+        const method = addMethod(support, params.methodId);
+        result = method.type === "oauth2.authorization-code"
+          ? await method.begin(params.authorization as never, context)
+          : await method.begin(context);
         break;
       }
       case "oauth.poll": {
         const support = resourceSupport(params.resourceType);
-        result = await addMethod(support, params.methodId).poll(params.session ?? null, context);
+        const method = addMethod(support, params.methodId);
+        if (method.type !== "oauth2.0") throw new Error(`add method ${method.id} does not support polling`);
+        result = await method.poll(params.session ?? null, context);
+        break;
+      }
+      case "oauth.complete": {
+        const support = resourceSupport(params.resourceType);
+        const method = addMethod(support, params.methodId);
+        if (method.type !== "oauth2.authorization-code") {
+          throw new Error(`add method ${method.id} does not support authorization-code completion`);
+        }
+        result = await method.complete(
+          params.session ?? null,
+          params.authorization as never,
+          context,
+        );
         break;
       }
       case "import.parse": {
