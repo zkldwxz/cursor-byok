@@ -88,11 +88,7 @@ async fn generate_local(
     }
     let model_id = settings.model_id.trim();
     ensure_configured_model(registry, model_id).await?;
-    let invocation = build_invocation(
-        &settings,
-        model_id,
-        build_user_content(&request, &diffs),
-    );
+    let invocation = build_invocation(&settings, model_id, build_user_content(&request, &diffs));
     let provider = registry.conversations().dependencies().provider.clone();
     let generated = generate(
         provider,
