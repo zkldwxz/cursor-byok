@@ -44,6 +44,45 @@ export type ResourceMetric = {
   resetAtMs?: number;
 };
 
+export type ResourceActionTarget = "resource" | "card";
+
+export type ResourceAction = {
+  id: string;
+  displayName: LocalizedText;
+  description?: LocalizedText;
+  target?: ResourceActionTarget;
+  destructive?: boolean;
+  run(
+    resource: ResourceSnapshot,
+    input: JsonValue,
+    context: PluginContext,
+  ): Promise<ResourceActionResult>;
+};
+
+export type ResourceActionField = {
+  id: string;
+  label: LocalizedText;
+  value: string;
+};
+
+/** 资源操作返回的通用详情卡片;不得包含凭证。 */
+export type ResourceActionCard = {
+  id: string;
+  title: LocalizedText;
+  status?: LocalizedText;
+  grantedAtMs?: number;
+  expiresAtMs?: number;
+  fields?: ResourceActionField[];
+};
+
+export type ResourceActionResult = {
+  title: LocalizedText;
+  description?: LocalizedText;
+  cards?: ResourceActionCard[];
+  /** 消费类操作可用它更新宿主保存的资源状态。 */
+  patch?: ResourcePatch;
+};
+
 /** 单条资源的用户可见投影;不得泄露凭证。displayName 是数据(如邮箱),保持纯字符串。 */
 export type ResourceView = {
   displayName: string;
@@ -145,6 +184,7 @@ export type ResourceSupport = {
   add?: ResourceAddMethod[];
   import?: ResourceImportSupport;
   present(resource: ResourceSnapshot): ResourceView;
+  actions?: ResourceAction[];
   /** 用户主动触发时重新读取上游状态(额度、凭证有效性)。 */
   refresh?(resource: ResourceSnapshot, context: PluginContext): Promise<ResourcePatch>;
   /** 可选的上游撤销;宿主随后删除本地记录。 */

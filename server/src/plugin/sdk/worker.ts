@@ -122,6 +122,17 @@ async function dispatch(message: { id: string; method: string; params?: JsonValu
         result = await support.refresh(params.resource as never, context);
         break;
       }
+      case "resource.action": {
+        const support = resourceSupport(params.resourceType);
+        const action = (support.actions ?? []).find((item) => item.id === params.actionId);
+        if (!action) throw new Error(`resource ${params.resourceType} has no action ${params.actionId}`);
+        result = await action.run(
+          params.resource as never,
+          params.input ?? null,
+          context,
+        );
+        break;
+      }
       case "resource.remove": {
         const support = resourceSupport(params.resourceType);
         await support.remove?.(params.resource as never, context);

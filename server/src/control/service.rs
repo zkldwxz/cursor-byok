@@ -226,6 +226,19 @@ impl ControlService {
             .await
     }
 
+    pub async fn plugin_resource_action(
+        &self,
+        plugin_id: &str,
+        resource_type: &str,
+        resource_id: &str,
+        action_id: &str,
+        input: serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        self.plugins
+            .resource_action(plugin_id, resource_type, resource_id, action_id, input)
+            .await
+    }
+
     pub async fn plugin_delete_resource(
         &self,
         plugin_id: &str,

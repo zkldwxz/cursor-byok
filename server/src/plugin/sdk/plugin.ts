@@ -99,6 +99,13 @@ export function __descriptor(definition: ProviderPluginDefinition) {
           multiple: resource.import.multiple ?? false,
         }
         : null,
+      actions: (resource.actions ?? []).map((action) => ({
+        id: action.id,
+        displayName: action.displayName,
+        description: action.description ?? null,
+        target: action.target ?? "resource",
+        destructive: action.destructive ?? false,
+      })),
       canRefresh: resource.refresh !== undefined,
       canRemove: resource.remove !== undefined,
     })),

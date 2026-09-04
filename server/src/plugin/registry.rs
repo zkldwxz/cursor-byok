@@ -13,8 +13,9 @@ use super::{
     data::PluginDataStore,
     descriptor::{
         parse_model_id, PluginDescriptor, PluginModelDescriptor, PluginProviderDescriptor,
-        PluginResourceDescriptor, PluginResourceView, ProviderDefinition, ResourceDefinition,
-        ResourcePresentation, OAUTH2_ADD_METHOD, OAUTH2_AUTHORIZATION_CODE_ADD_METHOD,
+        PluginResourceDescriptor, PluginResourceView, ProviderDefinition, ResourceActionResponse,
+        ResourceActionResult, ResourceDefinition, ResourcePresentation, OAUTH2_ADD_METHOD,
+        OAUTH2_AUTHORIZATION_CODE_ADD_METHOD,
     },
     oauth_callback::{self, CallbackHandle, CallbackOutcome, CallbackRequest},
     runtime::PluginRuntime,
@@ -838,6 +839,58 @@ impl PluginRegistry {
             .await
     }
 
+    pub async fn resource_action(
+        &self,
+        plugin_id: &str,
+        resource_type: &str,
+        resource_id: &str,
+        action_id: &str,
+        input: serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        let executable = self.executable()?;
+        let entry = self.find_entry(&executable, plugin_id).await?;
+        let resource = find_resource(&entry, resource_type)?;
+        let action = resource
+            .actions
+            .iter()
+            .find(|action| action.id == action_id)
+            .ok_or_else(|| {
+                Error::Config(format!(
+                    "plugin '{plugin_id}' resource '{resource_type}' does not define action '{action_id}'"
+                ))
+            })?;
+        if !matches!(action.target.as_str(), "resource" | "card") {
+            return Err(Error::Config(format!(
+                "plugin '{plugin_id}' resource action '{action_id}' has an invalid target"
+            )));
+        }
+        let record = self
+            .find_record(plugin_id, resource_type, resource_id)
+            .await?;
+        let value = self
+            .worker(&entry, &executable)
+            .await
+            .invoke(
+                "resource.action",
+                serde_json::json!({
+                    "resourceType": resource_type,
+                    "actionId": action_id,
+                    "resource": record.snapshot(resource_type),
+                    "input": input,
+                }),
+                CancellationToken::new(),
+            )
+            .await?;
+        let result: ResourceActionResult = serde_json::from_value(value)?;
+        if let Some(patch) = result.patch.clone() {
+            self.inner
+                .state
+                .apply_patch(plugin_id, resource_type, resource_id, patch)
+                .await?;
+        }
+        Ok(serde_json::to_value(ResourceActionResponse::from(result))?)
+    }
+
     pub async fn delete_resource(
         &self,
         plugin_id: &str,
@@ -961,6 +1014,7 @@ impl PluginRegistry {
                 display_name: definition.display_name.clone(),
                 add: definition.add.clone(),
                 import: definition.import.clone(),
+                actions: definition.actions.clone(),
                 can_refresh: definition.can_refresh,
                 can_remove: definition.can_remove,
                 resources: views,

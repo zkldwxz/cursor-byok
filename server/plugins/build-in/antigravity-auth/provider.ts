@@ -357,6 +357,7 @@ async function streamCloudCode(
   const headers: Record<string, string> = {
     authorization: `Bearer ${accessToken}`,
     "content-type": "application/json",
+    accept: "text/event-stream",
     "user-agent": ANTIGRAVITY_USER_AGENT,
     ...ANTIGRAVITY_CLIENT_HEADERS,
   };
@@ -403,6 +404,7 @@ async function streamCloudCode(
         inputTokens: number | null;
         outputTokens: number | null;
         totalTokens: number | null;
+        cacheReadTokens: number | null;
       } | null = null;
 
       for await (const line of response.lines) {
@@ -428,6 +430,9 @@ async function streamCloudCode(
               ? usage.candidatesTokenCount
               : null,
             totalTokens: typeof usage.totalTokenCount === "number" ? usage.totalTokenCount : null,
+            cacheReadTokens: typeof usage.cachedContentTokenCount === "number"
+              ? usage.cachedContentTokenCount
+              : null,
           };
         }
 
@@ -535,7 +540,7 @@ async function streamCloudCode(
                 inputTokens: finalUsage.inputTokens,
                 outputTokens: finalUsage.outputTokens,
                 totalTokens: finalUsage.totalTokens,
-                cacheReadTokens: null,
+                cacheReadTokens: finalUsage.cacheReadTokens,
                 cacheWriteTokens: null,
                 reasoningTokens: null,
               },
@@ -573,7 +578,7 @@ async function streamCloudCode(
             inputTokens: finalUsage.inputTokens,
             outputTokens: finalUsage.outputTokens,
             totalTokens: finalUsage.totalTokens,
-            cacheReadTokens: null,
+            cacheReadTokens: finalUsage.cacheReadTokens,
             cacheWriteTokens: null,
             reasoningTokens: null,
           },

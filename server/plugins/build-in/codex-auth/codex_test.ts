@@ -13,6 +13,8 @@ import { codexProvider, isQuotaError } from "./provider.ts";
 import {
   accountIdentity,
   credentialDraft,
+  consumeResetCardAction,
+  listResetCardsAction,
   parseCodexUsage,
   parseCredentialFiles,
   presentAccount,
@@ -134,6 +136,7 @@ Deno.test("usage maps secondary to weekly and primary to five-hour quota", () =>
       primary_window: { used_percent: 80, reset_at: 1_800_000_000 },
       secondary_window: { used_percent: 25, reset_at: 1_900_000_000 },
     },
+    rate_limit_reset_credits: { available_count: 2 },
   }, 1_700_000_000_000);
   assertEquals(quota.planLabel, "ChatGPT Plus");
   assertEquals(quota.weekly?.remainingPercent, 75);

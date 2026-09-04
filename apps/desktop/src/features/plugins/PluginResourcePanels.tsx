@@ -6,6 +6,9 @@ import {
   type PluginDescriptor,
   type PluginOAuthBegin,
   type PluginProviderDescriptor,
+  type PluginResourceAction,
+  type PluginResourceActionCard,
+  type PluginResourceActionResult,
   type PluginResourceDescriptor,
   type PluginResourceView,
 } from "../../shared/api";
@@ -13,6 +16,7 @@ import { useI18n } from "../../i18n/store";
 import { appStore } from "../../shared/store/appStore";
 import { Button } from "../../shared/ui/Button";
 import { Card } from "../../shared/ui/Card";
+import { ConfirmDialog } from "../../shared/ui/ConfirmDialog";
 import { FormField, TextInput } from "../../shared/ui/FormControls";
 import { Modal } from "../../shared/ui/Modal";
 import { Switch } from "../../shared/ui/Switch";
@@ -145,6 +149,12 @@ export function PluginSettingsPanel({ plugin }: { plugin: PluginDescriptor }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [modelProviderId, setModelProviderId] = useState<string | null>(null);
+  const [resourceAction, setResourceAction] = useState<{
+    resource: PluginResourceDescriptor;
+    item: PluginResourceView;
+  } | null>(null);
+  const [resourceActionResult, setResourceActionResult] = useState<PluginResourceActionResult | null>(null);
+  const [resourceActionError, setResourceActionError] = useState<string | null>(null);
   const modelProvider = modelProviderId ? plugin.providers.find((provider) => provider.id === modelProviderId) ?? null : null;
 
   const run = async (key: string, task: () => Promise<void>) => {
@@ -158,6 +168,38 @@ export function PluginSettingsPanel({ plugin }: { plugin: PluginDescriptor }) {
     } finally {
       setBusy(null);
     }
+  };
+
+  const executeResourceAction = async (
+    target: { resource: PluginResourceDescriptor; item: PluginResourceView },
+    action: PluginResourceAction,
+    input: unknown = {},
+  ) => {
+    const key = `action:${target.item.id}:${action.id}`;
+    setBusy(key);
+    setResourceActionError(null);
+    try {
+      const result = await api.pluginResourceAction(
+        plugin.id,
+        target.resource.type,
+        target.item.id,
+        action.id,
+        input,
+      );
+      setResourceActionResult(result);
+      await appStore.refreshPlugins();
+    } catch (cause) {
+      setResourceActionError(errorText(cause));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const openResourceAction = (resource: PluginResourceDescriptor, item: PluginResourceView, action: PluginResourceAction) => {
+    setResourceAction({ resource, item });
+    setResourceActionResult(null);
+    setResourceActionError(null);
+    void executeResourceAction({ resource, item }, action);
   };
 
   return <div className={styles.panel}>
@@ -175,6 +217,7 @@ export function PluginSettingsPanel({ plugin }: { plugin: PluginDescriptor }) {
       key={resource.type}
       resource={resource}
       busy={busy !== null}
+      onAction={(item, action) => openResourceAction(resource, item, action)}
       onRefresh={(item) => void run(`refresh:${item.id}`, async () => {
         await api.refreshPluginResource(plugin.id, resource.type, item.id);
       })}
@@ -193,6 +236,15 @@ export function PluginSettingsPanel({ plugin }: { plugin: PluginDescriptor }) {
           if (model.enabled !== enabled) await api.setPluginModelEnabled(plugin.id, modelProvider.id, model.modelId, enabled);
         }
       })}
+    />}
+    {resourceAction && <ResourceActionModal
+      action={resourceAction.resource.actions.find((item) => item.target === "resource") ?? null}
+      cardAction={resourceAction.resource.actions.find((item) => item.target === "card") ?? null}
+      result={resourceActionResult}
+      busy={busy !== null}
+      error={resourceActionError}
+      onClose={() => setResourceAction(null)}
+      onCardAction={(action, card) => void executeResourceAction(resourceAction, action, { cardId: card.id })}
     />}
   </div>;
 }
@@ -278,9 +330,10 @@ function ModelManagementModal({ provider, busy, onClose, onSubmit }: {
   </Modal>;
 }
 
-function ResourceList({ resource, busy, onRefresh, onDelete }: {
+function ResourceList({ resource, busy, onAction, onRefresh, onDelete }: {
   resource: PluginResourceDescriptor;
   busy: boolean;
+  onAction: (item: PluginResourceView, action: PluginResourceAction) => void;
   onRefresh: (item: PluginResourceView) => void;
   onDelete: (item: PluginResourceView) => void;
 }) {
@@ -305,8 +358,10 @@ function ResourceList({ resource, busy, onRefresh, onDelete }: {
         {visible.map((item) => <ResourceRow
           key={item.id}
           item={item}
+          actions={resource.actions.filter((action) => action.target === "resource")}
           canRefresh={resource.canRefresh}
           disabled={busy}
+          onAction={(action) => onAction(item, action)}
           onRefresh={() => onRefresh(item)}
           onDelete={() => onDelete(item)}
         />)}
@@ -321,10 +376,12 @@ function ResourceList({ resource, busy, onRefresh, onDelete }: {
   </FormField>;
 }
 
-function ResourceRow({ item, canRefresh, disabled, onRefresh, onDelete }: {
+function ResourceRow({ item, actions, canRefresh, disabled, onAction, onRefresh, onDelete }: {
   item: PluginResourceView;
+  actions: PluginResourceAction[];
   canRefresh: boolean;
   disabled: boolean;
+  onAction: (action: PluginResourceAction) => void;
   onRefresh: () => void;
   onDelete: () => void;
 }) {
@@ -341,10 +398,84 @@ function ResourceRow({ item, canRefresh, disabled, onRefresh, onDelete }: {
     </div>
     <div className={styles.actions}>
       <StateBadge state={item.state} />
+      {actions.map((action) => <Button key={action.id} size="small" disabled={disabled} onClick={() => onAction(action)}>{pluginText(action.displayName, locale)}</Button>)}
       {canRefresh && <Button size="small" disabled={disabled} onClick={onRefresh}>{t("刷新")}</Button>}
       <Button size="small" disabled={disabled} onClick={onDelete}>{t("删除")}</Button>
     </div>
   </Card>;
+}
+
+function ResourceActionModal({ action, cardAction, result, busy, error, onClose, onCardAction }: {
+  action: PluginResourceAction | null;
+  cardAction: PluginResourceAction | null;
+  result: PluginResourceActionResult | null;
+  busy: boolean;
+  error: string | null;
+  onClose: () => void;
+  onCardAction: (action: PluginResourceAction, card: PluginResourceActionCard) => void;
+}) {
+  const { locale } = useI18n();
+  const [pendingCard, setPendingCard] = useState<PluginResourceActionCard | null>(null);
+  const title = result ? pluginText(result.title, locale) : action ? pluginText(action.displayName, locale) : t("资源详情");
+  const cardActions = cardAction ? [cardAction] : [];
+
+  return <>
+    <Modal open title={title} busy={busy} onClose={onClose} submitLabel={t("关闭")} onSubmit={onClose}>
+      {result?.description && <span className={styles.actionDescription}>{pluginText(result.description, locale)}</span>}
+      {busy && <span className={styles.empty}>{t("正在加载…")}</span>}
+      {error && <span className={styles.error} role="alert">{error}</span>}
+      {!busy && !error && result && result.cards.length === 0 && <span className={styles.empty}>{t("没有可用的重置卡。")}</span>}
+      {!busy && !error && result && <div className={styles.actionCardList}>
+        {result.cards.map((card) => <Card key={card.id} className={styles.actionCard}>
+          <div className={styles.actionCardMain}>
+            <strong>{pluginText(card.title, locale)}</strong>
+            {card.status && <span>{formatActionStatus(card.status, locale)}</span>}
+            {card.grantedAtMs !== null && card.grantedAtMs !== undefined && <span>{t("发放时间：{time}", { time: formatActionDate(card.grantedAtMs, locale) })}</span>}
+            {card.expiresAtMs !== null && card.expiresAtMs !== undefined && <span>{t("到期时间：{time}", { time: formatActionDate(card.expiresAtMs, locale) })}</span>}
+            {card.fields.map((field) => <span key={field.id}>{pluginText(field.label, locale)}: {field.value}</span>)}
+          </div>
+          {cardActions.length > 0 && <div className={styles.actions}>
+            {cardActions.map((cardActionItem) => <Button
+              key={cardActionItem.id}
+              size="small"
+              disabled={busy || card.status !== "available"}
+              onClick={() => cardActionItem.destructive ? setPendingCard(card) : onCardAction(cardActionItem, card)}
+            >{pluginText(cardActionItem.displayName, locale)}</Button>)}
+          </div>}
+        </Card>)}
+      </div>}
+    </Modal>
+    {pendingCard && cardAction && <ConfirmDialog
+      open
+      title={t("使用重置卡")}
+      busy={busy}
+      confirmLabel={t("确认使用")}
+      onCancel={() => setPendingCard(null)}
+      onConfirm={() => {
+        const card = pendingCard;
+        setPendingCard(null);
+        onCardAction(cardAction, card);
+      }}
+    >
+      <p>{t("使用后会立即消耗这张重置卡，且无法恢复。确定继续吗？")}</p>
+      <strong>{pluginText(pendingCard.title, locale)}</strong>
+    </ConfirmDialog>}
+  </>;
+}
+
+function formatActionStatus(status: PluginResourceActionCard["status"], locale: string) {
+  const value = typeof status === "string" ? status : pluginText(status, locale);
+  switch (value.toLowerCase()) {
+    case "available": return t("可用");
+    case "redeemed":
+    case "used": return t("已使用");
+    case "expired": return t("已过期");
+    default: return value;
+  }
+}
+
+function formatActionDate(value: number, locale: string) {
+  return new Date(value).toLocaleString(locale);
 }
 
 function StateBadge({ state }: { state: PluginResourceView["state"] }) {

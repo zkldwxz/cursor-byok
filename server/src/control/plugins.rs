@@ -87,6 +87,23 @@ pub async fn refresh_resource(
     Ok(StatusCode::NO_CONTENT)
 }
 
+pub async fn action(
+    State(service): State<ControlService>,
+    Path((plugin_id, resource_type, resource_id, action_id)): Path<(
+        String,
+        String,
+        String,
+        String,
+    )>,
+    Json(input): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>> {
+    Ok(Json(
+        service
+            .plugin_resource_action(&plugin_id, &resource_type, &resource_id, &action_id, input)
+            .await?,
+    ))
+}
+
 pub async fn delete_resource(
     State(service): State<ControlService>,
     Path((plugin_id, resource_type, resource_id)): Path<(String, String, String)>,

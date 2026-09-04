@@ -2,14 +2,14 @@ import type { JsonValue } from "cursor-byok:plugin";
 import type { ModelDefinition, ModelSnapshot, ModelSupport } from "cursor-byok:model";
 import { accountData } from "./resources.ts";
 
-export const ANTIGRAVITY_SANDBOX_ENDPOINT = "https://daily-cloudcode-pa.sandbox.googleapis.com";
-export const ANTIGRAVITY_DAILY_ENDPOINT = "https://daily-cloudcode-pa.googleapis.com";
 export const ANTIGRAVITY_PROD_ENDPOINT = "https://cloudcode-pa.googleapis.com";
+export const ANTIGRAVITY_DAILY_ENDPOINT = "https://daily-cloudcode-pa.googleapis.com";
+export const ANTIGRAVITY_SANDBOX_ENDPOINT = "https://daily-cloudcode-pa.sandbox.googleapis.com";
 
 export const ANTIGRAVITY_ENDPOINTS = [
-  ANTIGRAVITY_SANDBOX_ENDPOINT,
-  ANTIGRAVITY_DAILY_ENDPOINT,
   ANTIGRAVITY_PROD_ENDPOINT,
+  ANTIGRAVITY_DAILY_ENDPOINT,
+  ANTIGRAVITY_SANDBOX_ENDPOINT,
 ];
 
 const FETCH_AVAILABLE_MODELS_PATH = "/v1internal:fetchAvailableModels";

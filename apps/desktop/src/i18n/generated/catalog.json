@@ -47,7 +47,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 214,
+          "line": 266,
           "column": 39
         }
       ]
@@ -78,7 +78,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 317,
+          "line": 372,
           "column": 16
         }
       ]
@@ -182,7 +182,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 310,
+          "line": 314,
           "column": 21
         }
       ]
@@ -242,7 +242,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 187,
+          "line": 221,
           "column": 12
         }
       ]
@@ -306,12 +306,12 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 214,
+          "line": 266,
           "column": 93
         },
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 276,
+          "line": 328,
           "column": 72
         }
       ]
@@ -440,7 +440,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 43,
+          "line": 42,
           "column": 42
         }
       ]
@@ -616,7 +616,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 121,
+          "line": 123,
           "column": 16
         }
       ]
@@ -677,7 +677,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 155,
+          "line": 157,
           "column": 23
         }
       ]
@@ -689,7 +689,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 127,
+          "line": 131,
           "column": 15
         }
       ]
@@ -783,6 +783,18 @@
         }
       ]
     },
+    "1d19efc260a0a18f": {
+      "source": "使用重置卡",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/plugins/PluginResourcePanels.tsx",
+          "line": 450,
+          "column": 14
+        }
+      ]
+    },
     "1d27f02ed278ebc9": {
       "source": "配置文件",
       "kind": "text",
@@ -858,6 +870,18 @@
         }
       ]
     },
+    "21bd738e0d7191a7": {
+      "source": "正在加载…",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/plugins/PluginResourcePanels.tsx",
+          "line": 425,
+          "column": 48
+        }
+      ]
+    },
     "22c6b4eb4caee6ae": {
       "source": "代理设置已保存",
       "kind": "text",
@@ -917,7 +941,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 294,
+          "line": 298,
           "column": 122
         }
       ]
@@ -1020,7 +1044,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 135,
+          "line": 139,
           "column": 73
         }
       ]
@@ -1032,7 +1056,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 179,
+          "line": 125,
           "column": 105
         },
         {
@@ -1052,7 +1076,7 @@
         },
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 274,
+          "line": 278,
           "column": 70
         },
         {
@@ -1246,8 +1270,20 @@
         },
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 345,
+          "line": 403,
           "column": 68
+        }
+      ]
+    },
+    "2fe0e3339ac4d1bb": {
+      "source": "已过期",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/plugins/PluginResourcePanels.tsx",
+          "line": 472,
+          "column": 28
         }
       ]
     },
@@ -1258,7 +1294,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 355,
+          "line": 486,
           "column": 81
         }
       ]
@@ -1270,12 +1306,12 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 302,
+          "line": 355,
           "column": 32
         },
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 302,
+          "line": 355,
           "column": 56
         }
       ]
@@ -1304,7 +1340,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 139,
+          "line": 143,
           "column": 64
         }
       ]
@@ -1406,8 +1442,8 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 213,
-          "column": 22
+          "line": 246,
+          "column": 32
         }
       ]
     },
@@ -1471,7 +1507,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 255,
+          "line": 307,
           "column": 106
         },
         {
@@ -1555,7 +1591,7 @@
       "refs": [
         {
           "file": "shell/ads/AdMenu.tsx",
-          "line": 18,
+          "line": 45,
           "column": 56
         }
       ]
@@ -1596,8 +1632,13 @@
         },
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 274,
+          "line": 278,
           "column": 80
+        },
+        {
+          "file": "features/plugins/PluginResourcePanels.tsx",
+          "line": 423,
+          "column": 74
         }
       ]
     },
@@ -1608,7 +1649,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 110,
+          "line": 112,
           "column": 68
         }
       ]
@@ -1634,18 +1675,6 @@
           "file": "features/settings/SettingsPage.tsx",
           "line": 274,
           "column": 52
-        }
-      ]
-    },
-    "4256064de039de89": {
-      "source": "显示粒度",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 188,
-          "column": 19
         }
       ]
     },
@@ -1754,7 +1783,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 135,
+          "line": 139,
           "column": 92
         }
       ]
@@ -1889,7 +1918,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 273,
+          "line": 277,
           "column": 12
         }
       ]
@@ -1913,7 +1942,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 110,
+          "line": 112,
           "column": 46
         }
       ]
@@ -1937,7 +1966,7 @@
       "refs": [
         {
           "file": "shell/ads/AdMenu.tsx",
-          "line": 28,
+          "line": 55,
           "column": 99
         },
         {
@@ -1954,7 +1983,12 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 357,
+          "line": 469,
+          "column": 30
+        },
+        {
+          "file": "features/plugins/PluginResourcePanels.tsx",
+          "line": 488,
           "column": 42
         }
       ]
@@ -1978,7 +2012,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 126,
+          "line": 92,
           "column": 9
         },
         {
@@ -2003,18 +2037,6 @@
         }
       ]
     },
-    "4f0f45b0312ca4ba": {
-      "source": "1小时",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 49,
-          "column": 37
-        }
-      ]
-    },
     "51d04bc3d286f018": {
       "source": "近1自然日",
       "kind": "text",
@@ -2022,7 +2044,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 36,
+          "line": 35,
           "column": 30
         }
       ]
@@ -2048,7 +2070,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 176,
+          "line": 122,
           "column": 70
         }
       ]
@@ -2251,6 +2273,18 @@
         }
       ]
     },
+    "5acb7d61688e3c4f": {
+      "source": "确认使用",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/plugins/PluginResourcePanels.tsx",
+          "line": 452,
+          "column": 21
+        }
+      ]
+    },
     "5b17f59d33bde39e": {
       "source": "错误：{error}",
       "kind": "template",
@@ -2296,7 +2330,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 266,
+          "line": 270,
           "column": 7
         }
       ]
@@ -2360,7 +2394,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 220,
+          "line": 272,
           "column": 102
         }
       ]
@@ -2389,7 +2423,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 150,
+          "line": 113,
           "column": 56
         }
       ]
@@ -2458,7 +2492,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 180,
+          "line": 126,
           "column": 109
         }
       ]
@@ -2480,7 +2514,7 @@
         },
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 130,
+          "line": 134,
           "column": 30
         }
       ]
@@ -2494,7 +2528,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 248,
+          "line": 300,
           "column": 12
         }
       ]
@@ -2506,7 +2540,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 490,
+          "line": 521,
           "column": 43
         }
       ]
@@ -2657,7 +2691,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 175,
+          "line": 121,
           "column": 21
         }
       ]
@@ -2833,7 +2867,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 485,
+          "line": 516,
           "column": 43
         }
       ]
@@ -2869,7 +2903,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 309,
+          "line": 313,
           "column": 31
         }
       ]
@@ -2963,7 +2997,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 338,
+          "line": 395,
           "column": 13
         }
       ]
@@ -2975,7 +3009,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 182,
+          "line": 216,
           "column": 36
         }
       ]
@@ -2987,7 +3021,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 420,
+          "line": 450,
           "column": 21
         }
       ]
@@ -2999,7 +3033,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 103,
+          "line": 105,
           "column": 25
         }
       ]
@@ -3029,7 +3063,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 294,
+          "line": 298,
           "column": 20
         }
       ]
@@ -3092,18 +3126,6 @@
         }
       ]
     },
-    "859757ea792a73da": {
-      "source": "30分钟",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 48,
-          "column": 37
-        }
-      ]
-    },
     "864597982c308d72": {
       "source": "已开启静默启动",
       "kind": "text",
@@ -3123,7 +3145,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 222,
+          "line": 274,
           "column": 33
         }
       ]
@@ -3174,7 +3196,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 306,
+          "line": 310,
           "column": 32
         }
       ]
@@ -3198,7 +3220,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 318,
+          "line": 373,
           "column": 110
         },
         {
@@ -3297,7 +3319,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 130,
+          "line": 134,
           "column": 19
         }
       ]
@@ -3359,7 +3381,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 200,
+          "line": 234,
           "column": 18
         }
       ]
@@ -3426,7 +3448,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 308,
+          "line": 312,
           "column": 31
         }
       ]
@@ -3450,7 +3472,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 222,
+          "line": 274,
           "column": 20
         }
       ]
@@ -3489,6 +3511,18 @@
         }
       ]
     },
+    "9845c165151daee3": {
+      "source": "已使用",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/plugins/PluginResourcePanels.tsx",
+          "line": 471,
+          "column": 25
+        }
+      ]
+    },
     "9850ed41a5bfbb0c": {
       "source": "已选 {count} 项",
       "kind": "template",
@@ -3515,6 +3549,18 @@
         }
       ]
     },
+    "9a84733cc9ab1706": {
+      "source": "资源详情",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/plugins/PluginResourcePanels.tsx",
+          "line": 419,
+          "column": 111
+        }
+      ]
+    },
     "9b1b7ed518ee401d": {
       "source": "将在系统浏览器中打开使用教程，是否继续？",
       "kind": "text",
@@ -3534,7 +3580,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 137,
+          "line": 141,
           "column": 147
         }
       ]
@@ -3573,12 +3619,12 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 96,
+          "line": 98,
           "column": 9
         },
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 268,
+          "line": 272,
           "column": 9
         }
       ]
@@ -3602,7 +3648,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 175,
+          "line": 121,
           "column": 70
         }
       ]
@@ -3628,7 +3674,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 122,
+          "line": 124,
           "column": 14
         }
       ]
@@ -3640,7 +3686,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 307,
+          "line": 311,
           "column": 30
         }
       ]
@@ -3654,12 +3700,12 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 157,
+          "line": 159,
           "column": 17
         },
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 88,
+          "line": 92,
           "column": 22
         }
       ]
@@ -3683,7 +3729,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 38,
+          "line": 37,
           "column": 29
         }
       ]
@@ -4027,7 +4073,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 256,
+          "line": 308,
           "column": 107
         },
         {
@@ -4120,17 +4166,17 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 128,
+          "line": 94,
           "column": 28
         },
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 128,
+          "line": 94,
           "column": 89
         },
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 344,
+          "line": 402,
           "column": 84
         },
         {
@@ -4142,6 +4188,20 @@
           "file": "shell/AppLayout.tsx",
           "line": 268,
           "column": 125
+        }
+      ]
+    },
+    "affb73206cfa035d": {
+      "source": "到期时间：{time}",
+      "kind": "template",
+      "placeholders": [
+        "time"
+      ],
+      "refs": [
+        {
+          "file": "features/plugins/PluginResourcePanels.tsx",
+          "line": 434,
+          "column": 84
         }
       ]
     },
@@ -4186,12 +4246,12 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 101,
+          "line": 103,
           "column": 7
         },
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 297,
+          "line": 301,
           "column": 70
         }
       ]
@@ -4232,7 +4292,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 99,
+          "line": 101,
           "column": 11
         }
       ]
@@ -4359,7 +4419,7 @@
       "refs": [
         {
           "file": "shell/ads/AdMenu.tsx",
-          "line": 44,
+          "line": 71,
           "column": 24
         }
       ]
@@ -4429,7 +4489,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 352,
+          "line": 483,
           "column": 81
         }
       ]
@@ -4497,7 +4557,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 110,
+          "line": 112,
           "column": 83
         }
       ]
@@ -4526,7 +4586,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 110,
+          "line": 76,
           "column": 51
         }
       ]
@@ -4552,7 +4612,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 274,
+          "line": 278,
           "column": 45
         }
       ]
@@ -4595,7 +4655,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 98,
+          "line": 100,
           "column": 11
         }
       ]
@@ -4607,7 +4667,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 313,
+          "line": 368,
           "column": 66
         }
       ]
@@ -4660,7 +4720,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 177,
+          "line": 123,
           "column": 77
         }
       ]
@@ -4672,7 +4732,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 316,
+          "line": 371,
           "column": 102
         },
         {
@@ -4718,7 +4778,7 @@
         },
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 260,
+          "line": 312,
           "column": 37
         }
       ]
@@ -4730,7 +4790,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 104,
+          "line": 106,
           "column": 9
         }
       ]
@@ -4788,7 +4848,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 39,
+          "line": 38,
           "column": 30
         }
       ]
@@ -4841,8 +4901,8 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 229,
-          "column": 32
+          "line": 188,
+          "column": 20
         }
       ]
     },
@@ -4923,7 +4983,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 216,
+          "line": 268,
           "column": 32
         }
       ]
@@ -4983,7 +5043,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 298,
+          "line": 302,
           "column": 44
         }
       ]
@@ -5009,7 +5069,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 270,
+          "line": 322,
           "column": 22
         }
       ]
@@ -5057,7 +5117,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 35,
+          "line": 34,
           "column": 29
         }
       ]
@@ -5096,18 +5156,6 @@
         }
       ]
     },
-    "dbaa1c565cb1f108": {
-      "source": "15分钟",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 47,
-          "column": 37
-        }
-      ]
-    },
     "dbd3596e4a86f3c2": {
       "source": "配置模型",
       "kind": "text",
@@ -5139,8 +5187,20 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 182,
+          "line": 216,
           "column": 25
+        }
+      ]
+    },
+    "de878020fe02f0e9": {
+      "source": "使用后会立即消耗这张重置卡，且无法恢复。确定继续吗？",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/plugins/PluginResourcePanels.tsx",
+          "line": 460,
+          "column": 11
         }
       ]
     },
@@ -5238,7 +5298,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 31,
+          "line": 35,
           "column": 71
         }
       ]
@@ -5324,7 +5384,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 135,
+          "line": 139,
           "column": 34
         }
       ]
@@ -5336,7 +5396,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 96,
+          "line": 100,
           "column": 36
         }
       ]
@@ -5415,7 +5475,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 37,
+          "line": 36,
           "column": 36
         }
       ]
@@ -5456,7 +5516,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 216,
+          "line": 268,
           "column": 43
         }
       ]
@@ -5507,18 +5567,6 @@
         }
       ]
     },
-    "e85373502c372776": {
-      "source": "1分钟",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 46,
-          "column": 32
-        }
-      ]
-    },
     "e8b1268c1e3610f2": {
       "source": "已存在",
       "kind": "text",
@@ -5528,6 +5576,18 @@
           "file": "features/models/LegacyModelImport.tsx",
           "line": 71,
           "column": 66
+        }
+      ]
+    },
+    "e9d8d890d33584e8": {
+      "source": "没有可用的重置卡。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/plugins/PluginResourcePanels.tsx",
+          "line": 427,
+          "column": 98
         }
       ]
     },
@@ -5598,7 +5658,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 206,
+          "line": 240,
           "column": 20
         }
       ]
@@ -5656,6 +5716,20 @@
         }
       ]
     },
+    "eec6bf2dad677b9f": {
+      "source": "发放时间：{time}",
+      "kind": "template",
+      "placeholders": [
+        "time"
+      ],
+      "refs": [
+        {
+          "file": "features/plugins/PluginResourcePanels.tsx",
+          "line": 433,
+          "column": 84
+        }
+      ]
+    },
     "f4694c46b1e19602": {
       "source": "最终请求类型",
       "kind": "text",
@@ -5690,7 +5764,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 260,
+          "line": 312,
           "column": 69
         }
       ]
@@ -5714,7 +5788,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 176,
+          "line": 122,
           "column": 21
         }
       ]
@@ -5738,8 +5812,8 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 219,
-          "column": 44
+          "line": 178,
+          "column": 32
         }
       ]
     },
@@ -5781,7 +5855,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 42,
+          "line": 41,
           "column": 35
         }
       ]
@@ -5793,7 +5867,7 @@
       "refs": [
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
-          "line": 136,
+          "line": 102,
           "column": 19
         }
       ]
@@ -5866,8 +5940,13 @@
       "placeholders": [],
       "refs": [
         {
+          "file": "features/plugins/PluginManagementPage.tsx",
+          "line": 82,
+          "column": 20
+        },
+        {
           "file": "features/plugins/PluginResourcePanels.tsx",
-          "line": 252,
+          "line": 304,
           "column": 18
         }
       ]
@@ -5879,7 +5958,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 283,
+          "line": 287,
           "column": 23
         }
       ]
@@ -5891,7 +5970,7 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 110,
+          "line": 112,
           "column": 19
         },
         {
@@ -5920,12 +5999,12 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 94,
+          "line": 96,
           "column": 7
         },
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 305,
+          "line": 309,
           "column": 29
         }
       ]
@@ -5988,8 +6067,8 @@
       "refs": [
         {
           "file": "features/plugins/PluginManagementPage.tsx",
-          "line": 219,
-          "column": 57
+          "line": 178,
+          "column": 45
         }
       ]
     },
@@ -6012,7 +6091,7 @@
       "refs": [
         {
           "file": "features/home/HomePage.tsx",
-          "line": 206,
+          "line": 201,
           "column": 25
         }
       ]
