@@ -241,6 +241,18 @@ impl ControlService {
         self.plugins.sync_models(plugin_id, provider_id).await
     }
 
+    pub async fn plugin_set_model_enabled(
+        &self,
+        plugin_id: &str,
+        provider_id: &str,
+        model_id: &str,
+        enabled: bool,
+    ) -> Result<()> {
+        self.plugins
+            .set_model_enabled(plugin_id, provider_id, model_id, enabled)
+            .await
+    }
+
     pub async fn remove_plugin_configuration(&self, plugin_id: &str) -> Result<()> {
         self.plugins.remove(plugin_id).await
     }

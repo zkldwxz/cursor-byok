@@ -33,6 +33,10 @@ function context(requests: Array<{ url: string; body?: string }>): PluginContext
 }
 
 Deno.test("authorization URL uses Core-owned state, callback, and PKCE challenge", async () => {
+  assert(
+    antigravityAuthorizationCodeOAuth.callback?.port === undefined,
+    "Antigravity must let Core allocate an available loopback port",
+  );
   const result = await antigravityAuthorizationCodeOAuth.begin(
     {
       redirectUri: "http://127.0.0.1:51121/oauth-callback",

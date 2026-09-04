@@ -121,6 +121,7 @@ pub struct PluginModelDescriptor {
     pub provider_type: String,
     pub max_output_tokens: Option<u64>,
     pub images: bool,
+    pub enabled: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -221,6 +222,7 @@ impl PluginModelDescriptor {
             provider_type: provider.provider_type.clone(),
             max_output_tokens: model.max_output_tokens,
             images: model.images,
+            enabled: model.enabled,
         }
     }
 }

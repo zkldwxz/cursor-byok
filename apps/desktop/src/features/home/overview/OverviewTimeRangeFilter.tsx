@@ -157,7 +157,10 @@ export function OverviewTimeRangeFilter({ value, quick, fourHourBucket, customOp
             aria-controls={granularityOpen ? granularityMenuId : undefined}
             aria-expanded={granularityOpen}
             aria-pressed={quick === "four-hours"}
-            onClick={() => setGranularityOpen((current) => !current)}
+            onClick={() => {
+              onQuickSelect(4 * 60 * 60_000, fourHourBucket);
+              setGranularityOpen((current) => !current);
+            }}
           >{preset.label}</button>
           : <button
             key={preset.value}

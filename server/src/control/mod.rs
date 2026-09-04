@@ -178,6 +178,10 @@ pub fn api_router(service: ControlService) -> Router {
             post(plugins::sync_models),
         )
         .route(
+            "/__byok-api__/api/plugins/{plugin_id}/providers/{provider_id}/models/enabled",
+            put(plugins::set_model_enabled),
+        )
+        .route(
             "/__byok-api__/api/settings/observability",
             get(settings::get).put(settings::update),
         )

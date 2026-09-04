@@ -831,6 +831,7 @@ mod tests {
             provider_type: "test".into(),
             max_output_tokens: None,
             images: false,
+            enabled: true,
         });
         assert_eq!(details.model_id, "plugin:test/provider/model");
         let agent::model_details::Credentials::ApiKeyCredentials(credentials) =

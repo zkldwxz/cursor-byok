@@ -189,7 +189,7 @@ impl PluginRegistry {
                     .models(&entry.manifest.id, &provider.id)
                     .await
                     .unwrap_or_default();
-                models.extend(stored.iter().map(|model| {
+                models.extend(stored.iter().filter(|model| model.enabled).map(|model| {
                     PluginModelDescriptor::new(
                         &entry.manifest.id,
                         &entry.manifest.name,
@@ -326,6 +326,13 @@ impl PluginRegistry {
                     "plugin '{plugin_id}' does not define OAuth method '{method_id}'"
                 ))
             })?;
+        // 同一添加入口只有一个活跃生命周期。重新开始时先丢弃旧会话，
+        // Drop 授权码会话中的 CallbackHandle 会立即释放 loopback listener。
+        self.inner.oauth_sessions.lock().await.retain(|_, session| {
+            session.plugin_id != plugin_id
+                || session.resource_type != resource_type
+                || session.method_id != method_id
+        });
         let worker = self.worker(&entry, &executable).await;
         let session_id = uuid::Uuid::new_v4().to_string();
 
@@ -873,6 +880,27 @@ impl PluginRegistry {
         let entry = self.find_entry(&executable, plugin_id).await?;
         let provider = find_provider(&entry, provider_id)?.clone();
         self.sync_provider_models(&entry, &executable, &provider)
+            .await
+    }
+
+    pub async fn set_model_enabled(
+        &self,
+        plugin_id: &str,
+        provider_id: &str,
+        model_id: &str,
+        enabled: bool,
+    ) -> Result<()> {
+        let executable = self.executable()?;
+        let entry = self.find_entry(&executable, plugin_id).await?;
+        let provider = find_provider(&entry, provider_id)?;
+        if !provider.has_models {
+            return Err(Error::Config(format!(
+                "plugin provider '{provider_id}' does not enumerate models"
+            )));
+        }
+        self.inner
+            .state
+            .set_model_enabled(plugin_id, provider_id, model_id, enabled)
             .await
     }
 

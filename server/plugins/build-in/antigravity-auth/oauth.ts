@@ -13,9 +13,6 @@ import {
   SCOPES,
 } from "./google_oauth.ts";
 
-export const CALLBACK_PORT = 51121;
-export const CALLBACK_PATH = "/oauth-callback";
-
 const AUTHORIZATION_LIFETIME_MS = 5 * 60 * 1000;
 
 type Session = { createdAtMs: number };
@@ -151,7 +148,6 @@ export const antigravityAuthorizationCodeOAuth: OAuth2AuthorizationCodeAddMethod
     "en-US": "Authorize Antigravity with your Google Account for Gemini and Claude models.",
     "zh-CN": "使用 Google 账号完成 Antigravity 授权，以使用 Gemini 与 Claude 模型。",
   },
-  callback: { port: CALLBACK_PORT, path: CALLBACK_PATH },
   begin,
   complete,
 };

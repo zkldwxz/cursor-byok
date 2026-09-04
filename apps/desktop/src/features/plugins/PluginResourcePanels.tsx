@@ -14,6 +14,8 @@ import { appStore } from "../../shared/store/appStore";
 import { Button } from "../../shared/ui/Button";
 import { Card } from "../../shared/ui/Card";
 import { FormField, TextInput } from "../../shared/ui/FormControls";
+import { Modal } from "../../shared/ui/Modal";
+import { Switch } from "../../shared/ui/Switch";
 import styles from "./PluginResourcePanels.module.scss";
 
 const PAGE_SIZE = 10;
@@ -142,6 +144,8 @@ function OAuthMethodCard({ pluginId, resourceType, method, onConfigured }: {
 export function PluginSettingsPanel({ plugin }: { plugin: PluginDescriptor }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [modelProviderId, setModelProviderId] = useState<string | null>(null);
+  const modelProvider = modelProviderId ? plugin.providers.find((provider) => provider.id === modelProviderId) ?? null : null;
 
   const run = async (key: string, task: () => Promise<void>) => {
     setBusy(key);
@@ -162,6 +166,7 @@ export function PluginSettingsPanel({ plugin }: { plugin: PluginDescriptor }) {
       provider={provider}
       busy={busy !== null}
       syncing={busy === `sync:${provider.id}`}
+      onManageModels={() => setModelProviderId(provider.id)}
       onSync={() => void run(`sync:${provider.id}`, async () => {
         await api.syncPluginModels(plugin.id, provider.id);
       })}
@@ -178,13 +183,25 @@ export function PluginSettingsPanel({ plugin }: { plugin: PluginDescriptor }) {
       })}
     />)}
     {error && <span className={styles.error} role="alert">{error}</span>}
+    {modelProvider && <ModelManagementModal
+      provider={modelProvider}
+      busy={busy !== null}
+      onClose={() => setModelProviderId(null)}
+      onSubmit={(enabledByModel) => void run("models", async () => {
+        for (const model of modelProvider.models) {
+          const enabled = enabledByModel[model.id] ?? model.enabled;
+          if (model.enabled !== enabled) await api.setPluginModelEnabled(plugin.id, modelProvider.id, model.modelId, enabled);
+        }
+      })}
+    />}
   </div>;
 }
 
-function ProviderRow({ provider, busy, syncing, onSync }: {
+function ProviderRow({ provider, busy, syncing, onManageModels, onSync }: {
   provider: PluginProviderDescriptor;
   busy: boolean;
   syncing: boolean;
+  onManageModels: () => void;
   onSync: () => void;
 }) {
   const { locale } = useI18n();
@@ -199,10 +216,66 @@ function ProviderRow({ provider, busy, syncing, onSync }: {
         {provider.configured ? t("可调用") : t("未就绪")}
       </span>
     </div>
-    {provider.hasModels && <Button size="small" disabled={busy} onClick={onSync}>
-      {syncing ? t("正在同步…") : t("同步模型")}
-    </Button>}
+    {provider.hasModels && <div className={styles.actions}>
+      <Button size="small" disabled={busy || provider.models.length === 0} onClick={onManageModels}>{t("模型管理")}</Button>
+      <Button size="small" disabled={busy} onClick={onSync}>
+        {syncing ? t("正在同步…") : t("同步模型")}
+      </Button>
+    </div>}
   </Card>;
+}
+
+function ModelManagementModal({ provider, busy, onClose, onSubmit }: {
+  provider: PluginProviderDescriptor;
+  busy: boolean;
+  onClose: () => void;
+  onSubmit: (enabledByModel: Record<string, boolean>) => void;
+}) {
+  const { locale } = useI18n();
+  const [enabledByModel, setEnabledByModel] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setEnabledByModel(Object.fromEntries(provider.models.map((model) => [model.id, model.enabled])));
+  }, [provider.models]);
+
+  const setAll = (enabled: boolean) => {
+    setEnabledByModel(Object.fromEntries(provider.models.map((model) => [model.id, enabled])));
+  };
+
+  return <Modal
+    fullHeight
+    open
+    title={t("{name} 模型管理", { name: pluginText(provider.displayName, locale) })}
+    busy={busy}
+    onClose={onClose}
+    onSubmit={() => onSubmit(enabledByModel)}
+    submitLabel={t("确定")}
+  >
+    <div className={styles.modelToolbar}>
+      <Button size="small" disabled={busy || provider.models.length === 0} onClick={() => setAll(true)}>{t("全选")}</Button>
+      <Button size="small" disabled={busy || provider.models.length === 0} onClick={() => setAll(false)}>{t("全不选")}</Button>
+    </div>
+    <div className={styles.modelTableWrap}>
+      <table className={styles.modelTable}>
+        <thead><tr><th scope="col">{t("模型名称")}</th><th scope="col">{t("启用")}</th></tr></thead>
+        <tbody>
+          {provider.models.map((model) => <tr key={model.id}>
+            <td><div className={styles.modelName}>
+              <strong>{model.displayName}</strong>
+              {model.description && <span>{model.description}</span>}
+            </div></td>
+            <td><Switch
+              checked={enabledByModel[model.id] ?? model.enabled}
+              disabled={busy}
+              label={t("启用 {model}", { model: model.displayName })}
+              onChange={(enabled) => setEnabledByModel((current) => ({ ...current, [model.id]: enabled }))}
+            /></td>
+          </tr>)}
+        </tbody>
+      </table>
+      {provider.models.length === 0 && <span className={styles.empty}>{t("尚未同步模型")}</span>}
+    </div>
+  </Modal>;
 }
 
 function ResourceList({ resource, busy, onRefresh, onDelete }: {

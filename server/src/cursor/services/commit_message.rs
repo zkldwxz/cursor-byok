@@ -41,6 +41,7 @@ const DIFF_SINGLE_LIMIT: usize = 16_000;
 const PREVIOUS_COMMIT_LIMIT: usize = 12;
 const EXPLICIT_CONTEXT_LIMIT: usize = 20_000;
 const GENERATION_TIMEOUT: Duration = Duration::from_secs(180);
+const COMMIT_MAX_OUTPUT_TOKENS: u64 = 30_000;
 
 pub async fn write_git_commit_message(
     State(registry): State<TransportRegistry>,
@@ -142,7 +143,10 @@ fn build_invocation(
                 instructions: settings.effective_prompt().to_owned(),
                 tools: Vec::new(),
             },
-            model: ModelSpec::new(model_id.to_owned()),
+            model: ModelSpec {
+                max_output_tokens: Some(COMMIT_MAX_OUTPUT_TOKENS),
+                ..ModelSpec::new(model_id.to_owned())
+            },
             history: vec![ProjectedMessage {
                 message_id: "commit-message".into(),
                 role: Role::User,

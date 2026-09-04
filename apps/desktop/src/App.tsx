@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
+import { TooltipProvider } from "./shared/ui/Tooltip";
 import { MessageProvider } from "./shared/ui/MessageProvider";
 import { useMessage } from "./shared/ui/message";
 import { AppFrame } from "./shell/AppFrame";
@@ -17,7 +18,7 @@ const AUTO_UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1_000;
 
 export function App() {
   return (
-    <>
+    <TooltipProvider>
       <HashRouter>
         <Routes>
           <Route path="calls/:callId" element={<CallDetailsPage />} />
@@ -34,7 +35,7 @@ export function App() {
         </Routes>
       </HashRouter>
       <AppMessages />
-    </>
+    </TooltipProvider>
   );
 }
 
