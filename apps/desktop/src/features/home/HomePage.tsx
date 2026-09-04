@@ -57,7 +57,6 @@ export function HomePage() {
   const { locale } = useI18n();
   const [preset, setPreset] = useState<OverviewRangePreset>("month");
   const [quick, setQuick] = useState<QuickPreset | null>(null);
-  const [fourHourBucket, setFourHourBucket] = useState<number | undefined>(undefined);
   const [customRange, setCustomRange] = useState<TimeRange | null>(null);
   const [customOpen, setCustomOpen] = useState(false);
   const [customStart, setCustomStart] = useState("");
@@ -76,14 +75,13 @@ export function HomePage() {
     void api.overview({
       ...selectedRange,
       modelHashes: appliedModels,
-      bucketMs: fourHourBucket,
     }).then((next) => {
       if (active) setRangeOverview(next);
     }).finally(() => {
       if (active) setRangeBusy(false);
     });
     return () => { active = false; };
-  }, [preset, customRange, overview, refreshVersion, appliedModels, fourHourBucket]);
+  }, [preset, customRange, overview, refreshVersion, appliedModels]);
 
   const filteredOverview = rangeOverview ?? overview;
   const dailyTokenUsage = filteredOverview.token_usage_series.map((bucket) => ({
@@ -118,11 +116,10 @@ export function HomePage() {
     setCustomRange({ startMs, endMs });
     setAppliedModels(selectedModels);
     setQuick(null);
-    setFourHourBucket(undefined);
     setPreset("custom");
     setCustomOpen(false);
   };
-  const selectQuick = (durationMs: number, bucketMs?: number) => {
+  const selectQuick = (durationMs: number) => {
     const end = new Date();
     const start = new Date(end.getTime() - durationMs);
     setCustomStart(formatTimeInput(start));
@@ -130,13 +127,12 @@ export function HomePage() {
     setCustomRange({ startMs: start.getTime(), endMs: end.getTime() });
     setAppliedModels(selectedModels);
     setQuick(durationMs === 4 * 60 * 60_000 ? "four-hours" : "twenty-four-hours");
-    setFourHourBucket(durationMs === 4 * 60 * 60_000 ? bucketMs : undefined);
     setPreset("custom");
+    setCustomOpen(false);
   };
   const selectPreset = (value: Exclude<OverviewRangePreset, "custom">) => {
     setPreset(value);
     setQuick(null);
-    setFourHourBucket(undefined);
     setCustomOpen(false);
   };
   const refresh = async () => {
@@ -152,7 +148,7 @@ export function HomePage() {
       icon: iconFor(model.type),
     })),
     ...plugins.flatMap((plugin) => plugin.providers.flatMap((provider) =>
-      provider.configured ? provider.models.map((model) => ({
+      provider.configured ? provider.models.filter((model) => model.enabled).map((model) => ({
         value: model.id,
         label: model.displayName,
         group: pluginText(provider.displayName, locale) || model.pluginName,
@@ -187,7 +183,6 @@ export function HomePage() {
     <PageActions><OverviewTimeRangeFilter
       value={preset}
       quick={quick}
-      fourHourBucket={fourHourBucket}
       customOpen={customOpen}
       customStart={customStart}
       customEnd={customEnd}

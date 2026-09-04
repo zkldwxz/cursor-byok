@@ -71,7 +71,7 @@ export function CommitSettingsCard() {
       for (const provider of plugin.providers) {
         if (!provider.configured) continue;
         const group = pluginText(provider.displayName, locale) || plugin.name;
-        for (const model of provider.models) {
+        for (const model of provider.models.filter((model) => model.enabled)) {
           seen.add(model.id);
           options.push({
             value: model.id,

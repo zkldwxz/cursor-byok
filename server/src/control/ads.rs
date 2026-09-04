@@ -33,7 +33,7 @@ pub(super) const OS_HEADER: &str = "X-Cursor-Assistant-OS";
 pub(super) const APP_VERSION_HEADER: &str = "X-Cursor-Assistant-Version";
 pub(super) const DISABLED_AD_IDS_HEADER: &str = "disable-ad-ids";
 pub(super) const LANGUAGE_HEADER: &str = "accept-language";
-const ADS_IMAGE_ROUTE: &str = "/__byok-api__/api/ads/images";
+const ADS_IMAGE_ROUTE: &str = "/__byok-api__/api/promotions/images";
 const MAX_AD_IMAGE_BYTES: usize = 10 * 1024 * 1024;
 const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "gif", "webp", "avif"];
 

@@ -1,4 +1,5 @@
-import type { RefObject } from "react";
+import { useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { Marquee } from "react-css-marquee";
 import { Icon } from "../../shared/ui/Icon";
 import { windowCloseIcon } from "../../shared/ui/icons";
 import type { AdSlot } from "./types";
@@ -13,6 +14,32 @@ type AdMenuProps = {
   onOpen: (ad: AdSlot) => void;
   onDismiss: (ad: AdSlot) => void;
 };
+
+type OverflowTextProps = {
+  children: string;
+  className: string;
+};
+
+function OverflowText({ children, className }: OverflowTextProps) {
+  const text = useRef<HTMLSpanElement>(null);
+  const [overflowing, setOverflowing] = useState(false);
+
+  useLayoutEffect(() => {
+    const element = text.current;
+    if (!element) return;
+    const update = () => setOverflowing(element.scrollWidth > element.clientWidth + 1);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    if (element.parentElement) observer.observe(element.parentElement);
+    return () => observer.disconnect();
+  }, [children]);
+
+  if (!overflowing) return <span ref={text} className={className}>{children}</span>;
+  return <Marquee className={styles.menuMarquee} repeat loop={0} speed={4} gap={24}>
+    <span ref={text} className={className}>{children}</span>
+  </Marquee>;
+}
 
 export function AdMenu({ ads, activeAdId, dismissingAdId, readAdIds, triggerRefs, onOpen, onDismiss }: AdMenuProps) {
   return <div className={styles.menuSlots} aria-label={t("推荐内容")}>
@@ -34,8 +61,8 @@ export function AdMenu({ ads, activeAdId, dismissingAdId, readAdIds, triggerRefs
         {!readAdIds.has(ad.id) && <span className={styles.unreadDot} aria-hidden="true" />}
         <img className={styles.menuImage} src={ad.target.imageUrl} alt="" />
         <span className={styles.menuCopy}>
-          <span className={styles.menuTitle}>{ad.target.title}</span>
-          <span className={styles.menuSubtitle}>{ad.target.description}</span>
+          <OverflowText className={styles.menuTitle}>{ad.target.title}</OverflowText>
+          <OverflowText className={styles.menuSubtitle}>{ad.target.description}</OverflowText>
         </span>
       </button>
       <button
