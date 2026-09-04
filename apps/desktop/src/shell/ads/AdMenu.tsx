@@ -51,7 +51,7 @@ function OverflowText({ children, className }: OverflowTextProps) {
 
   return <div ref={container} className={styles.menuOverflow}>
     {overflowing
-      ? <Marquee className={styles.menuMarquee} repeat loop={0} speed={4} gap={24}>
+      ? <Marquee className={styles.menuMarquee} repeat loop={0} speed={12} gap={24}>
         <span ref={text} className={className}>{children}</span>
       </Marquee>
       : <span ref={text} className={className}>{children}</span>}
