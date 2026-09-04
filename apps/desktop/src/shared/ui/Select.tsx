@@ -1,5 +1,5 @@
 import { autoUpdate, computePosition, flip, offset, shift, size } from "@floating-ui/dom";
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { forwardRef, useEffect, useId, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { VirtualList } from "../virtual/VirtualList";
 import type { VirtualListApi } from "../virtual/virtualTypes";
@@ -57,19 +57,44 @@ export function Select({ value, options, disabled, ariaLabel, onChange }: { valu
   </>;
 }
 
-export function Combobox({ value, options = [], placeholder, disabled, append, onChange }: { value: string; options?: string[]; placeholder?: string; disabled?: boolean; append?: ReactNode; onChange: (value: string) => void }) {
+export type ComboboxHandle = {
+  openAll: () => void;
+};
+
+type ComboboxProps = {
+  value: string;
+  options?: string[];
+  placeholder?: string;
+  disabled?: boolean;
+  append?: ReactNode;
+  onChange: (value: string) => void;
+};
+
+export const Combobox = forwardRef<ComboboxHandle, ComboboxProps>(function Combobox({ value, options = [], placeholder, disabled, append, onChange }, ref) {
   const root = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const listApi = useRef<VirtualListApi | null>(null);
+  const closeTimer = useRef<number | null>(null);
   const menuId = useId();
   const [open, setOpen] = useState(false);
+  const [filtering, setFiltering] = useState(true);
   const [active, setActive] = useState(-1);
   const [position, setPosition] = useState({ left: 0, top: 0, width: 0, maxHeight: 280 });
   const filtered = useMemo(() => {
+    if (!filtering) return options;
     const query = value.trim().toLocaleLowerCase();
     return options.filter((option) => !query || option.toLocaleLowerCase().includes(query));
-  }, [options, value]);
+  }, [filtering, options, value]);
+
+  useImperativeHandle(ref, () => ({
+    openAll: () => {
+      if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+      setFiltering(false);
+      setActive(0);
+      setOpen(true);
+    },
+  }), []);
 
   useLayoutEffect(() => {
     if (!open || !root.current || !menu.current) return;
@@ -79,6 +104,9 @@ export function Combobox({ value, options = [], placeholder, disabled, append, o
     }).then(({ x, y }) => setPosition((current) => ({ ...current, left: x, top: y }))));
   }, [open, filtered.length]);
 
+  useEffect(() => () => {
+    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+  }, []);
   useEffect(() => {
     if (!open) return;
     const outside = (event: PointerEvent) => { if (!root.current?.contains(event.target as Node) && !menu.current?.contains(event.target as Node)) setOpen(false); };
@@ -91,8 +119,11 @@ export function Combobox({ value, options = [], placeholder, disabled, append, o
 
   const openMenu = () => {
     if (disabled || options.length === 0) return;
+    setFiltering(true);
     setOpen(true);
-    const selected = filtered.indexOf(value);
+    const query = value.trim().toLocaleLowerCase();
+    const matchingOptions = options.filter((option) => !query || option.toLocaleLowerCase().includes(query));
+    const selected = matchingOptions.indexOf(value);
     setActive(selected >= 0 ? selected : 0);
   };
   const choose = (option: string) => { onChange(option); setOpen(false); input.current?.focus(); };
@@ -102,7 +133,7 @@ export function Combobox({ value, options = [], placeholder, disabled, append, o
     setActive((index) => (index < 0 ? 0 : (index + step + filtered.length) % filtered.length));
   };
   return <div className={styles.comboRow}><div ref={root} className={styles.combo}>
-    <input ref={input} value={value} placeholder={placeholder} disabled={disabled} role="combobox" aria-haspopup="listbox" aria-controls={open ? menuId : undefined} aria-expanded={open} aria-autocomplete="list" onFocus={() => { if (options.length) openMenu(); }} onBlur={() => window.setTimeout(() => setOpen(false), 100)} onChange={(event) => { onChange(event.target.value); setActive(0); if (options.length) setOpen(true); }} onKeyDown={(event) => {
+    <input ref={input} value={value} placeholder={placeholder} disabled={disabled} role="combobox" aria-haspopup="listbox" aria-controls={open ? menuId : undefined} aria-expanded={open} aria-autocomplete="list" onFocus={() => { if (options.length) openMenu(); }} onBlur={() => { closeTimer.current = window.setTimeout(() => setOpen(false), 100); }} onChange={(event) => { setFiltering(true); onChange(event.target.value); setActive(0); if (options.length) setOpen(true); }} onKeyDown={(event) => {
       if (event.key === "ArrowDown") { event.preventDefault(); move(1); }
       if (event.key === "ArrowUp") { event.preventDefault(); move(-1); }
       if (event.key === "Enter" && open && filtered[active]) { event.preventDefault(); choose(filtered[active]); }
@@ -115,5 +146,5 @@ export function Combobox({ value, options = [], placeholder, disabled, append, o
       </VirtualList>
     </div>, document.body)}
   </div>{append}</div>;
-}
+});
 

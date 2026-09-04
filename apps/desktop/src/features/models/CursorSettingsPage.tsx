@@ -88,8 +88,8 @@ export function CursorSettingsPage() {
       anthropicExtraParamsText: JSON.stringify(model.anthropic_extra_params, null, 2),
     });
   };
-  const discover = async () => {
-    if (!draft) return;
+  const discover = async (): Promise<boolean> => {
+    if (!draft) return false;
     setDiscovering(true);
     try {
       const custom_headers = parseHeaders(draft.customHeadersText);
@@ -101,8 +101,10 @@ export function CursorSettingsPage() {
         custom_headers,
       });
       setModelOptions([...new Set(result.models)]);
+      return true;
     } catch (cause) {
       message(errorText(cause));
+      return false;
     } finally {
       setDiscovering(false);
     }
@@ -338,7 +340,7 @@ export function CursorSettingsPage() {
     </ConfirmDialog>
     <Modal fullHeight open={draft !== null} title={editing ? t("编辑模型") : t("添加模型")} banner={draft && (editorTesting || editorTestState) ? <CursorModelTestResult state={editorTestState} testing={editorTesting} /> : undefined} busy={cursorBusy || savingAndTesting} onClose={() => { if (editing && editorTesting) void cancelModelTest(editing.model_hash); setDraft(null); setEditing(null); }} onSubmit={() => void save()} submitLabel={t("保存")} secondaryAction={<button type="button" className={controls.secondary} disabled={cursorBusy || savingAndTesting} onClick={() => void (editorTesting && editing ? cancelModelTest(editing.model_hash) : saveAndTest())}>{savingAndTesting ? t("处理中…") : editorTesting ? t("取消测试") : t("保存并测试")}</button>}>
       {draft && <>
-        <CursorModelEditor draft={draft} modelOptions={modelOptions} discovering={discovering} onChange={setDraft} onDiscover={() => void discover()} />
+        <CursorModelEditor draft={draft} modelOptions={modelOptions} discovering={discovering} onChange={setDraft} onDiscover={discover} />
       </>}
     </Modal>
     <ConfirmDialog open={caCommand !== null} title={t("安装本地 CA")} cancelLabel={t("关闭")} confirmLabel={t("打开终端")} onCancel={() => setCaCommand(null)} onConfirm={openCaTerminal}>
