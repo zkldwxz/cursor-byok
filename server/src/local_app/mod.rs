@@ -153,19 +153,7 @@ impl CursorHarness {
     }
 
     pub async fn set_enabled(&self, enabled: bool) -> Result<CursorHarnessStatus> {
-        let settings_applied = {
-            let proxy = self.inner.proxy.lock().await;
-            proxy
-                .url()
-                .as_deref()
-                .map(settings::settings_match)
-                .transpose()?
-                .unwrap_or(false)
-        };
         if enabled {
-            if !settings_applied {
-                process::terminate_cursor().await?;
-            }
             self.inner.store.set_cursor_takeover_enabled(true).await?;
             self.enable().await?;
         } else {
@@ -193,6 +181,15 @@ impl CursorHarness {
             .read()
             .ok_or_else(|| Error::Config("desktop management server is not ready".into()))?;
         let mut proxy = self.inner.proxy.lock().await;
+        let settings_applied = proxy
+            .url()
+            .as_deref()
+            .map(settings::settings_match)
+            .transpose()?
+            .unwrap_or(false);
+        if !settings_applied {
+            process::terminate_cursor().await?;
+        }
         if proxy.running() {
             if let Some(url) = proxy.url() {
                 apply_cursor_configuration(&url).await?;
