@@ -149,13 +149,11 @@ pub async fn update_pricing_settings(
 }
 
 fn requested_commit_locale(headers: &HeaderMap) -> CommitPromptLocale {
-    match headers
+    headers
         .get(header::ACCEPT_LANGUAGE)
         .and_then(|value| value.to_str().ok())
-    {
-        Some(value) if value.eq_ignore_ascii_case("zh-CN") => CommitPromptLocale::ZhCn,
-        _ => CommitPromptLocale::EnUs,
-    }
+        .map(CommitPromptLocale::from_interface_language)
+        .unwrap_or(CommitPromptLocale::EnUs)
 }
 
 #[cfg(test)]
@@ -169,6 +167,9 @@ mod tests {
         assert_eq!(requested_commit_locale(&headers), CommitPromptLocale::ZhCn);
 
         headers.insert(header::ACCEPT_LANGUAGE, "en-US".parse().unwrap());
+        assert_eq!(requested_commit_locale(&headers), CommitPromptLocale::EnUs);
+
+        headers.insert(header::ACCEPT_LANGUAGE, "pt-BR".parse().unwrap());
         assert_eq!(requested_commit_locale(&headers), CommitPromptLocale::EnUs);
     }
 }

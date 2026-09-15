@@ -1,5 +1,5 @@
 //! Persists application settings.
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::Result;
 
@@ -105,7 +105,7 @@ impl TabSettings {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
 pub enum CommitPromptLocale {
     #[default]
     #[serde(rename = "zh-CN")]
@@ -115,11 +115,26 @@ pub enum CommitPromptLocale {
 }
 
 impl CommitPromptLocale {
+    pub fn from_interface_language(value: &str) -> Self {
+        if value.eq_ignore_ascii_case("zh-CN") {
+            Self::ZhCn
+        } else {
+            Self::EnUs
+        }
+    }
+
     pub fn default_prompt(self) -> &'static str {
         match self {
             Self::ZhCn => DEFAULT_COMMIT_PROMPT_ZH_CN.trim(),
             Self::EnUs => DEFAULT_COMMIT_PROMPT_EN_US.trim(),
         }
+    }
+}
+
+impl<'de> Deserialize<'de> for CommitPromptLocale {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = String::deserialize(deserializer)?;
+        Ok(Self::from_interface_language(&value))
     }
 }
 
@@ -489,6 +504,26 @@ mod tests {
     /// rename wrote it.
     const LEGACY_PROXY_ROW: &str =
         r#"{"mode":"system","address":"","auth_enabled":false,"username":"","password":""}"#;
+
+    #[test]
+    fn commit_prompt_locale_maps_unknown_interface_languages_to_english() {
+        assert_eq!(
+            serde_json::from_str::<CommitPromptLocale>(r#""zh-CN""#).unwrap(),
+            CommitPromptLocale::ZhCn
+        );
+        assert_eq!(
+            serde_json::from_str::<CommitPromptLocale>(r#""en-US""#).unwrap(),
+            CommitPromptLocale::EnUs
+        );
+        assert_eq!(
+            serde_json::from_str::<CommitPromptLocale>(r#""pt-BR""#).unwrap(),
+            CommitPromptLocale::EnUs
+        );
+        assert_eq!(
+            serde_json::to_string(&CommitPromptLocale::EnUs).unwrap(),
+            r#""en-US""#
+        );
+    }
 
     #[test]
     fn default_commit_prompt_follows_its_saved_locale() {

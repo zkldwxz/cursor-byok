@@ -1,5 +1,5 @@
 import type { AdRuntime } from "../shell/ads/types";
-import type { Locale } from "../i18n/runtime";
+import type { CommitPromptLocale, Locale } from "../i18n/runtime";
 
 export type ModelType = "openai" | "anthropic";
 
@@ -154,7 +154,7 @@ export interface DesktopSettings {
 export interface CommitSettings {
   model_id: string;
   prompt: string;
-  prompt_locale: Locale;
+  prompt_locale: CommitPromptLocale;
 }
 
 export interface CommitSettingsView extends CommitSettings {
