@@ -103,19 +103,20 @@ pub(crate) async fn compile_injection(
     let event_id = format!("inject-context:{}", injection.injection_id);
     match injection.payload.as_ref() {
         Some(pb::inject_context_action::Payload::UserContext(context)) => {
-            let user = context.user_message.as_ref().ok_or_else(|| {
+            let mut user = context.user_message.clone().ok_or_else(|| {
                 Error::Protocol("InjectContextAction UserContext has no UserMessage".into())
             })?;
             if user.message_id.is_empty() {
-                return Err(Error::Protocol(
-                    "InjectContextAction UserMessage has no message_id".into(),
-                ));
+                // Queued follow-ups can arrive without a message id, the same way
+                // subagent kickoffs do. Derive a stable identity instead of
+                // failing the injection.
+                user.message_id = user_message_id(&user);
             }
             let empty_context = pb::RequestContext::default();
             compile(
                 event_id,
                 super::run::mode_from_proto(mode)?,
-                user,
+                &user,
                 context.request_context.as_ref().unwrap_or(&empty_context),
                 "",
                 compiler,
