@@ -30,6 +30,8 @@ function credential(): ZCodeCredential {
     appVersion: "3.10.2",
     sourceTitle: "electron",
     aiSdkVersion: null,
+    nodeMajor: null,
+    osVersion: null,
     sessionId: "session-stable",
     releaseChannel: "production",
   };
@@ -86,6 +88,40 @@ Deno.test("ZCode headers mirror the official client identity and request IDs", (
   assert(!Object.keys(headers).some((key) => key.toLowerCase().startsWith("x-stainless-")));
 });
 
+Deno.test("os version comes from the host release, not the Deno user agent", () => {
+  const live = zcodeIdentityHeaders(credential())["X-Os-Version"];
+  // Deno's navigator.userAgent is "Deno/<ver>" and has no OS version in it, so
+  // the release probe must be what fills this in. A real client never sends
+  // "unknown" on a supported platform.
+  assert(live.length > 0, "X-Os-Version must not be empty");
+  assertEquals(live, Deno.osRelease());
+
+  const captured = { ...credential(), osVersion: "15.1.1" };
+  assertEquals(zcodeIdentityHeaders(captured)["X-Os-Version"], "15.1.1");
+});
+
+Deno.test("captured runtime versions override the built-in defaults", () => {
+  const headers = zcodeIdentityHeaders({
+    ...credential(),
+    appVersion: "3.11.0",
+    aiSdkVersion: "4.0.27",
+    nodeMajor: "20",
+    sourceTitle: "cli",
+  });
+  assert(headers["User-Agent"].startsWith("ZCode/3.11.0 ai-sdk/provider-utils/4.0.27 runtime/node.js/20"));
+  assertEquals(headers["X-Title"], "Z Code@cli");
+  assertEquals(headers["X-ZCode-App-Version"], "3.11.0");
+});
+
+Deno.test("session id rotates per conversation and keeps the captured id otherwise", () => {
+  const data = credential();
+  assertEquals(zcodeIdentityHeaders(data)["X-Session-Id"], "session-stable");
+  assertEquals(
+    zcodeIdentityHeaders(data, "677d8593-a860-45bf-b1a0-74ec55405956")["X-Session-Id"],
+    "677d8593-a860-45bf-b1a0-74ec55405956",
+  );
+});
+
 Deno.test("base URLs normalize Claude Code and chat-completion forms", () => {
   assertEquals(normalizeBaseUrl(), "https://api.z.ai/api/coding/paas/v4");
   assertEquals(
@@ -134,7 +170,8 @@ Deno.test("credential import accepts JSON, env, and raw API keys without leaking
   assertEquals(parsed.warnings.length, 1);
   const draft = await credentialDraft(parsed.credentials[0]);
   assert(String(draft.key).startsWith("zcode:"));
-  assert(!JSON.stringify(draft.privateData).includes("json-key-123456") === false);
+  // privateData is the secret store: the key must live there and only there.
+  assert(JSON.stringify(draft.privateData).includes("json-key-123456"));
   const view = presentCredential(snapshot(draft.privateData as never));
   assertEquals(view.displayName, "Z.AI Coding");
   assert(!JSON.stringify(view).includes("json-key-123456"));

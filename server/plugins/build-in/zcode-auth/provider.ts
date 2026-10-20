@@ -83,6 +83,10 @@ async function invoke(
     return invalidResult(message, message);
   }
   try {
+    // `cacheKey` is the host conversation identity. ZCode rotates
+    // `X-Session-Id` per conversation, so scope the session to it instead of
+    // reusing the credential's captured id for every call.
+    const session = input.request.cacheKey ?? undefined;
     await streamOpenAiChat(
       {
         url: zcodeChatUrl(data.baseUrl),
@@ -96,6 +100,7 @@ async function invoke(
         headers: zcodeRequestHeaders(
           { authorization: `Bearer ${data.apiKey}` },
           data,
+          session,
         ),
         maxTokensField: "max_tokens",
         includeStreamUsage: false,

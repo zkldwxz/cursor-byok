@@ -23,6 +23,8 @@ export type ZCodeCredential = {
   appVersion: string;
   sourceTitle: ZCodeSourceTitle;
   aiSdkVersion: string | null;
+  nodeMajor: string | null;
+  osVersion: string | null;
   sessionId: string;
   releaseChannel: "production" | "test";
 };
@@ -34,6 +36,8 @@ export type CredentialCandidate = {
   appVersion?: string;
   sourceTitle?: ZCodeSourceTitle;
   aiSdkVersion?: string;
+  nodeMajor?: string;
+  osVersion?: string;
   sessionId?: string;
   releaseChannel?: "production" | "test";
 };
@@ -160,6 +164,16 @@ function candidateFromRecord(value: unknown): CredentialCandidate | null {
       "ai_sdk_version",
       "ZCODE_AI_SDK_VERSION",
     ]) ?? undefined,
+    nodeMajor: firstText(merged, [
+      "nodeMajor",
+      "node_major",
+      "ZCODE_NODE_MAJOR",
+    ]) ?? undefined,
+    osVersion: firstText(merged, [
+      "osVersion",
+      "os_version",
+      "ZCODE_OS_VERSION",
+    ]) ?? undefined,
     sessionId: firstText(merged, ["sessionId", "session_id", "ZCODE_SESSION_ID"]) ?? undefined,
     releaseChannel: releaseChannel?.toLowerCase() === "test"
       ? "test"
@@ -231,6 +245,8 @@ export async function credentialDraft(
     appVersion: candidate.appVersion?.trim() || "3.10.2",
     sourceTitle: candidate.sourceTitle ?? "electron",
     aiSdkVersion: candidate.aiSdkVersion?.trim() || null,
+    nodeMajor: candidate.nodeMajor?.trim() || null,
+    osVersion: candidate.osVersion?.trim() || null,
     sessionId: candidate.sessionId?.trim() || crypto.randomUUID(),
     releaseChannel: candidate.releaseChannel ?? "production",
   };
@@ -278,6 +294,8 @@ export function credentialData(resource: ResourceSnapshot): ZCodeCredential {
     appVersion,
     sourceTitle: sourceTitle === "cli" ? "cli" : "electron",
     aiSdkVersion: text(data?.aiSdkVersion),
+    nodeMajor: text(data?.nodeMajor),
+    osVersion: text(data?.osVersion),
     sessionId: text(data?.sessionId) ?? crypto.randomUUID(),
     releaseChannel: releaseChannel === "test" ? "test" : "production",
   };
