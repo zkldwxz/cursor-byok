@@ -47,6 +47,17 @@ impl WriteSession<'_> {
         Ok(self.connection.begin_with("BEGIN IMMEDIATE").await?)
     }
 
+    /// Runs a statement directly on the session connection, outside any
+    /// transaction. VACUUM rewrites the whole file and cannot run inside one.
+    pub(crate) async fn execute_direct(&mut self, statement: &str) -> Result<()> {
+        use sqlx::Executor;
+        self.connection
+            .execute(sqlx::raw_sql(statement))
+            .await
+            .map_err(|error| crate::Error::Store(format!("direct statement failed: {error}")))?;
+        Ok(())
+    }
+
     pub(crate) fn committed(&mut self) {
         self.committed = true;
     }
