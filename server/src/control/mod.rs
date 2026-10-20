@@ -2,6 +2,7 @@
 mod ads;
 mod calls;
 mod harness;
+mod migration;
 mod models;
 mod overview;
 mod plugins;
@@ -188,6 +189,8 @@ pub fn api_router(service: ControlService) -> Router {
             "/__byok-api__/api/plugins/{plugin_id}/providers/{provider_id}/models/enabled",
             put(plugins::set_model_enabled),
         )
+        .route("/__byok-api__/api/migration/export", get(migration::export))
+        .route("/__byok-api__/api/migration/import", post(migration::import))
         .route(
             "/__byok-api__/api/settings/observability",
             get(settings::get).put(settings::update),

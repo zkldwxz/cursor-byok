@@ -76,10 +76,7 @@ impl Store {
         Ok(saved)
     }
 
-    pub(super) async fn create_models_if_missing(
-        &self,
-        inputs: &[ModelConfigInput],
-    ) -> Result<usize> {
+    pub async fn create_models_if_missing(&self, inputs: &[ModelConfigInput]) -> Result<usize> {
         let mut normalized = Vec::with_capacity(inputs.len());
         let mut hashes = HashSet::with_capacity(inputs.len());
         for input in inputs {

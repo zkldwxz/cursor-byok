@@ -80,6 +80,23 @@ export interface LegacyModelImportPreview {
   models: LegacyModelImportPreviewItem[];
 }
 
+export interface MigrationFile {
+  format: string;
+  version: number;
+  app_version: string;
+  exported_at_ms: number;
+  models: ModelInput[];
+  plugin_resources: { plugin_id: string; resource_type: string; accounts: unknown[] }[];
+}
+
+export interface MigrationResult {
+  models_added: number;
+  models_total: number;
+  resources_added: number;
+  resources_updated: number;
+  warnings: string[];
+}
+
 export interface LegacyModelImportResult {
   imported: number;
   skipped: number;
@@ -494,6 +511,8 @@ export const api = {
   importV0049Models: () => request<LegacyModelImportResult>("/models/import-v0049", { method: "POST" }),
   updateModel: (hash: string, model: ModelInput) => request<Model>(`/models/${hash}`, { method: "PUT", body: JSON.stringify(model) }),
   deleteModel: (hash: string) => request<void>(`/models/${hash}`, { method: "DELETE" }),
+  migrationExportUrl: () => `${API_ROOT}/migration/export`,
+  migrationImport: (file: MigrationFile) => request<MigrationResult>("/migration/import", { method: "POST", body: JSON.stringify(file) }),
   testModel: (hash: string, testId: string, signal?: AbortSignal) => request<ModelConnectivityResult>(`/models/${encodeURIComponent(hash)}/test/${encodeURIComponent(testId)}`, { method: "POST", signal }),
   cancelModelTest: (hash: string, testId: string) => request<void>(`/models/${encodeURIComponent(hash)}/test/${encodeURIComponent(testId)}`, { method: "DELETE" }),
   overview: (filter?: { startMs: number; endMs: number; modelHashes?: string[]; bucketMs?: number }) => {

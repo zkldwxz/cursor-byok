@@ -205,6 +205,105 @@ impl ControlService {
             .await
     }
 
+    pub async fn migration_export(&self) -> Result<super::migration::MigrationFile> {
+        use super::migration::{MigrationFile, MigrationPluginResources, FORMAT, VERSION};
+
+        let models = self
+            .store
+            .models()
+            .await?
+            .iter()
+            .map(crate::model::ModelConfigInput::from)
+            .collect();
+        let mut plugin_resources = Vec::new();
+        for plugin in self.plugins.plugins().await {
+            for resource in &plugin.resources {
+                let value = self
+                    .plugins
+                    .export_resources(&plugin.id, &resource.resource_type)
+                    .await?;
+                let accounts = value
+                    .get("accounts")
+                    .and_then(serde_json::Value::as_array)
+                    .cloned()
+                    .unwrap_or_default();
+                if accounts.is_empty() {
+                    continue;
+                }
+                plugin_resources.push(MigrationPluginResources {
+                    plugin_id: plugin.id.clone(),
+                    resource_type: resource.resource_type.clone(),
+                    accounts,
+                });
+            }
+        }
+        Ok(MigrationFile {
+            format: FORMAT.into(),
+            version: VERSION,
+            app_version: self.app_version.clone(),
+            exported_at_ms: chrono::Utc::now().timestamp_millis(),
+            models,
+            plugin_resources,
+        })
+    }
+
+    /// Applies an exported file. Duplicate models are skipped so importing onto
+    /// a machine that is already partly configured is safe to repeat.
+    pub async fn migration_import(
+        &self,
+        file: super::migration::MigrationFile,
+    ) -> Result<super::migration::MigrationResult> {
+        use super::migration::{MigrationResult, FORMAT, VERSION};
+
+        if file.format != FORMAT {
+            return Err(Error::Config(format!(
+                "not a {FORMAT} file: {}",
+                file.format
+            )));
+        }
+        if file.version > VERSION {
+            return Err(Error::Config(format!(
+                "migration file version {} is newer than this app supports ({VERSION})",
+                file.version
+            )));
+        }
+        let models_total = file.models.len();
+        let models_added = self.store.create_models_if_missing(&file.models).await?;
+        let mut resources_added = 0;
+        let mut resources_updated = 0;
+        let mut warnings = Vec::new();
+        for group in &file.plugin_resources {
+            // Feed the accounts back through the plugin's own import parser,
+            // so the destination applies the same validation as a hand import.
+            let files = serde_json::json!([{
+                "name": format!("{}-{}.json", group.plugin_id, group.resource_type),
+                "content": serde_json::to_string(&serde_json::json!({"accounts": group.accounts}))?,
+            }]);
+            match self
+                .plugins
+                .import_resources(&group.plugin_id, &group.resource_type, files)
+                .await
+            {
+                Ok(response) => {
+                    resources_added += response.added;
+                    resources_updated += response.updated;
+                    warnings.extend(response.warnings);
+                    if let Some(error) = response.model_sync_error {
+                        warnings.push(format!("{}: {error}", group.plugin_id));
+                    }
+                }
+                Err(error) => warnings.push(format!("{}: {error}", group.plugin_id)),
+            }
+        }
+        Ok(MigrationResult {
+            models_added,
+            models_total,
+            resources_added,
+            resources_updated,
+            warnings,
+        })
+    }
+
     pub async fn plugin_export_resources(
         &self,
         plugin_id: &str,
