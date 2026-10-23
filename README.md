@@ -1,24 +1,15 @@
-> [!IMPORTANT]
-> **This fork is actively maintained.** The original repository ([leookun/cursor-byok](https://github.com/leookun/cursor-byok)) was archived in October 2026. This fork continues development: bug fixes, new provider plugins (ZCode), database pruning, and releases are maintained here. Upstream issues that were never merged (subagent admission, store write-guard, dead lineage pruning) are fixed in this fork.
-
-## 👋Is Cursor getting too heavy?  ✨ **New from the same author** → [BaoCode](https://github.com/baocode-dev/baocode) — an awesome desktop GUI for Claude Code: polished, ultra-small, ultra-light.
-
 <div align="center">
 
 # cursor-byok
-cursor-byok is a local implementation of Cursor's backend.
-<br>
-<br>
-<a href="https://trendshift.io/repositories/39260?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-39260" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/39260" alt="zkldwxz/cursor-byok (maintained fork) | Trendshift" width="250" height="55" /></a>
 
-[User Guide](https://docs.leokun.cn) · [Download](https://github.com/zkldwxz/cursor-byok/releases/latest) · [Report an Issue](https://github.com/zkldwxz/cursor-byok/issues) · [中文版本说明](./README-CN.md)
+A local backend for Cursor: bring your own model APIs, keep Agent tools, Skills, and MCP.
+
+[中文说明](./README-CN.md) · [Download](https://github.com/zkldwxz/cursor-byok/releases/latest) · [Telegram](https://t.me/cursor_byok)
 
 [![Release](https://img.shields.io/github/v/release/zkldwxz/cursor-byok?style=flat-square)](https://github.com/zkldwxz/cursor-byok/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/zkldwxz/cursor-byok/total?style=flat-square)](https://github.com/zkldwxz/cursor-byok/releases)
 [![License](https://img.shields.io/github/license/zkldwxz/cursor-byok?style=flat-square)](./LICENSE)
 [![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?style=flat-square)](https://github.com/zkldwxz/cursor-byok/releases/latest)
-
-
 
 </div>
 
@@ -26,91 +17,130 @@ cursor-byok is a local implementation of Cursor's backend.
 
 ![cursor-byok dashboard](./images/en-home-1.png)
 
-## About
+## What this project is
 
-cursor-byok is an open-source local model gateway for Cursor. It runs a service on your machine that connects Cursor to the model APIs you configure, routes model requests through your own providers, and preserves Cursor Agent capabilities such as tool calling, Skills, and MCP.
+**cursor-byok** runs on your machine as Cursor's local backend. Cursor talks to this service instead of (or alongside) the official cloud; the service forwards model calls to the OpenAI- or Anthropic-compatible APIs you configure.
 
-You can connect OpenAI- and Anthropic-compatible services, customize endpoints, model IDs, API keys, and request parameters, and use model channels beyond the options built into the platform.
+API keys and settings stay on disk. Model traffic still goes to the provider you chose. This project is independent and is not affiliated with Cursor.
 
-> [!IMPORTANT]
-> cursor-byok is free and open source, but the model APIs you connect may charge for usage. This is an independent project and is not affiliated with or endorsed by Cursor or its developers.
+This repository, [zkldwxz/cursor-byok](https://github.com/zkldwxz/cursor-byok), is where the app is maintained and released. See [Origin](#origin) for the archived upstream it continues.
 
 ## Features
 
-- **Bring your own model channels:** Configure your own API endpoint, credentials, and model IDs.
-- **Multiple API protocols:** Use OpenAI- and Anthropic-compatible APIs or a custom endpoint.
-- **Model management:** Add, duplicate, edit, reorder, and batch-test multiple model configurations.
-- **Connection benchmarks:** Measure time to first token, generation speed, and inspect raw provider responses.
-- **Agent workflows:** Keep tool calling, Skills, MCP, and multi-turn conversations available.
-- **Session metrics:** Track token usage, cache hit rate, conversation turns, and estimated value.
-- **Cross-platform:** Run on macOS, Windows, and Linux.
+- **Your model channels:** endpoint, credentials, model ID, headers, and extra parameters per model.
+- **Protocols:** OpenAI Responses, OpenAI Chat Completions, Anthropic Messages.
+- **Built-in provider plugins:** including ZCode (Z.AI / Zhipu Coding Plan) with the official client identity.
+- **Agent loop:** tool calling, Skills, MCP, subagents, and multi-turn history.
+- **Local store:** SQLite checkpoints, startup pruning of dead lineages, and a one-file device migration export.
+- **Operations UI:** model editor, connection tests, token/cache metrics, plugins, and system settings.
+- **Desktop app:** macOS, Windows, and Linux, with in-app updates from this repository's GitHub Releases.
 
-## Quick Start
+## Quick start
 
-1. Download the latest build for your platform from [GitHub Releases](https://github.com/zkldwxz/cursor-byok/releases/latest).
-2. Launch cursor-byok, open **Model Settings**, and enter the endpoint, API key, and model ID.
-3. Test the model configuration. Once it passes, return to the dashboard and start the service.
-4. Test the model configuration. Once it passes, return to the dashboard and start the service.
-5. After upgrading Cursor or configuring a model for the first time, quit Cursor completely and restart it, then start a new conversation and select the configured model.
+1. Download the latest build for your OS from [GitHub Releases](https://github.com/zkldwxz/cursor-byok/releases/latest).
+2. Open cursor-byok → **Cursor**, and initialize the local CA when prompted.
+3. Open **Model Settings**, add a model (server URL, API key, model ID), save, and run **Test**.
+4. Keep cursor-byok running.
+5. After the first install, or after upgrading Cursor, **quit Cursor completely**, start it again, open a **new** chat, and pick the model you configured — not **Auto**.
 
-For complete installation steps, system configuration, and Frequently Asked Questions, see the [User Guide](https://docs.leokun.cn).
+Existing chats opened before the first successful connection will not pick up the local backend.
 
-## Model Management
+## Model settings
 
-Model configurations support both OpenAI and Anthropic API protocols. Each model channel can independently define its context window, maximum output tokens, reasoning effort, custom headers, and additional request parameters.
+Each saved model is one upstream channel.
 
 ![cursor-byok model settings](./images/en-model-1.png)
 
-## How It Works
+| Family | Type | Protocol |
+| --- | --- | --- |
+| Claude | **Anthropic** | Messages API |
+| GPT / OpenAI | **OpenAI** | **Responses API** (preferred; Chat Completions often drops prompt cache) |
+| Everything else | **OpenAI** | **Chat Completions API** |
+
+Useful fields: type, protocol, server URL (base or full), API key, upstream model ID, display name shown in Cursor, context / max-output tokens, reasoning effort, JSON headers, and extra JSON body fields. Only send fields the provider documents.
+
+ZCode models can be imported as a plugin credential, or created as a manual OpenAI-compatible model with the “spoof ZCode environment” switch once the plugin is installed.
+
+## Tab completion
+
+Cursor Tab is a separate service; it does not go through your chat model channel. In **System Settings → TAB**:
+
+- **Public service (default):** the shared Tab endpoint, no extra setup.
+- **Direct:** the official Tab service for the Cursor account currently signed in.
+- **Custom:** a self-hosted Tab server. The last published tree is on the archived upstream: [`cursor-tab-server`](https://github.com/leookun/cursor-byok/tree/archive/v0.0.49/cursor-tab-server).
+
+Restart Cursor and open a new chat after changing Tab mode.
+
+## Official Cursor account
+
+cursor-byok can sit next to a real Cursor login:
+
+- Sign in with your own Cursor account. If an older fake account is still logged in, sign it out first.
+- Official models and local models can be mixed when the account has official quota.
+- **Auto uses official models only.** With no official quota, pick a local model yourself.
+- Indexing, plugins, and other Cursor IDE features keep working.
+
+## Data flow
 
 ```text
-Cursor client
-    │
-    │ Agent requests and tool results
+Cursor desktop
+    │  Agent requests, tool results, KV blobs
     ▼
-cursor-byok local service
-    │
-    │ OpenAI- / Anthropic-compatible requests
+cursor-byok (this app, on your machine)
+    │  OpenAI / Anthropic compatible HTTP
     ▼
-Your model API
+The model API you configured
 ```
 
-cursor-byok handles protocol adaptation, model request forwarding, tool-call coordination, and conversation state on your machine. API keys and application settings are stored locally; requests are still sent to the model provider you configure.
+Keys never leave the local SQLite store except as request headers to that API.
 
-## Why This Project
+## Project layout
 
-Many Agent products bundle their tool capabilities with a fixed set of models, subscriptions, and billing options, leaving users limited to the channels offered by the platform.
+```text
+cursor-byok/
+├── apps/desktop/          Desktop UI (React) and Tauri shell
+├── server/                Local Cursor backend, store, plugins, control API
+├── crates/semble-core/    Local code index / search
+├── protocols/cursor/      Captured Cursor protobuf (single source)
+├── support/               Protocol extractor, capture tools, benchmarks
+├── .agents/skills/        Area rules for contributors
+└── .github/workflows/     CI and desktop GitHub Releases
+```
 
-cursor-byok is built to return model choice to the user. Developers can make full use of the APIs and credits they already have, choose the models and providers that fit their needs, and self-host related services when required.
+## Development
 
-## Roadmap
+Need Rust, Node.js / npm, and Tauri 2 system libraries.
 
-The project will continue to improve model compatibility, Agent tooling, local runtime stability, and the self-hosting experience while exploring support for more IDE, chat, and Agent workflows.
+```bash
+npm --prefix apps/desktop install
+make dev-web          # server + Vite
+make dev-desktop      # Tauri
+make check            # fmt, clippy, tests, frontend check — same as CI
+```
 
-See the [release roadmap](https://github.com/zkldwxz/cursor-byok/releases) for plans and progress.
+See [AGENTS.md](./AGENTS.md) and [`.agents/skills/`](.agents/skills/) before changing an area.
 
-## Community and Support
+## Origin
 
-- [User Guide](https://docs.leokun.cn)
-- [GitHub Issues](https://github.com/zkldwxz/cursor-byok/issues)
-- [Telegram community](https://t.me/cursor_byok)
-- QQ groups: `1095916242`, `1094411438`, `1095918002`, `1094419321`
+cursor-byok was created by [leookun](https://github.com/leookun) in [leookun/cursor-byok](https://github.com/leookun/cursor-byok). That repository was **archived in October 2026**.
 
+**This repository is the continuation:** bug fixes, ZCode, store/pruning work, updater signing, and GitHub Releases are published from [zkldwxz/cursor-byok](https://github.com/zkldwxz/cursor-byok). Installers and `latest.json` / `update.json` point here.
 
+The original MIT-licensed code remains the foundation. Credit belongs with the original author and everyone who contributed upstream; this repo adds maintenance on top of that tree.
 
-## Development and Contributing
+## Community
 
-Issues and pull requests are welcome in this fork. See [AGENTS.md](./AGENTS.md) and the skills under [`.agents/skills/`](./.agents/skills/) for architecture rules, code style, and area-specific guides; the [CI workflow](./.github/workflows/ci.yml) defines the exact checks a change must pass. Pull requests are reviewed here, build commands, project structure, and contribution guidelines.
+- [Telegram](https://t.me/cursor_byok)
+- QQ: `1095916242`, `1094411438`, `1095918002`, `1094419321`
 
-## Contributors
-
-<a href="https://github.com/leookun/cursor-byok/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=leookun/cursor-byok" />
-</a>
-
+When reporting a problem, include OS, cursor-byok version, model type, protocol, a redacted endpoint, the error, and reproduction steps. Do not paste API keys.
 
 ## License
 
-This project is open source under the [MIT License](./LICENSE).
+[MIT License](./LICENSE). Copyright (c) 2026 leookun, zkldwxz.
 
+Original contributors:
 
+<a href="https://github.com/leookun/cursor-byok/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=leookun/cursor-byok" alt="contributors to leookun/cursor-byok" />
+</a>

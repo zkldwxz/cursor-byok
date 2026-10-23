@@ -1,15 +1,10 @@
-## 👋 受够了Cursor的性能？ ✨ **同作者新作** → [Baocode](https://github.com/baocode-dev/baocode) —— 为 Claude Code 打造的精致的桌面 GUI，超小尺寸，超低占用
-
 <div align="center">
 
 # cursor-byok
 
-> [!IMPORTANT]
-> **本 Fork 持续维护中。** 原仓库（[leookun/cursor-byok](https://github.com/leookun/cursor-byok)）已于 2026 年 10 月归档。本 Fork 继续开发：bug 修复、新的供应商插件（ZCode 智谱 Coding Plan）、数据库自动瘦身、版本发布都在这里维护。原仓库积压未合并的问题（子代理准入、存储写事务守卫、死血统清理）已在本 Fork 修复。
+运行在本机的 Cursor 后端：用你自己的模型 API，保留 Agent 工具、Skills 和 MCP。
 
-cursor-byok 是一个运行在本机的 Cursor 模型网关，帮助你在 Cursor 中使用自己配置的模型服务。
-
-[English README](./README.md) · [使用指南](https://docs.leokun.cn) · [下载](https://github.com/zkldwxz/cursor-byok/releases/latest) · [提交问题](https://github.com/zkldwxz/cursor-byok/issues)
+[English README](./README.md) · [下载](https://github.com/zkldwxz/cursor-byok/releases/latest) · [Telegram](https://t.me/cursor_byok)
 
 [![Release](https://img.shields.io/github/v/release/zkldwxz/cursor-byok?style=flat-square)](https://github.com/zkldwxz/cursor-byok/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/zkldwxz/cursor-byok/total?style=flat-square)](https://github.com/zkldwxz/cursor-byok/releases)
@@ -22,207 +17,128 @@ cursor-byok 是一个运行在本机的 Cursor 模型网关，帮助你在 Curso
 
 ![cursor-byok 控制面板](./images/en-home-1.png)
 
-## 项目简介
+## 这是什么
 
-cursor-byok 是一个开源的本地模型网关。它在你的设备上运行服务，接收 Cursor 发出的 Agent 请求，将请求转发到你配置的模型服务，并尽可能保留 Cursor Agent 的工具调用、Skills、MCP 和多轮对话能力。
+**cursor-byok** 在你的电脑上充当 Cursor 的本地后端。Cursor 把 Agent 请求发给本服务，本服务再转发到你配置的 OpenAI / Anthropic 兼容接口。
 
-你可以连接兼容 OpenAI 或 Anthropic 协议的服务，自定义服务地址、模型 ID、API Key 和请求参数，也可以使用 Cursor 平台默认选项之外的模型通道。
+API Key 和设置只存在本机。模型流量仍会发往你选择的上游。本项目是独立项目，与 Cursor 官方没有关联。
 
-> [!IMPORTANT]
-> cursor-byok 免费且开源，但你连接的模型服务商可能会按用量收费。本项目是独立项目，与 Cursor 或其开发者没有关联，也未获得其认可。
+当前维护和发版仓库是 [zkldwxz/cursor-byok](https://github.com/zkldwxz/cursor-byok)。与已归档上游的关系见 [本仓库与上游](#本仓库与上游)。
 
-## 主要功能
+## 功能
 
-- **自定义模型通道**：配置自己的 API 地址、凭据和模型 ID。
-- **多种 API 协议**：支持 OpenAI Responses API、OpenAI Chat Completions API 和 Anthropic Messages API 兼容服务。
-- **模型管理**：添加、复制、编辑、排序模型配置，并批量测试连接。
-- **连接性能测试**：查看首字延迟、生成速度、总耗时和原始服务商响应。
-- **Agent 工作流**：继续使用工具调用、Skills、MCP 和多轮对话。
-- **会话指标**：查看 Token 用量、缓存命中率、对话轮次和估算价值。
-- **TAB 补全服务**：在公益服务、官方直连和自定义服务之间选择连接方式。
-- **跨平台运行**：支持 macOS、Windows 和 Linux。
+- **自定义模型通道：** 每个模型独立配置地址、凭据、模型 ID、Header 和额外参数。
+- **多种协议：** OpenAI Responses、OpenAI Chat Completions、Anthropic Messages。
+- **内置供应商插件：** 含 ZCode（智谱 Coding Plan），复刻官方客户端身份。
+- **Agent 循环：** 工具调用、Skills、MCP、子代理、多轮对话。
+- **本地存储：** SQLite 检查点、启动时清理死血统、单文件设备迁移导出。
+- **管理界面：** 模型编辑、连接测试、用量与缓存、插件与系统设置。
+- **桌面应用：** macOS / Windows / Linux，更新通道指向本仓库的 GitHub Releases。
 
 ## 快速开始
 
-1. 从 [GitHub Releases](https://github.com/zkldwxz/cursor-byok/releases/latest) 下载适合你操作系统的最新版本。
-2. 启动 cursor-byok，打开 **Cursor 配置**，按提示初始化本地 CA（证书颁发机构）。
-3. 在模型设置中添加模型，填写服务地址、API Key 和模型名称，然后保存并运行 **测试**。
-4. 确认测试通过后，保持 cursor-byok 运行。
-5. **首次升级 Cursor 或首次配置模型后，完全退出并重新启动 Cursor，然后新开一个对话**。在模型列表中选择已配置的模型，开始使用 Agent。
+1. 从 [GitHub Releases](https://github.com/zkldwxz/cursor-byok/releases/latest) 下载对应系统的安装包。
+2. 打开 cursor-byok → **Cursor 配置**，按提示初始化本地 CA。
+3. 在模型设置中添加模型（服务地址、API Key、模型名称），保存并运行 **测试**。
+4. 保持 cursor-byok 运行。
+5. **首次安装或升级 Cursor 后，完全退出并重新启动 Cursor，再新开一个对话**，在模型列表里选你配置的模型，不要选 **Auto**。
 
-完整的安装步骤、配置说明和常见问题，请参阅[中文使用指南](https://docs.leokun.cn/zh/docs)。
-
-> [!TIP]
-> 首次升级 Cursor 或首次完成配置后，必须完全退出并重新启动 Cursor，再新开一个对话。配置前已经打开的对话不会加载新连接；使用自定义模型时，请在模型列表中手动选择该模型，不要选择 **Auto**。
+配置完成前已经打开的对话不会接到本地后端。
 
 ## 模型配置
 
-每个模型配置都是独立的上游通道，可以单独设置服务商、协议、凭据和生成参数。
+每个保存的模型就是一条独立的上游通道。
 
 ![模型设置页面](./images/en-model-1.png)
-
-### 类型与协议选择
 
 | 模型系列 | 模型类型 | 请求协议 |
 | --- | --- | --- |
 | Claude 系列 | **Anthropic** | Messages API |
-| GPT / OpenAI 系列 | **OpenAI** | **Responses API** |
+| GPT / OpenAI 系列 | **OpenAI** | **Responses API**（优先；Chat Completions 容易丢掉提示词缓存） |
 | 其他模型 | **OpenAI** | **Chat Completions API** |
 
-GPT 系列建议使用 **Responses API**。如果使用 Chat Completions，可能无法保留提示词缓存，导致速度变慢和费用增加。
+常用字段：模型类型、请求协议、服务器地址（基础地址或完整 URL）、API Key、上游模型标识、Cursor 里显示的名称、上下文 / 最大输出 Token、推理强度、JSON Header、额外 JSON 参数。只填写服务商文档里有的字段。
 
-### 常用字段
+ZCode 可通过插件导入凭证；插件启用后，手动模型也可以打开「伪造 ZCode 环境」。
 
-- **模型类型**：选择 OpenAI 或 Anthropic，决定上游接口格式。
-- **请求协议**：OpenAI 类型需要继续选择 Responses API 或 Chat Completions API。
-- **服务器地址**：可以填写服务商基础地址，让应用按协议追加标准端点，也可以填写完整请求 URL 并原样使用。
-- **API Key**：填写上游服务要求的访问密钥。密钥保存在本机，用于发送模型请求。
-- **模型名称**：填写服务商接口接受的模型标识，也可以使用 **获取模型** 读取服务商返回的模型列表。
-- **显示名称**：Cursor 模型列表中显示的名称，不会改变发送给上游的模型标识。
-- **备注**：显示在 Cursor 的模型说明中。
+## TAB 补全
 
-还可以根据模型能力设置上下文窗口 Token、最大输出 Token、推理或思考强度、自定义 Headers，以及 OpenAI 或 Anthropic 的额外参数。自定义 Headers 和额外参数必须是 JSON 对象，只应填写服务商明确支持的字段。
+Cursor 的 Tab 补全走独立 TAB 服务，不经过对话模型通道。在 **系统设置 → TAB 设置** 中选择：
 
-保存配置后运行 **测试**，确认地址、协议、API Key、模型标识和流式响应都正常，再在 Cursor 中使用该模型。
+- **公益服务（默认）：** 项目提供的公共服务，无需额外配置。
+- **直连：** 使用当前登录 Cursor 账号对应的官方 TAB 服务。
+- **自定义：** 自建 TAB 服务。最后一版源码在已归档上游：[`cursor-tab-server`](https://github.com/leookun/cursor-byok/tree/archive/v0.0.49/cursor-tab-server)。
 
-## TAB 补全服务
-
-Cursor 的 Tab 补全由独立的 TAB 服务处理，不经过模型通道。你可以在 **系统设置 → TAB 设置** 中选择以下模式：
-
-- **使用公益服务（默认）**：使用项目作者部署的公共服务，无需额外配置。
-- **直连**：直接连接当前 Cursor 账号对应的官方 TAB 服务，适合账号拥有官方额度的情况。
-- **自定义**：自行部署 [`cursor-tab-server`](https://github.com/leookun/cursor-byok/tree/archive/v0.0.49/cursor-tab-server)，然后填写 TAB 服务地址。
-
-修改 TAB 设置后，建议重启 Cursor 并新开一个对话，确保新的连接方式生效。
+改 TAB 模式后请重启 Cursor 并新开对话。
 
 ## 与官方账号并存
 
-新版设计支持 cursor-byok 与 Cursor 官方服务并存：
-
-- 直接在 Cursor 中登录自己的账号。如果之前使用旧版生成的 fake 账户，请先退出该账户，再登录自己的账号。
-- 账号拥有官方额度时，官方模型和本地模型可以随时切换混用。
-- **Auto 只使用官方模型**，不会自动使用你配置的本地模型。账号没有官方额度时，请手动选择自己配置的模型。
-- 插件、代码库索引等 Cursor 功能可以继续使用。
+- 用自己的 Cursor 账号登录。若还停在旧版生成的假账号上，先退出再登录自己的账号。
+- 账号有官方额度时，官方模型与本地模型可以混用。
+- **Auto 只走官方模型。** 没有官方额度时，请手动选本地模型。
+- 插件、代码库索引等 IDE 功能可继续使用。
 
 ## 数据流转
 
 ```text
 Cursor 客户端
-    │
-    │ Agent 请求与工具结果
+    │  Agent 请求、工具结果、KV blob
     ▼
-cursor-byok 本地服务
-    │
-    │ OpenAI / Anthropic 兼容请求
+cursor-byok（本机本应用）
+    │  OpenAI / Anthropic 兼容 HTTP
     ▼
 你配置的模型 API
 ```
 
-API Key、模型配置和应用设置保存在本机。模型请求仍会发送到你选择的上游服务商，请根据对应服务商的隐私政策和计费规则使用。
+密钥只作为请求头发往该 API，不会上传到本项目的服务器。
 
 ## 项目结构
 
 ```text
 cursor-byok/
-├── apps/
-│   ├── desktop/
-│   │   ├── src/
-│   │   │   ├── features/ # 首页、模型、调用记录与设置
-│   │   │   ├── shell/    # 窗口框架、页面布局与广告外壳
-│   │   │   ├── shared/   # UI、虚拟列表、状态、API 与平台能力
-│   │   │   ├── i18n/     # 本地化运行时与语言目录
-│   │   │   └── styles/   # 全局主题与排版令牌
-│   │   └── src-tauri/    # Tauri 桌面生命周期
-├── server/
-│   ├── src/
-│   │   ├── cursor/    # Cursor 协议适配
-│   │   ├── run/       # 通用 Agent Runtime 与内部 Port
-│   │   ├── provider/  # 模型供应商适配
-│   │   ├── model/     # 聚合领域模型
-│   │   ├── store/     # SQLite Repository
-│   │   ├── control/   # 管理面 API
-│   │   ├── harness/   # Cursor 本地集成
-│   │   └── search/    # Web 与 Semble 搜索接入
-│   ├── prompt/
-│   └── migrations/
-├── crates/
-│   └── semble-core/   # 本地代码索引与搜索核心库
-├── protocols/
-│   └── cursor/        # Cursor 协议定义的唯一来源
-├── support/                     # 仓库辅助设施
-│   ├── cursor-protocol-extractor/ # Cursor 协议提取与 Go 代码生成工具
-│   ├── cursor-capture/            # Cursor 协议抓取和调试工具
-│   └── benchmarks/                # 代码搜索和索引基准测试
-├── images/            # README 展示图片
-├── Cargo.toml         # Rust 工作区配置
-└── Makefile           # 常用开发、检查和构建命令
+├── apps/desktop/          桌面 UI（React）与 Tauri 壳
+├── server/                本地 Cursor 后端、存储、插件、管理 API
+├── crates/semble-core/    本地代码索引 / 搜索
+├── protocols/cursor/      捕获的 Cursor protobuf（唯一来源）
+├── support/               协议提取、抓包、基准测试
+├── .agents/skills/        各区域贡献规则
+└── .github/workflows/     CI 与桌面 GitHub Release
 ```
 
 ## 本地开发
 
-### 环境要求
-
-- Rust 工具链和 Cargo
-- Node.js 与 npm
-- Tauri 2 的系统构建依赖
-- Docker（仅在构建 Docker 镜像时需要）
-
-### 安装依赖
+需要 Rust、Node.js / npm，以及 Tauri 2 的系统依赖。
 
 ```bash
 npm --prefix apps/desktop install
+make dev-web          # 后端 + Vite
+make dev-desktop      # Tauri
+make check            # fmt、clippy、测试、前端检查，与 CI 相同
 ```
 
-### 启动开发环境
+改代码前请读 [AGENTS.md](./AGENTS.md) 和 [`.agents/skills/`](.agents/skills/)。
 
-启动桌面前端：
+## 本仓库与上游
 
-```bash
-make dev-web
-```
+cursor-byok 由 [leookun](https://github.com/leookun) 在 [leookun/cursor-byok](https://github.com/leookun/cursor-byok) 创建。该仓库已于 **2026 年 10 月归档**。
 
-启动桌面应用：
+**本仓库是后续维护点：** 修复、ZCode、存储与瘦身、更新签名、GitHub Release 都在 [zkldwxz/cursor-byok](https://github.com/zkldwxz/cursor-byok) 发布。安装包和 `latest.json` / `update.json` 指向这里。
 
-```bash
-make dev-desktop
-```
+原仓库的 MIT 代码仍是基础。致谢原作者和上游贡献者；本仓库在那棵提交树上继续维护。
 
-### 检查与构建
+## 社区
 
-运行完整检查：
-
-```bash
-make check
-```
-
-分别构建各部分：
-
-```bash
-make build-web       # 构建桌面前端
-make build-server    # 构建 Rust 本地服务
-make build-desktop   # 构建 Tauri 桌面安装包
-make build-docker    # 构建 Docker 镜像
-```
-
-## 路线图
-
-项目将继续改进模型兼容性、Agent 工具、本地运行稳定性和自托管体验，并探索支持更多 IDE、聊天和 Agent 工作流。
-
-计划与进展请参阅[发布路线图](https://github.com/zkldwxz/cursor-byok/releases)。
-
-## 社区与反馈
-
-- [中文使用指南](https://docs.leokun.cn/zh/docs)
-- [GitHub Issues](https://github.com/zkldwxz/cursor-byok/issues)
-- [Telegram 社区](https://t.me/cursor_byok)
+- [Telegram](https://t.me/cursor_byok)
 - QQ 群：`1095916242`、`1094411438`、`1095918002`、`1094419321`
 
-提交问题时，请附上操作系统、cursor-byok 版本、模型类型、请求协议、已脱敏的服务地址、错误信息和复现步骤。请勿公开 API Key 或其他凭据。
-
-## 参与贡献
-
-欢迎提交 Issue 和 Pull Request。提交代码前请先阅读项目中的开发说明，并运行 `make check` 确认格式、测试和前端构建检查通过。
+反馈问题时请带上操作系统、cursor-byok 版本、模型类型、协议、已脱敏的服务地址、错误信息和复现步骤。不要粘贴 API Key。
 
 ## 许可证
 
-本项目采用 [MIT License](./LICENSE) 开源。
+[MIT License](./LICENSE)。Copyright (c) 2026 leookun, zkldwxz。
+
+原仓库贡献者：
+
+<a href="https://github.com/leookun/cursor-byok/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=leookun/cursor-byok" alt="leookun/cursor-byok 贡献者" />
+</a>

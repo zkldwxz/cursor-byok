@@ -32,7 +32,12 @@ const keptAlivePages = ["/", "/calls", "/settings", "/harness/cursor", "/plugins
 const readAdStorageKey = "cursor-byok:read-ad-ids";
 const dismissedAdStorageKey = "cursor-byok:dismissed-ad-ids";
 const tutorialReadStorageKey = "cursor-byok:tutorial-read";
-const tutorialUrl = "https://docs.leokun.cn";
+// This repository's README is the user guide; the archived upstream docs site is not.
+const tutorialUrlByLocale = {
+  "zh-CN": "https://github.com/zkldwxz/cursor-byok/blob/main/README-CN.md",
+  "en-US": "https://github.com/zkldwxz/cursor-byok/blob/main/README.md",
+  "pt-BR": "https://github.com/zkldwxz/cursor-byok/blob/main/README.md",
+} as const;
 
 function loadStoredAdIds(key: string): Set<string> {
   try {
@@ -83,7 +88,7 @@ export function AppLayout() {
 
   const openTutorial = useCallback(() => {
     setConfirmTutorial(false);
-    void api.openExternalUrl(tutorialUrl)
+    void api.openExternalUrl(tutorialUrlByLocale[locale])
       .then(() => {
         setTutorialRead(true);
         try {
@@ -93,7 +98,7 @@ export function AppLayout() {
         }
       })
       .catch((cause) => message(cause instanceof Error ? cause.message : String(cause)));
-  }, [message]);
+  }, [locale, message]);
 
   useEffect(() => {
     let disposed = false;

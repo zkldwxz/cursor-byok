@@ -9,11 +9,12 @@ Release through `.github/workflows/release.yml`. Preserve both updater formats: 
 
 ## Publication authority
 
-- Only the repository author, GitHub user `leookun`, may authorize a live release.
-- Before any live mutation, require an explicit release instruction from the author in the current task and verify `gh api user --jq .login` returns `leookun`.
+- Only the GitHub owner of **this** repository may authorize a live release. For [zkldwxz/cursor-byok](https://github.com/zkldwxz/cursor-byok) that is `zkldwxz`. The archived upstream `leookun/cursor-byok` is not the publication authority here.
+- The release workflow already enforces `GITHUB_ACTOR == github.repository_owner` on tag pushes. A bot or cloud-agent tag push will fail that check; the owner must push `v<version>` themselves after the release commit is on `origin/main`.
+- Before any live mutation, require an explicit release instruction in the current task (for example “构建新版本”, “publish 1.0.3”, “push the tag”). Preparing version bumps, README, and a PR is allowed without a tag push.
 - Treat all of these as publication actions: pushing a `v*` tag, rerunning the release workflow, and publishing or editing a GitHub Release. Pushing a release commit to `main` only prepares the release and must never trigger publication by itself.
 - Without that authorization, restrict work to inspection, local edits, validation, and a release-ready commit or branch. Do not infer publication permission from requests such as “prepare”, “check”, or “ready to release”.
-- Never print, commit, or upload `.tauri/cursor-byok.key` anywhere except the repository's `TAURI_SIGNING_PRIVATE_KEY` Actions Secret when the author explicitly requests that secret configuration.
+- Never print, commit, or upload `.tauri/cursor-byok.key` anywhere except the repository's `TAURI_SIGNING_PRIVATE_KEY` Actions Secret when the owner explicitly requests that secret configuration.
 - Never delete, replace, or move an existing tag or published Release without separate explicit authorization.
 
 ## Version and GitHub Release policy
