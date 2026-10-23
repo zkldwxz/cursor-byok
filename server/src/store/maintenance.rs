@@ -29,6 +29,8 @@ impl Store {
         let pruned = prune_tx(&mut tx).await?;
         tx.commit().await?;
         session.committed();
+        // VACUUM takes its own write session; retaining this guard would deadlock.
+        drop(session);
         if pruned.checkpoints == 0 && pruned.messages == 0 {
             return Ok(());
         }
@@ -322,6 +324,58 @@ mod tests {
 
         let remaining = checkpoint_ids(&store).await;
         assert!(detached.iter().all(|id| remaining.contains(id)));
+    }
+
+    #[tokio::test]
+    async fn startup_pruning_finishes_when_large_databases_need_vacuum() {
+        let (directory, store) = store().await;
+        let live = checkpoint_line(&store, "live", 2).await;
+        let dead = checkpoint_line(&store, "dead", 2).await;
+        sqlx::query(
+            "UPDATE conversation_checkpoints SET created_at_ms = ? WHERE checkpoint_id = ?",
+        )
+        .bind(now_ms() - PRUNE_GRACE_MS - 1)
+        .bind(dead.last().unwrap())
+        .execute(store.pool())
+        .await
+        .unwrap();
+        sqlx::query("INSERT INTO blobs(blob_id, data, created_at_ms) VALUES (?, zeroblob(?), ?)")
+            .bind([0_u8; 32].as_slice())
+            .bind(VACUUM_THRESHOLD_BYTES)
+            .bind(now_ms() - BLOB_GRACE_MS - 1)
+            .execute(store.pool())
+            .await
+            .unwrap();
+
+        tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            store.prune_dead_lineages(),
+        )
+        .await
+        .expect("startup pruning must finish when vacuuming a large database")
+        .unwrap();
+
+        let remaining = checkpoint_ids(&store).await;
+        assert!(live.iter().all(|id| remaining.contains(id)));
+        assert!(dead.iter().all(|id| !remaining.contains(id)));
+        let database_bytes: i64 = sqlx::query_scalar(
+            "SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()",
+        )
+        .fetch_one(store.pool())
+        .await
+        .unwrap();
+        assert!(database_bytes < VACUUM_THRESHOLD_BYTES);
+        checkpoint_line(&store, "after-vacuum", 1).await;
+
+        store.pool().close().await;
+        let reopened = Store::connect(&format!(
+            "sqlite://{}",
+            directory.path().join("test.db").display()
+        ))
+        .await
+        .unwrap();
+        reopened.prune_dead_lineages().await.unwrap();
+        assert_eq!(checkpoint_ids(&reopened).await.len(), remaining.len() + 2);
     }
 
     #[tokio::test]
