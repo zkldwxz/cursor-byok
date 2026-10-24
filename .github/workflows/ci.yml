@@ -65,7 +65,7 @@ jobs:
         run: npm run check
 
       - name: Check release workflow scripts
-        run: node --test .github/scripts
+        run: node --test .github/scripts/*.test.mjs
 
   desktop-rust:
     name: Desktop Rust (${{ matrix.os }})
