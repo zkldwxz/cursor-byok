@@ -37,7 +37,10 @@ jobs:
 
       - name: Build NSIS installer
         working-directory: apps/desktop
-        run: npm run tauri:build -- --bundles nsis
+        # The updater artifacts need TAURI_SIGNING_PRIVATE_KEY, which this
+        # workflow deliberately does not hold: it produces a local installer,
+        # not a release. Turn them off rather than fail after a 15-minute build.
+        run: npm run tauri:build -- --bundles nsis --config '{"bundle":{"createUpdaterArtifacts":false}}'
 
       - uses: actions/upload-artifact@v4
         with:
