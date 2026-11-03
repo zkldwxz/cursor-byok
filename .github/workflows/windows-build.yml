@@ -5,9 +5,6 @@ name: Windows build (manual)
 # runnable artifact from a branch before any tag exists.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - remove-promotions
 
 permissions:
   contents: read
