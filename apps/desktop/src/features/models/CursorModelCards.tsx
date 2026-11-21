@@ -4,7 +4,7 @@ import Sortable from "sortablejs";
 import type { Model, PluginModelDescriptor } from "../../shared/api";
 import { Card } from "../../shared/ui/Card";
 import { Icon } from "../../shared/ui/Icon";
-import { chevronDownIcon, chevronRightIcon, claudeIcon, dragIcon, editIcon, flatColorOrganizationIcon, openAiIcon } from "../../shared/ui/icons";
+import { chevronDownIcon, chevronRightIcon, claudeIcon, dragIcon, editIcon, flatColorOrganizationIcon, magpieIcon, openAiIcon, tuneIcon } from "../../shared/ui/icons";
 import { TruncatedButton } from "../../shared/ui/TruncatedButton";
 import { CursorModelTestResult, type CursorModelTestState } from "./CursorModelTestResult";
 import styles from "./CursorSettings.module.scss";
@@ -19,6 +19,7 @@ export type CursorModelGroup = {
 };
 
 type CursorModelCardsProps = {
+  magpieModels: Model[];
   models: Model[];
   pluginModels: PluginModelDescriptor[];
   grouping: CursorModelGrouping;
@@ -33,9 +34,10 @@ type CursorModelCardsProps = {
   onPluginSettings: (model: PluginModelDescriptor) => void;
   onReorder: (modelHashes: string[]) => void;
   onGroupSettings: (group: CursorModelGroup) => void;
+  onMagpieSettings: () => void;
 };
 
-type ModelGridProps = Omit<CursorModelCardsProps, "grouping" | "pluginModels" | "onTestPluginModel" | "onPluginSettings"> & {
+type ModelGridProps = Omit<CursorModelCardsProps, "grouping" | "pluginModels" | "onTestPluginModel" | "onPluginSettings" | "onMagpieSettings"> & {
   sortable: boolean;
 };
 
@@ -79,6 +81,13 @@ export function CursorModelCards(props: CursorModelCardsProps) {
     </div>;
   return <div className={styles.modelGroups}>
     {builtins}
+    {props.magpieModels.length > 0 && <CollapsibleGroup label="Magpie" icon={magpieIcon} count={props.magpieModels.length} settingsIcon={tuneIcon} settingsLabel={t("管理模型")} onSettings={props.onMagpieSettings}>
+      {props.magpieModels.map(model => <div key={model.model_hash} className={styles.modelRow}>
+        <div className={styles.modelRowName}><span className={styles.modelRowNameText}>{model.display_name}</span><span className={styles.modelRowModelId}>{model.model_id}</span></div>
+        <CursorModelTestResult compact state={props.testResults.get(model.model_hash)} testing={props.testingModelHashes.has(model.model_hash)} />
+        <TruncatedButton size="small" disabled={props.disabled} label={props.testingModelHashes.has(model.model_hash) ? t("取消测试") : t("测试")} onClick={() => props.onTest(model)} />
+      </div>)}
+    </CollapsibleGroup>}
     {pluginGroups(props.pluginModels).map((group) => <CollapsibleGroup
       key={`${props.grouping}:${group.pluginId}`}
       label={group.pluginName}
@@ -111,12 +120,15 @@ function pluginGroups(models: PluginModelDescriptor[]) {
   return groups;
 }
 
-function CollapsibleGroup({ label, icon, iconSrc, defaultOpen = true, onSettings, children }: {
+function CollapsibleGroup({ label, icon, iconSrc, count, defaultOpen = true, onSettings, settingsIcon = editIcon, settingsLabel = t("分组设置"), children }: {
   label: string;
   icon?: IconifyIcon;
   iconSrc?: string;
+  count?: number;
   defaultOpen?: boolean;
   onSettings?: () => void;
+  settingsIcon?: IconifyIcon;
+  settingsLabel?: string;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -131,10 +143,11 @@ function CollapsibleGroup({ label, icon, iconSrc, defaultOpen = true, onSettings
         {icon && <Icon icon={icon} size="1.1em" />}
         {iconSrc && <Icon src={iconSrc} size="1.1em" />}
         <span className={styles.groupLabel}>{label}</span>
+        {count !== undefined && <span className={styles.groupCount}>{count}</span>}
       </button>
       {onSettings && <button type="button" className={styles.groupSettings} onClick={onSettings}>
-        <Icon icon={editIcon} size="1em" />
-        {t("分组设置")}
+        <Icon icon={settingsIcon} size="1em" />
+        {settingsLabel}
       </button>}
       <button
         type="button"

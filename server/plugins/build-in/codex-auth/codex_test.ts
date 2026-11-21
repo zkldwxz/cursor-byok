@@ -86,6 +86,18 @@ function request(): LlmRequest {
   };
 }
 
+Deno.test("Responses preserves the selected Ultrafast tier independently from effort", () => {
+  const body = buildResponsesBody({
+    url: "https://example.com/v1/responses",
+    model: "sol",
+    headers: {},
+    request: { ...request(), latency: "ultrafast" },
+    extraBody: { service_tier: "default" },
+  });
+  assertEquals(body.service_tier, "ultrafast");
+  assertEquals(body.reasoning, { summary: "auto", effort: "medium" });
+});
+
 Deno.test("account identity prioritizes ChatGPT account ID and drafts keep tokens private-side", async () => {
   const token = jwt({
     "https://api.openai.com/auth": { chatgpt_account_id: "acct-1" },

@@ -6,8 +6,10 @@ use std::{
 
 use tokio::sync::Mutex;
 
+pub(crate) mod browser_bridge;
 pub mod codec;
 pub(crate) mod compat;
+pub(crate) mod devtools;
 pub(crate) mod edit;
 pub(crate) mod registry;
 pub mod runtime;
@@ -34,7 +36,6 @@ pub struct ToolDispatcher {
     results: ToolResultSender,
     search: WebSearch,
     fetch: WebFetch,
-    store: Option<Store>,
     edit_schedule: Arc<Mutex<EditSchedule>>,
 }
 
@@ -63,7 +64,6 @@ impl ToolDispatcher {
             results,
             search: WebSearch::built_in(),
             fetch: WebFetch::built_in(),
-            store: None,
             edit_schedule: Arc::new(Mutex::new(EditSchedule::default())),
         }
     }
@@ -78,8 +78,7 @@ impl ToolDispatcher {
             runtime,
             results,
             search: WebSearch::managed(store.clone()),
-            fetch: WebFetch::managed(store.clone(), web_cache),
-            store: Some(store),
+            fetch: WebFetch::managed(store, web_cache),
             edit_schedule: Arc::new(Mutex::new(EditSchedule::default())),
         }
     }
@@ -203,7 +202,6 @@ impl ToolDispatcher {
             message_index,
             dynamic_mcp,
             context,
-            self.store.as_ref(),
         )
         .await?;
         messages.extend(started.messages);

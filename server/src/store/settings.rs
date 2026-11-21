@@ -24,6 +24,8 @@ pub const PUBLIC_TAB_SERVICE_URL: &str = "https://tab.leokun.cn";
 pub struct PortSettings {
     pub proxy_port: u16,
     pub service_port: u16,
+    #[serde(default)]
+    pub inference_port: u16,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
@@ -260,7 +262,7 @@ impl Store {
         .await?;
         value
             .map(|value| serde_json::from_str(&value).map_err(Into::into))
-            .unwrap_or(Ok(true))
+            .unwrap_or(Ok(false))
     }
 
     pub(crate) async fn set_cursor_takeover_enabled(&self, enabled: bool) -> Result<()> {
@@ -406,12 +408,6 @@ impl Store {
         .execute(&self.pool)
         .await?;
         Ok(())
-    }
-
-    pub async fn set_service_port(&self, port: u16) -> Result<()> {
-        let mut settings = self.port_settings().await?;
-        settings.service_port = port;
-        self.set_port_settings(settings).await
     }
 
     pub async fn set_proxy_port(&self, port: u16) -> Result<()> {
@@ -623,6 +619,23 @@ mod tests {
             .unwrap();
         assert_eq!(saved.mode, ProxyMode::Custom);
         assert_eq!(saved.address, "http://127.0.0.1:7890");
+    }
+
+    #[tokio::test]
+    async fn startup_restores_only_an_explicitly_enabled_local_proxy() {
+        let directory = tempfile::tempdir().unwrap();
+        let url = format!("sqlite://{}", directory.path().join("test.db").display());
+        let store = Store::connect(&url).await.unwrap();
+        assert!(!store.cursor_takeover_enabled().await.unwrap());
+        store.set_cursor_takeover_enabled(true).await.unwrap();
+        assert!(Store::connect(&url)
+            .await
+            .unwrap()
+            .cursor_takeover_enabled()
+            .await
+            .unwrap());
+        store.set_cursor_takeover_enabled(false).await.unwrap();
+        assert!(!store.cursor_takeover_enabled().await.unwrap());
     }
 
     #[tokio::test]

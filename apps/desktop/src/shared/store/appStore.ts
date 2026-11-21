@@ -49,7 +49,7 @@ let snapshot: AppSnapshot = {
     token_usage_series: [],
   },
   detailed: false,
-  ports: { proxy_port: 0, service_port: 0 },
+  ports: { proxy_port: 0, service_port: 0, inference_port: 0 },
   pricing: DEFAULT_TOKEN_PRICING,
   busy: false,
   error: null,
@@ -213,8 +213,9 @@ export const appStore = {
   },
   async reorderCursorModels(modelHashes: string[]) {
     const previous = snapshot.models;
-    const byHash = new Map(previous.map((model) => [model.model_hash, model]));
-    if (modelHashes.length !== previous.length || new Set(modelHashes).size !== previous.length) {
+    const manual = previous.filter(model => !model.gateway_capabilities);
+    const byHash = new Map(manual.map((model) => [model.model_hash, model]));
+    if (modelHashes.length !== manual.length || new Set(modelHashes).size !== manual.length) {
       update({ error: t("模型配置已发生变化，请刷新后重试") });
       return false;
     }
@@ -227,7 +228,7 @@ export const appStore = {
       }
       reordered.push({ ...model, sort_order: index + 1 });
     }
-    update({ models: reordered, cursorBusy: true, error: null });
+    update({ models: [...reordered, ...previous.filter(model => model.gateway_capabilities)], cursorBusy: true, error: null });
     try {
       update({ models: await api.reorderModels(modelHashes) });
       return true;
@@ -250,9 +251,6 @@ export const appStore = {
     }
   },
 
-  async openCallDetails(callId: string) {
-    await perform(() => api.openCallDetails(callId));
-  },
   async updateDetailed(detailed: boolean) {
     await perform(async () => update(await api.setObservability(detailed)));
   },

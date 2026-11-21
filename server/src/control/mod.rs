@@ -1,6 +1,8 @@
 //! Exposes the local control API.
+mod browser_devtools;
 mod calls;
 mod harness;
+mod magpie;
 mod migration;
 mod models;
 mod overview;
@@ -11,15 +13,31 @@ mod settings;
 use axum::{
     body::{to_bytes, Body},
     extract::State,
-    http::{header, header::CONTENT_TYPE, HeaderValue, Method, Request, Response, StatusCode},
+    http::{header, Request, Response, StatusCode},
     routing::{any, get, post, put},
     Router,
 };
-use tower_http::{
-    cors::{AllowOrigin, CorsLayer},
-    services::ServeDir,
-};
-use url::{Host, Url};
+use tower_http::services::ServeDir;
+use url::Url;
+
+#[derive(Clone, Copy)]
+pub(crate) struct InferenceAddress(pub std::net::SocketAddr);
+
+impl InferenceAddress {
+    fn local_client_url(self) -> String {
+        let mut address = self.0;
+        match address.ip() {
+            std::net::IpAddr::V4(ip) if ip.is_unspecified() => {
+                address.set_ip(std::net::Ipv4Addr::LOCALHOST.into())
+            }
+            std::net::IpAddr::V6(ip) if ip.is_unspecified() => {
+                address.set_ip(std::net::Ipv6Addr::LOCALHOST.into())
+            }
+            _ => {}
+        }
+        format!("http://{address}/byok/v1")
+    }
+}
 
 pub use service::{
     CallDetail, CallSummary, ControlService, DiscoveredModels, LegacyModelImportPreview,
@@ -115,6 +133,9 @@ pub fn api_router(service: ControlService) -> Router {
             "/__byok-api__/api/models",
             get(models::list).post(models::create),
         )
+        .route("/__byok-api__/api/providers/magpie",get(magpie::status).post(magpie::connect).delete(magpie::disconnect))
+        .route("/__byok-api__/api/providers/magpie/selection",put(magpie::select))
+        .route("/__byok-api__/api/settings/vision", get(settings::get_vision).put(settings::update_vision))
         .route("/__byok-api__/api/models/discover", post(models::discover))
         .route(
             "/__byok-api__/api/models/import-v0049",
@@ -131,6 +152,9 @@ pub fn api_router(service: ControlService) -> Router {
             post(models::test).delete(models::cancel),
         )
         .route("/__byok-api__/api/llm-calls", get(calls::list))
+        .route("/__byok-api__/api/browser-devtools/pair", post(browser_devtools::pair))
+        .route("/__byok-api__/api/browser-devtools/next", get(browser_devtools::next))
+        .route("/__byok-api__/api/browser-devtools/reply", post(browser_devtools::reply).layer(axum::extract::DefaultBodyLimit::max(8 * 1024 * 1024)))
         .route("/__byok-api__/api/llm-calls/{call_id}", get(calls::detail))
         .route("/__byok-api__/api/plugins", get(plugins::list))
         .route(
@@ -230,49 +254,4 @@ pub fn api_router(service: ControlService) -> Router {
             put(harness::set_enabled),
         )
         .with_state(service)
-        .layer(desktop_cors())
-}
-
-fn desktop_cors() -> CorsLayer {
-    CorsLayer::new()
-        .allow_origin(AllowOrigin::predicate(|origin, _| local_origin(origin)))
-        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
-        .allow_headers([
-            CONTENT_TYPE,
-            header::ACCEPT_LANGUAGE,
-            header::HeaderName::from_static("disable-ad-ids"),
-        ])
-}
-
-fn local_origin(origin: &HeaderValue) -> bool {
-    let Ok(origin) = origin.to_str() else {
-        return false;
-    };
-    if origin.eq_ignore_ascii_case("tauri://localhost") {
-        return true;
-    }
-    let Ok(origin) = Url::parse(origin) else {
-        return false;
-    };
-    if !matches!(origin.scheme(), "http" | "https")
-        || !origin.username().is_empty()
-        || origin.password().is_some()
-        || origin.path() != "/"
-        || origin.query().is_some()
-        || origin.fragment().is_some()
-    {
-        return false;
-    }
-    match origin.host() {
-        Some(Host::Domain(host)) => {
-            host.eq_ignore_ascii_case("localhost") || host.eq_ignore_ascii_case("tauri.localhost")
-        }
-        Some(Host::Ipv4(address)) => {
-            address.is_loopback() || address.is_private() || address.is_link_local()
-        }
-        Some(Host::Ipv6(address)) => {
-            address.is_loopback() || address.is_unique_local() || address.is_unicast_link_local()
-        }
-        None => false,
-    }
 }

@@ -168,68 +168,34 @@ const ANTIGRAVITY_AUTH: &[(&str, &str)] = &[
     ),
 ];
 
-const ZCODE_AUTH: &[(&str, &str)] = &[
-    (
-        "plugin.json",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/zcode-auth/plugin.json"
-        )),
-    ),
-    (
-        "main.ts",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/zcode-auth/main.ts"
-        )),
-    ),
-    (
-        "headers.ts",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/zcode-auth/headers.ts"
-        )),
-    ),
-    (
-        "models.ts",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/zcode-auth/models.ts"
-        )),
-    ),
-    (
-        "provider.ts",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/zcode-auth/provider.ts"
-        )),
-    ),
-    (
-        "resources.ts",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/zcode-auth/resources.ts"
-        )),
-    ),
-    (
-        "assets/zcode.svg",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/zcode-auth/assets/zcode.svg"
-        )),
-    ),
-];
-
 const PLUGINS: &[(&str, &[(&str, &str)])] = &[
     ("codex-auth", CODEX_AUTH),
     ("grok-auth", GROK_AUTH),
     ("antigravity-auth", ANTIGRAVITY_AUTH),
-    ("zcode-auth", ZCODE_AUTH),
 ];
 
 /// 把内置插件预装到 installed 目录。manifest 的 version 是缓存键:
 /// 版本一致时零写盘;版本变化时整目录同步并清理旧版本残留文件。
 pub(super) fn install(installed: &Path) -> Result<()> {
+    let retired = installed.join("zcode-auth");
+    let manifest = retired.join("plugin.json");
+    let is_retired_builtin = match std::fs::read(&manifest) {
+        Ok(bytes) => match serde_json::from_slice::<serde_json::Value>(&bytes) {
+            Ok(value) => value["id"] == "dev.cursorbyok.plugins.zcode",
+            Err(error) => {
+                tracing::warn!(path = %manifest.display(), %error, "cannot identify retired plugin");
+                false
+            }
+        },
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+        Err(error) => {
+            tracing::warn!(path = %manifest.display(), %error, "cannot read retired plugin manifest");
+            false
+        }
+    };
+    if is_retired_builtin {
+        std::fs::remove_dir_all(retired)?;
+    }
     for (name, files) in PLUGINS {
         let directory = installed.join(name);
         if disk_version(&directory) == Some(embedded_version(files)?) {
@@ -306,6 +272,40 @@ fn prune_unknown_files(root: &Path, directory: &Path, files: &[(&str, &str)]) ->
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn upgrades_retire_the_bundled_zcode_plugin_but_not_user_plugins() {
+        let root = tempfile::tempdir().unwrap();
+        let old = root.path().join("zcode-auth");
+        std::fs::create_dir(&old).unwrap();
+        std::fs::write(
+            old.join("plugin.json"),
+            r#"{"id":"dev.cursorbyok.plugins.zcode","version":"0.1.0"}"#,
+        )
+        .unwrap();
+        install(root.path()).unwrap();
+        assert!(!old.join("plugin.json").exists());
+        std::fs::create_dir_all(&old).unwrap();
+        std::fs::write(old.join("plugin.json"), r#"{"id":"my.plugin"}"#).unwrap();
+        install(root.path()).unwrap();
+        assert!(old.join("plugin.json").is_file());
+    }
+
+    #[test]
+    fn an_invalid_retired_manifest_does_not_block_other_builtins() {
+        let root = tempfile::tempdir().unwrap();
+        let old = root.path().join("zcode-auth");
+        std::fs::create_dir(&old).unwrap();
+        std::fs::write(old.join("plugin.json"), "{").unwrap();
+
+        install(root.path()).unwrap();
+
+        assert!(root.path().join("codex-auth/plugin.json").is_file());
+        assert_eq!(
+            std::fs::read_to_string(old.join("plugin.json")).unwrap(),
+            "{"
+        );
+    }
 
     fn embedded_main() -> &'static str {
         CODEX_AUTH

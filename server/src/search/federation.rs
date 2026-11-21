@@ -1,7 +1,11 @@
 //! Aggregates and ranks results from search sources.
-use std::{cmp::Ordering, collections::HashMap};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, HashMap},
+    time::Duration,
+};
 
-use futures_util::future::join_all;
+use futures_util::{stream::FuturesUnordered, StreamExt};
 
 use crate::store::Store;
 
@@ -9,6 +13,7 @@ use super::{catalog, SearchEngine, SearchHit};
 
 const RRF_K: f64 = 60.0;
 const MAX_RESULTS: usize = 15;
+const SEARCH_DEADLINE: Duration = Duration::from_secs(4);
 
 #[derive(Clone)]
 pub struct WebSearch {
@@ -64,37 +69,42 @@ impl WebSearch {
                 .map_err(|error| SearchError(format!("HTTP client failed: {error}")))?,
             SearchClient::Direct(client) => client.clone(),
         };
-        let responses = join_all(
-            self.engines
-                .iter()
-                .map(|engine| engine.search(&client, query)),
-        )
-        .await;
+        let mut pending: FuturesUnordered<_> = self
+            .engines
+            .iter()
+            .enumerate()
+            .map(|(index, engine)| {
+                let client = &client;
+                async move { (index, engine.search(client, query).await) }
+            })
+            .collect();
+        let mut responses = BTreeMap::new();
+        // Keep configured ranking order, independent of network arrival order.
+        let deadline = tokio::time::Instant::now() + SEARCH_DEADLINE;
+        while let Ok(Some((index, response))) =
+            tokio::time::timeout_at(deadline, pending.next()).await
+        {
+            responses.insert(index, response);
+        }
+        drop(pending);
         let mut merged = HashMap::<String, SearchHit>::new();
         let mut failures = Vec::new();
-        for (engine, response) in self.engines.iter().zip(responses) {
-            match response {
-                Ok(results) if !results.is_empty() => {
-                    tracing::debug!(
-                        engine = engine.id(),
-                        results = results.len(),
-                        "search engine completed"
-                    );
-                    merge(&mut merged, engine.id(), results)
-                }
-                Ok(_) => {
-                    tracing::debug!(engine = engine.id(), "search engine returned no results");
-                    failures.push(engine.id().to_string());
-                }
-                Err(error) => {
+        for (index, engine) in self.engines.iter().enumerate() {
+            match responses.remove(&index) {
+                Some(Ok(results)) => merge(&mut merged, engine.id(), results),
+                Some(Err(error)) => {
                     tracing::warn!(engine = engine.id(), %error, "search engine failed");
-                    failures.push(engine.id().to_string());
+                    failures.push(engine.id());
+                }
+                None => {
+                    tracing::debug!(engine = engine.id(), "search deadline reached");
+                    failures.push(engine.id());
                 }
             }
         }
-        if merged.is_empty() {
+        if !failures.is_empty() && failures.len() == self.engines.len() {
             return Err(SearchError(format!(
-                "no results from engines: {}",
+                "no usable results; these engines failed or timed out: {}",
                 failures.join(", ")
             )));
         }
@@ -145,6 +155,54 @@ fn merge(merged: &mut HashMap<String, SearchHit>, engine: &'static str, results:
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn a_slow_search_engine_does_not_block_useful_results_and_empty_is_not_an_error() {
+        use axum::{routing::get, Router};
+        let socket = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = socket.local_addr().unwrap();
+        let app = Router::new().route("/fast", get(|| async { r#"<div class='res'><a href='https://example.com/result'>Result</a><span>Snippet</span></div>"# }))
+            .route("/empty",get(|| async { "<html>No matching documents</html>" }))
+            .route("/failed",get(|| async { axum::http::StatusCode::BAD_GATEWAY }))
+            .route("/slow",get(|| async { std::future::pending::<&'static str>().await }));
+        let server = tokio::spawn(async move { axum::serve(socket, app).await.unwrap() });
+        let make = |id, path| {
+            super::super::HtmlEngine::new(
+                id,
+                format!("http://{addr}/{path}?q={{query}}"),
+                ".res",
+                "a",
+                "a",
+                "span",
+            )
+        };
+        let use_partial = WebSearch::with_engines([make("fast", "fast"), make("slow", "slow")]);
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(6),
+            use_partial.search("test"),
+        )
+        .await
+        .expect("slow source cannot consume its whole HTTP timeout")
+        .unwrap();
+        assert_eq!(result[0].url, "https://example.com/result");
+        assert!(WebSearch::with_engines([make("empty", "empty")])
+            .search("test")
+            .await
+            .unwrap()
+            .is_empty());
+        assert!(
+            WebSearch::with_engines([make("empty", "empty"), make("failed", "failed")])
+                .search("test")
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert!(WebSearch::with_engines([make("failed", "failed")])
+            .search("test")
+            .await
+            .is_err());
+        server.abort();
+    }
 
     fn hit(url: &str, engine: &'static str, chunk: &str) -> SearchHit {
         SearchHit::new("title", url, chunk, vec![engine])

@@ -4,6 +4,8 @@ import { PageContent } from "../../shell/layout/PageContent";
 import { LegacyModelImport } from "../models/LegacyModelImport";
 import { MigrationSettingsCard } from "./MigrationSettingsCard";
 import { AppLifecycleSettingsCard } from "./AppLifecycleSettingsCard";
+import { BrowserDevToolsCard } from "./BrowserDevToolsCard";
+import { VisionSettingsCard } from "./VisionSettingsCard";
 import { CommitSettingsCard } from "./CommitSettingsCard";
 import { ExternalApiSettingsCard } from "./ExternalApiSettingsCard";
 import { PricingSettingsCard } from "./PricingSettingsCard";
@@ -68,6 +70,7 @@ export function SettingsPage() {
   const savePorts = async () => {
     try {
       const next = {
+        ...ports,
         proxy_port: parsePort(proxyPort, t("代理端口")),
         service_port: parsePort(servicePort, t("服务端口")),
       };
@@ -226,9 +229,11 @@ export function SettingsPage() {
           </div>
         </div>
       </TitledCard>
-      <ExternalApiSettingsCard servicePort={ports.service_port} />
+      <ExternalApiSettingsCard />
       <ProxySettingsCard settings={outboundProxy} draft={proxyDraft} editing={editingProxy} saving={savingProxy} onDraftChange={setProxyDraft} onEdit={editProxy} onCancel={cancelProxyEdit} onSave={() => void saveProxy()} />
       <TabSettingsCard settings={tabSettings} draft={tabDraft} editing={editingTab} saving={savingTab} onDraftChange={setTabDraft} onEdit={editTab} onCancel={cancelTabEdit} onSave={() => void saveTab()} />
+      <VisionSettingsCard />
+      <BrowserDevToolsCard />
       <CommitSettingsCard />
       <PricingSettingsCard />
       <AppLifecycleSettingsCard />

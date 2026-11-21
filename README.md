@@ -29,7 +29,7 @@ This repository, [zkldwxz/cursor-byok](https://github.com/zkldwxz/cursor-byok), 
 
 - **Your model channels:** endpoint, credentials, model ID, headers, and extra parameters per model.
 - **Protocols:** OpenAI Responses, OpenAI Chat Completions, Anthropic Messages.
-- **Built-in provider plugins:** including ZCode (Z.AI / Zhipu Coding Plan) with the official client identity.
+- **Magpie provider:** connect once to your local gateway and follow its chat models and routing groups.
 - **Agent loop:** tool calling, Skills, MCP, subagents, and multi-turn history.
 - **Local store:** SQLite checkpoints, startup pruning of dead lineages, and a one-file device migration export.
 - **Operations UI:** model editor, connection tests, token/cache metrics, plugins, and system settings.
@@ -40,7 +40,7 @@ This repository, [zkldwxz/cursor-byok](https://github.com/zkldwxz/cursor-byok), 
 1. Download the latest build for your OS from [GitHub Releases](https://github.com/zkldwxz/cursor-byok/releases/latest).
 2. Open cursor-byok → **Cursor**, and initialize the local CA when prompted.
 3. Open **Model Settings**, add a model (server URL, API key, model ID), save, and run **Test**.
-4. Keep cursor-byok running.
+4. Turn on Cursor takeover and keep cursor-byok running locally.
 5. After the first install, or after upgrading Cursor, **quit Cursor completely**, start it again, open a **new** chat, and pick the model you configured — not **Auto**.
 
 Existing chats opened before the first successful connection will not pick up the local backend.
@@ -59,7 +59,22 @@ Each saved model is one upstream channel.
 
 Useful fields: type, protocol, server URL (base or full), API key, upstream model ID, display name shown in Cursor, context / max-output tokens, reasoning effort, JSON headers, and extra JSON body fields. Only send fields the provider documents.
 
-ZCode models can be imported as a plugin credential, or created as a manual OpenAI-compatible model with the “spoof ZCode environment” switch once the plugin is installed.
+For an upstream model and account with Ultrafast access, select **OpenAI → Responses**, enable extra JSON body fields, and set `"service_tier": "ultrafast"`. This sets the model's default tier. Cursor's **Speed** menu can select Standard or Fast explicitly. Clients that do not select a tier explicitly use the saved model setting. BYOK sends `default`, `priority`, or `ultrafast`, and the Responses `service_tier` reports the tier the provider used.
+
+For Magpie, start the gateway locally, open **Cursor → Magpie → Connect**, then choose which models to enable. The app discovers the loopback port, refreshes the catalog on startup and every ten minutes, and keeps your manual providers unchanged.
+
+## Local and Remote SSH workspace search
+
+Cursor executes Grep, Glob and Read in the workspace. Install [BYOK Workspace Symbols](apps/workspace-symbols/README.md), Semble and Serena on the host that holds the files. Each trusted root registers `semantic-…` for natural-language search and `symbols-…` for definitions, implementations and references. Semble embeds and indexes locally on that host.
+
+Keep BYOK and Magpie on the desktop machine. In an SSH window run **BYOK: Check Remote Inference Route**. If the effective `cursorAgentHost.remoteInferenceRoute` is `auto` or `never`, set it to `always` in Remote Settings and reload that window. In Cursor 3.31.15 private-inference remotes ignore this setting. The command reports configuration, not a live connectivity test.
+
+### SSH conversation recovery, memory and disk usage
+
+- BYOK restores Blob data from its local store first and requests missing roots from Cursor. Up to four roots are restored concurrently. The provider receives them in checkpoint order.
+- Open the repository itself as the remote workspace. Review the files in Cursor's indexing settings and use `.cursorindexingignore` for datasets, logs and build output that should stay out of the index. Use `.cursorignore` when Cursor's native Agent tools should skip those files as well. Shell and MCP tools follow the host's file permissions. [Cursor ignore files](https://cursor.com/docs/reference/ignore-file)
+- `remote.SSH.serverShutdownTimeout` defaults to 300 seconds after the last client disconnects. For a single-user host, tune it to your reconnect frequency. `remote.SSH.localServerDownload` set to `always` downloads on the desktop and transfers the archive to the remote. `off` downloads on the remote. `auto` uses the desktop when the remote download fails.
+- With Cursor 3.31.15 / Remote SSH 1.1.17, the Linux/macOS startup script keeps the five most recent entries per architecture and skips running versions. The product configuration in this release sets the default location to `~/.cursor-server`. Check previous `remote.SSH.serverInstallPath` locations too. On the remote host, use `du -sh ~/.cursor-server/bin/*/* 2>/dev/null` for build disk usage and `ps -u "$(id -un)" -o pid,ppid,rss,comm` for your processes' resident memory.
 
 ## Tab completion
 
@@ -100,12 +115,21 @@ Keys never leave the local SQLite store except as request headers to that API.
 cursor-byok/
 ├── apps/desktop/          Desktop UI (React) and Tauri shell
 ├── server/                Local Cursor backend, store, plugins, control API
-├── crates/semble-core/    Local code index / search
+├── apps/workspace-symbols/ Cursor workspace symbol search extension
+├── crates/semble-core/    Standalone benchmark engine, not used by desktop chats
 ├── protocols/cursor/      Captured Cursor protobuf (single source)
 ├── support/               Protocol extractor, capture tools, benchmarks
 ├── .agents/skills/        Area rules for contributors
 └── .github/workflows/     CI and desktop GitHub Releases
 ```
+
+The standalone server binds management to `127.0.0.1:3001` (`CURSOR_CONTROL_ADDR` must be loopback), and inference to `127.0.0.1:3000` (`CURSOR_LISTEN_ADDR`). The inference listener only serves `/byok/v1/*`; the external API is disabled by default and requires a key when enabled. Docker exposes only inference. On desktop, see Settings → External API for the bound address.
+
+## Using rules
+
+- **Project rules:** Put rules in the workspace's `.cursor/rules/` or use `AGENTS.md` where Cursor supports it. For SSH, keep project rules in the remote checkout. Cursor decides which rules apply and supplies them to BYOK as request context.
+- **Personal rules:** Manage them in Cursor's Rules settings, or create `~/.cursor-byok-v3/rules/personal/` on the BYOK machine and add plain Markdown files such as `language.md`. BYOK applies these files globally in filename order. Cursor's rule sync manages the parent directory, so keep handwritten rules in `personal/`. Mirrored rules with a Git origin apply only to matching workspace repositories.
+- **Verify:** Start a new BYOK conversation with a harmless rule such as “Start the answer with RULES_OK”. Rule changes append updated context rather than rewriting earlier conversation history.
 
 ## Development
 
@@ -124,7 +148,7 @@ See [AGENTS.md](./AGENTS.md) and [`.agents/skills/`](.agents/skills/) before cha
 
 cursor-byok was created by [leookun](https://github.com/leookun) in [leookun/cursor-byok](https://github.com/leookun/cursor-byok). That repository was **archived in October 2026**.
 
-**This repository is the continuation:** bug fixes, ZCode, store/pruning work, updater signing, and GitHub Releases are published from [zkldwxz/cursor-byok](https://github.com/zkldwxz/cursor-byok). Installers and `latest.json` / `update.json` point here.
+**This repository is the continuation:** bug fixes, provider support, store/pruning work, updater signing, and GitHub Releases are published from [zkldwxz/cursor-byok](https://github.com/zkldwxz/cursor-byok). Installers and `latest.json` / `update.json` point here.
 
 The original MIT-licensed code remains the foundation. Credit belongs with the original author and everyone who contributed upstream; this repo adds maintenance on top of that tree.
 

@@ -1,7 +1,6 @@
 //! Exposes the local desktop application integration.
 mod account;
 mod ca;
-mod process;
 mod proxy;
 mod settings;
 
@@ -104,21 +103,25 @@ impl CursorHarness {
         self.inner.proxy.lock().await.port()
     }
 
-    pub async fn cleanup_stale_settings(&self) -> Result<()> {
-        settings::clear_stale_managed_settings()
+    /// Restore the local desktop listener before a tray-only launch accepts any work.
+    pub async fn restore_desktop(&self, address: SocketAddr) -> Result<()> {
+        self.set_backend_addr(address);
+        if self.inner.store.cursor_takeover_enabled().await?
+            && matches!(self.inner.ca.state()?, CaState::Ready)
+        {
+            self.enable().await
+        } else {
+            settings::clear_stale_managed_settings(
+                self.inner.store.port_settings().await?.proxy_port,
+            )
+        }
     }
 
     pub async fn status(&self) -> Result<CursorHarnessStatus> {
-        let models = self.inner.store.models().await?;
+        let models = self.inner.store.configured_models().await?;
         let configured_models = models.len();
         let enabled_models = configured_models;
         let ca = self.inner.ca.state()?;
-        if self.inner.store.cursor_takeover_enabled().await?
-            && matches!(ca, CaState::Ready)
-            && self.inner.backend_addr.read().is_some()
-        {
-            self.enable().await?;
-        }
         let proxy = self.inner.proxy.lock().await;
         let proxy_url = proxy.url();
         let settings_applied = proxy_url
@@ -154,8 +157,12 @@ impl CursorHarness {
 
     pub async fn set_enabled(&self, enabled: bool) -> Result<CursorHarnessStatus> {
         if enabled {
-            self.inner.store.set_cursor_takeover_enabled(true).await?;
             self.enable().await?;
+            if let Err(error) = account::inject_if_missing().await {
+                self.disable().await?;
+                return Err(error);
+            }
+            self.inner.store.set_cursor_takeover_enabled(true).await?;
         } else {
             self.inner.store.set_cursor_takeover_enabled(false).await?;
             self.disable().await?;
@@ -187,16 +194,11 @@ impl CursorHarness {
             .map(settings::settings_match)
             .transpose()?
             .unwrap_or(false);
-        if !settings_applied {
-            // Terminating Cursor only makes the freshly written http.proxy take effect
-            // sooner; it is optional, so a failed probe or kill must not block takeover.
-            if let Err(error) = process::terminate_cursor().await {
-                tracing::warn!(%error, "could not terminate Cursor before applying proxy settings");
-            }
-        }
         if proxy.running() {
-            if let Some(url) = proxy.url() {
-                apply_cursor_configuration(&url).await?;
+            if !settings_applied {
+                if let Some(url) = proxy.url() {
+                    settings::write_proxy_settings(&url)?;
+                }
             }
             return Ok(());
         }
@@ -215,7 +217,7 @@ impl CursorHarness {
             proxy.stop().await;
             return Err(error);
         }
-        if let Err(error) = apply_cursor_configuration(&url).await {
+        if let Err(error) = settings::write_proxy_settings(&url) {
             proxy.stop().await;
             return Err(error);
         }
@@ -223,13 +225,11 @@ impl CursorHarness {
     }
 
     pub async fn disable(&self) -> Result<()> {
-        settings::clear_proxy_settings()?;
-        self.inner.proxy.lock().await.stop().await;
+        let mut proxy = self.inner.proxy.lock().await;
+        if let Some(port) = proxy.port() {
+            settings::clear_stale_managed_settings(port)?;
+        }
+        proxy.stop().await;
         Ok(())
     }
-}
-
-async fn apply_cursor_configuration(proxy_url: &str) -> Result<()> {
-    account::inject_if_missing().await?;
-    settings::write_proxy_settings(proxy_url)
 }
