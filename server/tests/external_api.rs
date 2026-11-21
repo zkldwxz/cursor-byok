@@ -83,7 +83,7 @@ async fn setup() -> (
 
 #[tokio::test]
 async fn management_model_responses_do_not_echo_saved_credentials() {
-    let (router, _, store, _) = setup().await;
+    let (router, _, store, _directory) = setup().await;
     let model = store.models().await.unwrap().remove(0);
     let path = format!("/__byok-api__/api/models/{}", model.model_hash);
     let mut input = model_input();
