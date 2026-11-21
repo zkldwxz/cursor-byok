@@ -436,12 +436,17 @@ fn rank_scores(scores: &[f32], limit: usize, exclude_zero: bool) -> Vec<usize> {
     let mut indices = (0..scores.len())
         .filter(|index| !exclude_zero || scores[*index] > 0.0)
         .collect::<Vec<_>>();
-    indices.sort_by(|left, right| {
+    let order = |left: &usize, right: &usize| {
         scores[*right]
             .total_cmp(&scores[*left])
             .then_with(|| left.cmp(right))
-    });
-    indices.truncate(limit.min(indices.len()));
+    };
+    if limit < indices.len() {
+        // Rank only the requested prefix; exact ties still use source order.
+        indices.select_nth_unstable_by(limit, order);
+        indices.truncate(limit);
+    }
+    indices.sort_unstable_by(order);
     indices
 }
 
@@ -794,6 +799,23 @@ mod tests {
             .unwrap();
         assert_eq!(response.results.len(), 1);
         assert_ne!(response.results[0].file_path, "src/auth.rs");
+    }
+
+    #[test]
+    fn top_k_preserves_full_ranking_order_at_ties_and_zero_boundaries() {
+        let scores = [0.0, 2.0, 1.0, 2.0, -4.0, 2.0, 1.0];
+        let positive = [1, 3, 5, 2, 6];
+        let all = [1, 3, 5, 2, 6, 0, 4];
+        for limit in 0..=scores.len() + 1 {
+            assert_eq!(
+                rank_scores(&scores, limit, false),
+                all[..limit.min(all.len())]
+            );
+            assert_eq!(
+                rank_scores(&scores, limit, true),
+                positive[..limit.min(positive.len())]
+            );
+        }
     }
 
     #[test]
