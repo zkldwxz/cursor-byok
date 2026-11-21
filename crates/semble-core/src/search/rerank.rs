@@ -31,11 +31,18 @@ pub fn rerank(
     let max = scores.values().copied().fold(0.0_f32, f32::max);
     let mut file_sum = HashMap::<&str, f32>::new();
     let mut best = HashMap::<&str, usize>::new();
-    for (&index, &score) in &scores {
+    // Stable accumulation and tie breaking keep repeated searches consistent across processes.
+    let mut candidates = scores.keys().copied().collect::<Vec<_>>();
+    candidates.sort_unstable();
+    for index in candidates {
+        let score = scores[&index];
         *file_sum.entry(&chunks[index].file_path).or_default() += score;
         best.entry(&chunks[index].file_path)
             .and_modify(|current| {
-                if score > scores[current] {
+                if score > scores[current]
+                    || (score == scores[current]
+                        && chunks[index].start_line < chunks[*current].start_line)
+                {
                     *current = index;
                 }
             })
@@ -133,6 +140,28 @@ pub(super) fn path_penalty(path: &str) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn equal_evidence_returns_the_earlier_location_every_time() {
+        let chunks = [1, 10, 20].map(|line| Chunk {
+            file_path: "src/detail.rs".into(),
+            start_line: line,
+            end_line: line,
+            language: Some("rust".into()),
+            content: String::new(),
+        });
+        for _ in 0..32 {
+            let scores = [(0, 1.0), (1, 1.0), (2, 1.0)].into_iter().collect();
+            let ranked = rerank(scores, &chunks, "format the receipt", 3);
+            assert_eq!(
+                ranked
+                    .into_iter()
+                    .map(|(index, _)| index)
+                    .collect::<Vec<_>>(),
+                [0, 1, 2]
+            );
+        }
+    }
 
     #[test]
     fn recognizes_symbols_and_penalizes_tests() {
