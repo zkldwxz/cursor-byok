@@ -54,6 +54,10 @@ pub(crate) struct PrepareDependencies<'a> {
     pub local_rules_dir: Option<&'a std::path::Path>,
 }
 
+pub(crate) fn is_local_config_model_id(id: &str) -> bool {
+    crate::model::is_manual_model_id(id) || id.starts_with(crate::provider::magpie::PREFIX)
+}
+
 pub(crate) async fn prepare(
     request_id: &str,
     request: &pb::AgentRunRequest,
@@ -67,6 +71,15 @@ pub(crate) async fn prepare(
         context_sync,
         local_rules_dir,
     } = dependencies;
+    let mut model = model::requested_model(request)?;
+    if let Some(configured_model) = store.configured_model(&model.model_id).await? {
+        configured_model.configure(&mut model);
+    } else if is_local_config_model_id(&model.model_id) {
+        return Err(Error::Config(format!(
+            "BYOK model is unavailable: {}. Select an available model.",
+            model.model_id
+        )));
+    }
     checkpoint
         .import_prefetched(&request.pre_fetched_blobs)
         .await?;
@@ -120,6 +133,7 @@ pub(crate) async fn prepare(
         trace.artifact("history_projection", "byok_server", &encoded, summary);
     }
     let mut request_context = context::hydrate(request, context_sync).await?;
+    crate::cursor::tools::devtools::inject(&mut request_context);
     if let Some(rules_dir) = local_rules_dir {
         context::merge_local_rules(&mut request_context, rules_dir);
     }
@@ -139,10 +153,6 @@ pub(crate) async fn prepare(
     } else {
         mode_from_proto(mode_number)?
     };
-    let mut model = model::requested_model(request)?;
-    if let Some(configured_model) = store.model(&model.model_id).await? {
-        configured_model.configure(&mut model);
-    }
     let dynamic = context::dynamic_mcp(request, &request_context)?;
     let subagent_model_overrides = model::overrides(request)?;
     let subagents_disabled = subagent_model_overrides

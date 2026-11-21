@@ -26,6 +26,18 @@
         }
       ]
     },
+    "0164f80178a2f12a": {
+      "source": "全部模型",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallsPage.tsx",
+          "line": 51,
+          "column": 101
+        }
+      ]
+    },
     "01f3e69a5a9b2c9b": {
       "source": "访问模型服务所需的密钥。",
       "kind": "text",
@@ -33,7 +45,7 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 162,
+          "line": 160,
           "column": 40
         }
       ]
@@ -106,12 +118,12 @@
       "refs": [
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 171,
+          "line": 184,
           "column": 64
         },
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 285,
+          "line": 298,
           "column": 70
         },
         {
@@ -131,13 +143,18 @@
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 184,
+          "line": 187,
           "column": 82
         },
         {
           "file": "features/settings/TabSettingsCard.tsx",
           "line": 40,
           "column": 98
+        },
+        {
+          "file": "features/settings/VisionSettingsCard.tsx",
+          "line": 57,
+          "column": 101
         }
       ]
     },
@@ -163,20 +180,20 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 154,
+          "line": 160,
           "column": 27
         }
       ]
     },
-    "0580e0a99a6f1afc": {
-      "source": "工件数",
+    "0640df514e3f74aa": {
+      "source": "暂无上下文数据",
       "kind": "text",
       "placeholders": [],
       "refs": [
         {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 71,
-          "column": 54
+          "file": "features/calls/CallTimeline.tsx",
+          "line": 111,
+          "column": 42
         }
       ]
     },
@@ -189,6 +206,20 @@
           "file": "features/plugins/PluginManagementPage.tsx",
           "line": 351,
           "column": 21
+        }
+      ]
+    },
+    "071e55e7721053fb": {
+      "source": "峰值 {count}",
+      "kind": "template",
+      "placeholders": [
+        "count"
+      ],
+      "refs": [
+        {
+          "file": "features/calls/CallTimeline.tsx",
+          "line": 35,
+          "column": 64
         }
       ]
     },
@@ -227,13 +258,25 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 192,
+          "line": 191,
           "column": 16
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 389,
+          "line": 402,
           "column": 73
+        }
+      ]
+    },
+    "081626a0ce569ca7": {
+      "source": "已发起工具调用",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallTimeline.tsx",
+          "line": 37,
+          "column": 6
         }
       ]
     },
@@ -249,23 +292,6 @@
           "file": "features/plugins/PluginManagementPage.tsx",
           "line": 258,
           "column": 12
-        }
-      ]
-    },
-    "08f91c2ed1942bd6": {
-      "source": "伪造 ZCode 环境",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/models/CursorModelEditor.tsx",
-          "line": 269,
-          "column": 10
-        },
-        {
-          "file": "features/models/CursorModelEditor.tsx",
-          "line": 277,
-          "column": 16
         }
       ]
     },
@@ -288,7 +314,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 400,
+          "line": 413,
           "column": 89
         }
       ]
@@ -302,6 +328,18 @@
           "file": "features/home/metrics/HomeMetrics.tsx",
           "line": 160,
           "column": 40
+        }
+      ]
+    },
+    "0a0869d6e2ed51a1": {
+      "source": "手动填写 OpenAI 或 Anthropic 兼容接口的地址、API Key 和模型。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/AddModelSource.tsx",
+          "line": 51,
+          "column": 18
         }
       ]
     },
@@ -338,30 +376,15 @@
         }
       ]
     },
-    "0c70665b6eb65f1a": {
-      "source": "否",
+    "0bc1fb72ae1be5c5": {
+      "source": "错误",
       "kind": "text",
       "placeholders": [],
       "refs": [
         {
           "file": "features/calls/CallDetails.tsx",
-          "line": 28,
-          "column": 61
-        },
-        {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 45,
-          "column": 42
-        },
-        {
-          "file": "features/calls/CallTable.tsx",
-          "line": 53,
-          "column": 72
-        },
-        {
-          "file": "features/calls/CallTable.tsx",
-          "line": 143,
-          "column": 51
+          "line": 52,
+          "column": 6
         }
       ]
     },
@@ -389,25 +412,32 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 101,
+          "line": 104,
           "column": 38
         }
       ]
     },
-    "0d5e2bdb15579fc4": {
-      "source": "消息数",
+    "0db24603a35b481b": {
+      "source": "筛选会话",
       "kind": "text",
       "placeholders": [],
       "refs": [
         {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 43,
-          "column": 6
-        },
+          "file": "features/calls/CallsPage.tsx",
+          "line": 52,
+          "column": 47
+        }
+      ]
+    },
+    "0e14d148b46b8c0b": {
+      "source": "速度",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
         {
-          "file": "features/calls/CallTable.tsx",
-          "line": 132,
-          "column": 15
+          "file": "features/calls/CallList.tsx",
+          "line": 48,
+          "column": 67
         }
       ]
     },
@@ -418,7 +448,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 281,
+          "line": 286,
           "column": 26
         }
       ]
@@ -435,23 +465,6 @@
           "file": "features/models/LegacyModelImport.tsx",
           "line": 42,
           "column": 11
-        }
-      ]
-    },
-    "0ec1e85b0c3cfa65": {
-      "source": "调用详情",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/calls/CallDetailsPage.tsx",
-          "line": 32,
-          "column": 28
-        },
-        {
-          "file": "features/calls/CallDetailsPage.tsx",
-          "line": 36,
-          "column": 41
         }
       ]
     },
@@ -532,13 +545,25 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 179,
+          "line": 178,
           "column": 16
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 399,
+          "line": 412,
           "column": 36
+        }
+      ]
+    },
+    "132411ba41da7354": {
+      "source": "推理",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 154,
+          "column": 44
         }
       ]
     },
@@ -549,7 +574,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 323,
+          "line": 329,
           "column": 213
         }
       ]
@@ -602,7 +627,7 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 164,
+          "line": 162,
           "column": 322
         }
       ]
@@ -614,13 +639,28 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 153,
+          "line": 151,
           "column": 59
         },
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 153,
+          "line": 151,
           "column": 124
+        }
+      ]
+    },
+    "167870f4dd30e540": {
+      "source": "已连接 · 已启用 {enabled} / {total} 个模型",
+      "kind": "template",
+      "placeholders": [
+        "enabled",
+        "total"
+      ],
+      "refs": [
+        {
+          "file": "features/models/AddModelSource.tsx",
+          "line": 33,
+          "column": 77
         }
       ]
     },
@@ -630,23 +670,28 @@
       "placeholders": [],
       "refs": [
         {
+          "file": "features/models/AddModelSource.tsx",
+          "line": 36,
+          "column": 36
+        },
+        {
           "file": "features/models/CursorGates.tsx",
           "line": 39,
           "column": 77
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 327,
+          "line": 333,
           "column": 51
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 327,
+          "line": 333,
           "column": 130
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 342,
+          "line": 348,
           "column": 74
         }
       ]
@@ -689,6 +734,18 @@
         }
       ]
     },
+    "1927bd499f8ebad1": {
+      "source": "消息 / 工具",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallDetails.tsx",
+          "line": 49,
+          "column": 6
+        }
+      ]
+    },
     "19658d9fa9aa8de4": {
       "source": "安装中…",
       "kind": "text",
@@ -715,6 +772,18 @@
           "file": "features/settings/CommitSettingsCard.tsx",
           "line": 207,
           "column": 16
+        }
+      ]
+    },
+    "19c6c208f94e3e09": {
+      "source": "全部会话",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallsPage.tsx",
+          "line": 52,
+          "column": 115
         }
       ]
     },
@@ -791,7 +860,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 363,
+          "line": 376,
           "column": 52
         }
       ]
@@ -803,7 +872,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 285,
+          "line": 290,
           "column": 131
         }
       ]
@@ -822,6 +891,18 @@
         }
       ]
     },
+    "1c95b72e1e903eaf": {
+      "source": "自动同步本机 Magpie 的对话模型，无需填写地址和 API Key。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/AddModelSource.tsx",
+          "line": 42,
+          "column": 18
+        }
+      ]
+    },
     "1cb7e646ac883fb2": {
       "source": "代理端口",
       "kind": "text",
@@ -829,17 +910,17 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 71,
+          "line": 74,
           "column": 42
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 189,
+          "line": 192,
           "column": 22
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 216,
+          "line": 219,
           "column": 58
         }
       ]
@@ -880,6 +961,23 @@
         }
       ]
     },
+    "1ded6559f626109d": {
+      "source": "缓存读取",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallList.tsx",
+          "line": 44,
+          "column": 66
+        },
+        {
+          "file": "features/calls/tokenParts.ts",
+          "line": 18,
+          "column": 25
+        }
+      ]
+    },
     "1f9b46e61efcccb5": {
       "source": "筛选项：{label}，{summary}",
       "kind": "template",
@@ -902,18 +1000,30 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 168,
+          "line": 167,
           "column": 49
         },
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 170,
+          "line": 169,
           "column": 50
         },
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 173,
+          "line": 172,
           "column": 50
+        }
+      ]
+    },
+    "2087c777c06fefe5": {
+      "source": "输入",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallList.tsx",
+          "line": 43,
+          "column": 66
         }
       ]
     },
@@ -926,7 +1036,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 393,
+          "line": 406,
           "column": 89
         }
       ]
@@ -938,7 +1048,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 258,
+          "line": 263,
           "column": 43
         }
       ]
@@ -962,7 +1072,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 126,
+          "line": 129,
           "column": 15
         }
       ]
@@ -974,7 +1084,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 321,
+          "line": 327,
           "column": 136
         }
       ]
@@ -986,7 +1096,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 308,
+          "line": 313,
           "column": 24
         }
       ]
@@ -1031,6 +1141,30 @@
         }
       ]
     },
+    "250d5b368d059013": {
+      "source": "识图 MCP",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/VisionSettingsCard.tsx",
+          "line": 31,
+          "column": 28
+        }
+      ]
+    },
+    "252acb6111b166c4": {
+      "source": "独立于手动添加的供应商，互不影响",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 102,
+          "column": 52
+        }
+      ]
+    },
     "2555d6c7fbb7e070": {
       "source": "可以直接输入模型标识，也可以读取接口返回的模型列表。",
       "kind": "text",
@@ -1038,8 +1172,20 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 164,
+          "line": 162,
           "column": 42
+        }
+      ]
+    },
+    "28384d7afd2e4fa6": {
+      "source": "失败",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallList.tsx",
+          "line": 96,
+          "column": 68
         }
       ]
     },
@@ -1064,8 +1210,22 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 49,
+          "line": 52,
           "column": 43
+        }
+      ]
+    },
+    "29764f6369857dc8": {
+      "source": "末块 +{time}",
+      "kind": "template",
+      "placeholders": [
+        "time"
+      ],
+      "refs": [
+        {
+          "file": "features/calls/CallDetails.tsx",
+          "line": 113,
+          "column": 7
         }
       ]
     },
@@ -1100,12 +1260,12 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 175,
+          "line": 174,
           "column": 27
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 392,
+          "line": 405,
           "column": 186
         }
       ]
@@ -1133,13 +1293,18 @@
           "column": 105
         },
         {
+          "file": "features/models/AddModelSource.tsx",
+          "line": 36,
+          "column": 77
+        },
+        {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 332,
+          "line": 338,
           "column": 20
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 363,
+          "line": 376,
           "column": 76
         },
         {
@@ -1179,18 +1344,23 @@
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 180,
+          "line": 183,
           "column": 81
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 300,
+          "line": 305,
           "column": 22
         },
         {
           "file": "features/settings/TabSettingsCard.tsx",
           "line": 36,
           "column": 66
+        },
+        {
+          "file": "features/settings/VisionSettingsCard.tsx",
+          "line": 55,
+          "column": 76
         },
         {
           "file": "shared/ui/ConfirmDialog.tsx",
@@ -1216,8 +1386,20 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 331,
+          "line": 337,
           "column": 14
+        }
+      ]
+    },
+    "2d200ad97502910f": {
+      "source": "识图方式",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/VisionSettingsCard.tsx",
+          "line": 61,
+          "column": 28
         }
       ]
     },
@@ -1235,20 +1417,29 @@
         }
       ]
     },
-    "2eb2bf7c6597ab9a": {
-      "source": "详细记录",
+    "2dd5a3a1927dd4af": {
+      "source": "连接 Magpie",
       "kind": "text",
       "placeholders": [],
       "refs": [
         {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 45,
-          "column": 6
-        },
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 94,
+          "column": 20
+        }
+      ]
+    },
+    "2e429deb24d4b3be": {
+      "source": "{count} 个分块",
+      "kind": "template",
+      "placeholders": [
+        "count"
+      ],
+      "refs": [
         {
-          "file": "features/calls/CallTable.tsx",
-          "line": 142,
-          "column": 15
+          "file": "features/calls/CallDetails.tsx",
+          "line": 112,
+          "column": 56
         }
       ]
     },
@@ -1259,7 +1450,7 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 165,
+          "line": 163,
           "column": 42
         }
       ]
@@ -1273,7 +1464,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 406,
+          "line": 419,
           "column": 70
         }
       ]
@@ -1285,7 +1476,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 150,
+          "line": 153,
           "column": 15
         }
       ]
@@ -1319,18 +1510,6 @@
         }
       ]
     },
-    "2f6416a2c424856b": {
-      "source": "最终请求地址",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 24,
-          "column": 6
-        }
-      ]
-    },
     "2f7ba5fd1d12f7f9": {
       "source": "打开使用教程？",
       "kind": "text",
@@ -1350,17 +1529,17 @@
       "refs": [
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 173,
+          "line": 186,
           "column": 96
         },
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 287,
+          "line": 300,
           "column": 102
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 363,
+          "line": 376,
           "column": 99
         },
         {
@@ -1417,13 +1596,18 @@
       "placeholders": [],
       "refs": [
         {
+          "file": "features/models/CursorModelEditor.tsx",
+          "line": 160,
+          "column": 106
+        },
+        {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 356,
+          "line": 362,
           "column": 35
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 359,
+          "line": 365,
           "column": 41
         }
       ]
@@ -1440,6 +1624,18 @@
         }
       ]
     },
+    "32c72a94d460b1b9": {
+      "source": "Cursor 原生识图",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/VisionSettingsCard.tsx",
+          "line": 29,
+          "column": 31
+        }
+      ]
+    },
     "346ff60e6c7c5181": {
       "source": "读取中…",
       "kind": "text",
@@ -1452,20 +1648,32 @@
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 243,
+          "line": 248,
           "column": 27
         }
       ]
     },
-    "34a6d0bee9a4976b": {
-      "source": "让该模型以官方 ZCode 客户端的身份请求智谱 Coding Plan，获得与官方客户端一致的模型环境。开启后会写入自定义 Headers 与额外参数，可再手动微调。",
+    "354b28c853334568": {
+      "source": "原文",
       "kind": "text",
       "placeholders": [],
       "refs": [
         {
-          "file": "features/models/CursorModelEditor.tsx",
-          "line": 223,
-          "column": 7
+          "file": "features/calls/CallDetails.tsx",
+          "line": 137,
+          "column": 27
+        }
+      ]
+    },
+    "35ced93b32f43504": {
+      "source": "正在加载记录…",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallDetails.tsx",
+          "line": 82,
+          "column": 43
         }
       ]
     },
@@ -1488,8 +1696,8 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 391,
-          "column": 123
+          "line": 404,
+          "column": 137
         }
       ]
     },
@@ -1532,7 +1740,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 310,
+          "line": 315,
           "column": 42
         }
       ]
@@ -1549,15 +1757,27 @@
         }
       ]
     },
+    "39131a6859d0dfaf": {
+      "source": "原生支持图片",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/CursorModelEditor.tsx",
+          "line": 166,
+          "column": 24
+        }
+      ]
+    },
     "393e1241552b1870": {
       "source": "请求",
       "kind": "text",
       "placeholders": [],
       "refs": [
         {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 54,
-          "column": 32
+          "file": "features/calls/CallTimeline.tsx",
+          "line": 36,
+          "column": 6
         }
       ]
     },
@@ -1578,15 +1798,17 @@
         }
       ]
     },
-    "3a0fb74abe2460b6": {
-      "source": "分块数",
-      "kind": "text",
-      "placeholders": [],
+    "3a237b991f7e9656": {
+      "source": "{count} 个工件",
+      "kind": "template",
+      "placeholders": [
+        "count"
+      ],
       "refs": [
         {
           "file": "features/calls/CallDetails.tsx",
-          "line": 63,
-          "column": 39
+          "line": 114,
+          "column": 49
         }
       ]
     },
@@ -1597,7 +1819,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 292,
+          "line": 297,
           "column": 14
         }
       ]
@@ -1607,6 +1829,16 @@
       "kind": "text",
       "placeholders": [],
       "refs": [
+        {
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 128,
+          "column": 130
+        },
+        {
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 140,
+          "column": 117
+        },
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
           "line": 381,
@@ -1626,7 +1858,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 243,
+          "line": 248,
           "column": 39
         }
       ]
@@ -1693,12 +1925,12 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 250,
+          "line": 255,
           "column": 22
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 256,
+          "line": 261,
           "column": 26
         }
       ]
@@ -1722,7 +1954,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 323,
+          "line": 329,
           "column": 199
         }
       ]
@@ -1734,8 +1966,13 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 347,
+          "line": 353,
           "column": 80
+        },
+        {
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 93,
+          "column": 88
         },
         {
           "file": "features/plugins/PluginManagementPage.tsx",
@@ -1768,7 +2005,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 157,
+          "line": 160,
           "column": 66
         }
       ]
@@ -1780,7 +2017,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 276,
+          "line": 281,
           "column": 52
         }
       ]
@@ -1814,23 +2051,6 @@
         }
       ]
     },
-    "42a1d9e5b037c210": {
-      "source": "字节数",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 56,
-          "column": 39
-        },
-        {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 63,
-          "column": 68
-        }
-      ]
-    },
     "42aa8e01e98c0d8c": {
       "source": "总耗时",
       "kind": "text",
@@ -1855,6 +2075,18 @@
         }
       ]
     },
+    "44a7180294593ce1": {
+      "source": "把配对码粘贴到 Chrome 扩展，再共享要调试的标签页。重新配对会替换旧连接。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/BrowserDevToolsCard.tsx",
+          "line": 27,
+          "column": 9
+        }
+      ]
+    },
     "461d6a57900c2ed7": {
       "source": "连通性测试失败：{error}",
       "kind": "template",
@@ -1864,7 +2096,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 163,
+          "line": 169,
           "column": 27
         }
       ]
@@ -1978,6 +2210,11 @@
           "file": "features/settings/TabSettingsCard.tsx",
           "line": 81,
           "column": 81
+        },
+        {
+          "file": "features/settings/VisionSettingsCard.tsx",
+          "line": 67,
+          "column": 61
         }
       ]
     },
@@ -2005,12 +2242,12 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 168,
+          "line": 167,
           "column": 25
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 392,
+          "line": 405,
           "column": 34
         }
       ]
@@ -2022,23 +2259,60 @@
       "refs": [
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 170,
+          "line": 88,
+          "column": 121
+        },
+        {
+          "file": "features/models/CursorModelCards.tsx",
+          "line": 183,
           "column": 86
         },
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 193,
+          "line": 206,
           "column": 86
         },
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 284,
+          "line": 297,
           "column": 92
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 342,
+          "line": 348,
           "column": 703
+        }
+      ]
+    },
+    "49eff3a71777dd19": {
+      "source": "未记录代理",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallsPage.tsx",
+          "line": 44,
+          "column": 43
+        },
+        {
+          "file": "features/calls/tokenParts.ts",
+          "line": 58,
+          "column": 48
+        }
+      ]
+    },
+    "4a059f84917ba989": {
+      "source": "已启用 {enabled} / {total} 个模型",
+      "kind": "template",
+      "placeholders": [
+        "enabled",
+        "total"
+      ],
+      "refs": [
+        {
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 116,
+          "column": 45
         }
       ]
     },
@@ -2078,6 +2352,18 @@
         }
       ]
     },
+    "4ad4d63474ae00c4": {
+      "source": "正在读取状态…",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/AddModelSource.tsx",
+          "line": 31,
+          "column": 40
+        }
+      ]
+    },
     "4b458e6e147221d7": {
       "source": "系统会根据请求协议自动追加标准端点路径。",
       "kind": "text",
@@ -2085,8 +2371,20 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 159,
+          "line": 157,
           "column": 145
+        }
+      ]
+    },
+    "4b5e0ae1288a9695": {
+      "source": "没有匹配的模型",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 132,
+          "column": 63
         }
       ]
     },
@@ -2126,7 +2424,7 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 310,
+          "line": 217,
           "column": 41
         }
       ]
@@ -2184,7 +2482,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 200,
+          "line": 206,
           "column": 13
         }
       ]
@@ -2208,7 +2506,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 307,
+          "line": 313,
           "column": 68
         },
         {
@@ -2237,7 +2535,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 178,
+          "line": 181,
           "column": 26
         }
       ]
@@ -2278,7 +2576,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 258,
+          "line": 262,
           "column": 47
         }
       ]
@@ -2295,6 +2593,23 @@
         }
       ]
     },
+    "5542b7f41652793f": {
+      "source": "指定视觉模型",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/VisionSettingsCard.tsx",
+          "line": 30,
+          "column": 30
+        },
+        {
+          "file": "features/settings/VisionSettingsCard.tsx",
+          "line": 62,
+          "column": 70
+        }
+      ]
+    },
     "56432ba297009bdc": {
       "source": "请先初始化 CA",
       "kind": "text",
@@ -2302,7 +2617,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 327,
+          "line": 333,
           "column": 63
         }
       ]
@@ -2326,17 +2641,17 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 170,
+          "line": 169,
           "column": 27
         },
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 173,
+          "line": 172,
           "column": 27
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 392,
+          "line": 405,
           "column": 83
         }
       ]
@@ -2358,8 +2673,22 @@
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 236,
+          "line": 241,
           "column": 78
+        }
+      ]
+    },
+    "58e4b432d8666acb": {
+      "source": "显示更早的 {count} 条",
+      "kind": "template",
+      "placeholders": [
+        "count"
+      ],
+      "refs": [
+        {
+          "file": "features/calls/CallList.tsx",
+          "line": 56,
+          "column": 8
         }
       ]
     },
@@ -2385,6 +2714,18 @@
         }
       ]
     },
+    "596a28d91f825cd8": {
+      "source": "连接本机 Magpie 网关",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 97,
+          "column": 18
+        }
+      ]
+    },
     "5a284a1a2be8da0e": {
       "source": "从本机旧版配置读取模型；确认前会显示新增和已存在的模型。",
       "kind": "text",
@@ -2392,7 +2733,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 240,
+          "line": 245,
           "column": 21
         }
       ]
@@ -2447,7 +2788,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 322,
+          "line": 328,
           "column": 124
         }
       ]
@@ -2487,6 +2828,23 @@
           "file": "shell/AppHeader.tsx",
           "line": 34,
           "column": 18
+        }
+      ]
+    },
+    "5e84ea61e8386af7": {
+      "source": "代理",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallDetails.tsx",
+          "line": 42,
+          "column": 6
+        },
+        {
+          "file": "features/calls/CallList.tsx",
+          "line": 40,
+          "column": 16
         }
       ]
     },
@@ -2540,11 +2898,30 @@
         }
       ]
     },
+    "601aa601c8cfc17f": {
+      "source": "请求头 {count}",
+      "kind": "template",
+      "placeholders": [
+        "count"
+      ],
+      "refs": [
+        {
+          "file": "features/calls/CallDetails.tsx",
+          "line": 97,
+          "column": 56
+        }
+      ]
+    },
     "6078a681a306930d": {
       "source": "缓存写入",
       "kind": "text",
       "placeholders": [],
       "refs": [
+        {
+          "file": "features/calls/tokenParts.ts",
+          "line": 20,
+          "column": 26
+        },
         {
           "file": "features/home/charts/DailyTokenUsageChart.tsx",
           "line": 108,
@@ -2607,18 +2984,6 @@
         }
       ]
     },
-    "61c7d1f758b647d5": {
-      "source": "调用信息",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 51,
-          "column": 29
-        }
-      ]
-    },
     "621f63a5f08384ac": {
       "source": "缓存读取：{tokens}",
       "kind": "template",
@@ -2633,6 +2998,18 @@
         }
       ]
     },
+    "6220fa35b28aebd7": {
+      "source": "最终请求",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallDetails.tsx",
+          "line": 40,
+          "column": 6
+        }
+      ]
+    },
     "6320b4a8722a851f": {
       "source": "状态",
       "kind": "text",
@@ -2640,13 +3017,8 @@
       "refs": [
         {
           "file": "features/calls/CallDetails.tsx",
-          "line": 29,
+          "line": 36,
           "column": 6
-        },
-        {
-          "file": "features/calls/CallTable.tsx",
-          "line": 16,
-          "column": 15
         }
       ]
     },
@@ -2668,13 +3040,18 @@
       "placeholders": [],
       "refs": [
         {
+          "file": "features/calls/CallDetails.tsx",
+          "line": 140,
+          "column": 45
+        },
+        {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 172,
+          "line": 185,
           "column": 64
         },
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 286,
+          "line": 299,
           "column": 70
         },
         {
@@ -2705,7 +3082,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 540,
+          "line": 568,
           "column": 43
         }
       ]
@@ -2748,8 +3125,20 @@
       "refs": [
         {
           "file": "features/calls/CallsPage.tsx",
-          "line": 33,
-          "column": 36
+          "line": 56,
+          "column": 25
+        }
+      ]
+    },
+    "653ee8baf7b5d562": {
+      "source": "使用 Streamable HTTP。工具的 image 参数接收图片数据 URL，prompt 参数接收问题。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/VisionSettingsCard.tsx",
+          "line": 64,
+          "column": 48
         }
       ]
     },
@@ -2762,23 +3151,6 @@
           "file": "features/models/CursorGates.tsx",
           "line": 36,
           "column": 14
-        }
-      ]
-    },
-    "65a6318e07ec1e07": {
-      "source": "工具数",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 44,
-          "column": 6
-        },
-        {
-          "file": "features/calls/CallTable.tsx",
-          "line": 137,
-          "column": 15
         }
       ]
     },
@@ -2844,7 +3216,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 101,
+          "line": 104,
           "column": 55
         }
       ]
@@ -2870,6 +3242,18 @@
           "file": "shell/AppLayout.tsx",
           "line": 59,
           "column": 47
+        }
+      ]
+    },
+    "68f33bec99c89f36": {
+      "source": "非缓存输入",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/tokenParts.ts",
+          "line": 19,
+          "column": 26
         }
       ]
     },
@@ -2904,17 +3288,22 @@
       "refs": [
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 170,
+          "line": 88,
+          "column": 133
+        },
+        {
+          "file": "features/models/CursorModelCards.tsx",
+          "line": 183,
           "column": 98
         },
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 193,
+          "line": 206,
           "column": 98
         },
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 284,
+          "line": 297,
           "column": 104
         }
       ]
@@ -2958,6 +3347,18 @@
         }
       ]
     },
+    "6dfc0109c2260b6f": {
+      "source": "未连接 · 一键发现本机网关",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/AddModelSource.tsx",
+          "line": 34,
+          "column": 42
+        }
+      ]
+    },
     "6e86570183c3cdd0": {
       "source": "当前已是最新版本",
       "kind": "text",
@@ -2967,6 +3368,18 @@
           "file": "features/settings/AppLifecycleSettingsCard.tsx",
           "line": 96,
           "column": 78
+        }
+      ]
+    },
+    "6fc38ef3602fe789": {
+      "source": "上下文",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallTimeline.tsx",
+          "line": 70,
+          "column": 166
         }
       ]
     },
@@ -2996,6 +3409,23 @@
         }
       ]
     },
+    "719cac6836412de5": {
+      "source": "Token 构成",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallDetails.tsx",
+          "line": 67,
+          "column": 12
+        },
+        {
+          "file": "features/calls/CallList.tsx",
+          "line": 42,
+          "column": 45
+        }
+      ]
+    },
     "72644ec4389da2f7": {
       "source": "默认平铺",
       "kind": "text",
@@ -3003,7 +3433,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 320,
+          "line": 326,
           "column": 105
         }
       ]
@@ -3015,12 +3445,12 @@
       "refs": [
         {
           "file": "shared/store/appStore.ts",
-          "line": 218,
+          "line": 219,
           "column": 23
         },
         {
           "file": "shared/store/appStore.ts",
-          "line": 225,
+          "line": 226,
           "column": 25
         }
       ]
@@ -3032,8 +3462,32 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 168,
+          "line": 171,
           "column": 16
+        }
+      ]
+    },
+    "75797fd6edec404b": {
+      "source": "主模型能识图时直接使用原图。纯文本模型默认由 Cursor 识图，也可指定视觉模型或 MCP。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/VisionSettingsCard.tsx",
+          "line": 59,
+          "column": 15
+        }
+      ]
+    },
+    "75b269496f698fae": {
+      "source": "运行",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallDetails.tsx",
+          "line": 44,
+          "column": 6
         }
       ]
     },
@@ -3068,7 +3522,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 268,
+          "line": 273,
           "column": 26
         }
       ]
@@ -3092,7 +3546,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 535,
+          "line": 563,
           "column": 43
         }
       ]
@@ -3116,7 +3570,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 301,
+          "line": 306,
           "column": 23
         }
       ]
@@ -3130,6 +3584,18 @@
           "file": "features/plugins/PluginManagementPage.tsx",
           "line": 350,
           "column": 31
+        }
+      ]
+    },
+    "7c434b66e4104039": {
+      "source": "输出速度 —",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallTimeline.tsx",
+          "line": 38,
+          "column": 24
         }
       ]
     },
@@ -3152,12 +3618,12 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 186,
+          "line": 185,
           "column": 16
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 387,
+          "line": 400,
           "column": 67
         }
       ]
@@ -3174,6 +3640,18 @@
         }
       ]
     },
+    "7d494b0106026248": {
+      "source": "首字 / 耗时",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallDetails.tsx",
+          "line": 46,
+          "column": 6
+        }
+      ]
+    },
     "7d9f043f8f7ab45c": {
       "source": "发现新版本 {version}，可在设置中安装",
       "kind": "template",
@@ -3183,7 +3661,7 @@
       "refs": [
         {
           "file": "App.tsx",
-          "line": 62,
+          "line": 60,
           "column": 21
         }
       ]
@@ -3195,7 +3673,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 144,
+          "line": 147,
           "column": 83
         }
       ]
@@ -3282,7 +3760,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 477,
+          "line": 501,
           "column": 21
         }
       ]
@@ -3309,7 +3787,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 198,
+          "line": 204,
           "column": 11
         }
       ]
@@ -3336,7 +3814,7 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 164,
+          "line": 162,
           "column": 334
         }
       ]
@@ -3430,23 +3908,13 @@
       "refs": [
         {
           "file": "features/calls/CallDetails.tsx",
-          "line": 15,
-          "column": 56
-        },
-        {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 16,
+          "line": 41,
           "column": 50
         },
         {
-          "file": "features/calls/CallTable.tsx",
-          "line": 60,
-          "column": 48
-        },
-        {
-          "file": "features/calls/CallTable.tsx",
-          "line": 66,
-          "column": 44
+          "file": "features/calls/CallList.tsx",
+          "line": 82,
+          "column": 80
         }
       ]
     },
@@ -3459,6 +3927,18 @@
           "file": "features/home/metrics/HomeMetrics.tsx",
           "line": 54,
           "column": 17
+        }
+      ]
+    },
+    "87a8a0c3a5e51043": {
+      "source": "已连接本机 Magpie",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 115,
+          "column": 48
         }
       ]
     },
@@ -3481,7 +3961,7 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 166,
+          "line": 164,
           "column": 349
         }
       ]
@@ -3493,7 +3973,7 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 159,
+          "line": 157,
           "column": 115
         }
       ]
@@ -3526,9 +4006,14 @@
       "placeholders": [],
       "refs": [
         {
-          "file": "features/calls/CallTable.tsx",
-          "line": 36,
-          "column": 15
+          "file": "features/calls/CallDetails.tsx",
+          "line": 34,
+          "column": 6
+        },
+        {
+          "file": "features/calls/CallList.tsx",
+          "line": 39,
+          "column": 16
         }
       ]
     },
@@ -3551,25 +4036,20 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 239,
+          "line": 244,
           "column": 22
         }
       ]
     },
-    "8d0c47eb9eac2d34": {
-      "source": "调用类型",
+    "8d7d0766deefbcb1": {
+      "source": "启动时和每 10 分钟同步一次模型目录",
       "kind": "text",
       "placeholders": [],
       "refs": [
         {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 15,
-          "column": 6
-        },
-        {
-          "file": "features/calls/CallTable.tsx",
-          "line": 58,
-          "column": 15
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 101,
+          "column": 52
         }
       ]
     },
@@ -3580,7 +4060,7 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 153,
+          "line": 151,
           "column": 76
         }
       ]
@@ -3590,6 +4070,11 @@
       "kind": "text",
       "placeholders": [],
       "refs": [
+        {
+          "file": "features/calls/CallDetails.tsx",
+          "line": 122,
+          "column": 19
+        },
         {
           "file": "features/plugins/PluginResourcePanels.tsx",
           "line": 208,
@@ -3618,8 +4103,20 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 407,
+          "line": 420,
           "column": 87
+        }
+      ]
+    },
+    "90d2e06881e1accb": {
+      "source": "已复制 Chrome 扩展配对码",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/BrowserDevToolsCard.tsx",
+          "line": 19,
+          "column": 15
         }
       ]
     },
@@ -3666,7 +4163,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 160,
+          "line": 163,
           "column": 7
         }
       ]
@@ -3692,7 +4189,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 307,
+          "line": 313,
           "column": 79
         },
         {
@@ -3733,7 +4230,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 363,
+          "line": 376,
           "column": 250
         }
       ]
@@ -3772,6 +4269,18 @@
         }
       ]
     },
+    "969c3784b6e62b6e": {
+      "source": "请求与响应",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallDetails.tsx",
+          "line": 79,
+          "column": 12
+        }
+      ]
+    },
     "96f7642963ca0dbf": {
       "source": "开启接管Cursor",
       "kind": "text",
@@ -3779,7 +4288,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 49,
+          "line": 52,
           "column": 61
         }
       ]
@@ -3807,6 +4316,32 @@
           "file": "shared/ui/ModelSelect.tsx",
           "line": 120,
           "column": 44
+        }
+      ]
+    },
+    "98ee7e7457d808cd": {
+      "source": "推理 Token",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallDetails.tsx",
+          "line": 48,
+          "column": 6
+        }
+      ]
+    },
+    "9914c7a0f9832568": {
+      "source": "输出速度 {speed} tok/s",
+      "kind": "template",
+      "placeholders": [
+        "speed"
+      ],
+      "refs": [
+        {
+          "file": "features/calls/CallTimeline.tsx",
+          "line": 38,
+          "column": 38
         }
       ]
     },
@@ -3877,23 +4412,42 @@
       "refs": [
         {
           "file": "features/calls/CallDetails.tsx",
-          "line": 27,
+          "line": 38,
           "column": 6
         },
         {
-          "file": "features/calls/CallTable.tsx",
-          "line": 47,
-          "column": 15
-        },
-        {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 174,
+          "line": 173,
           "column": 27
         },
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 174,
+          "line": 173,
           "column": 58
+        }
+      ]
+    },
+    "9d316f48f835fc2d": {
+      "source": "浏览器 DevTools",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/BrowserDevToolsCard.tsx",
+          "line": 26,
+          "column": 29
+        }
+      ]
+    },
+    "9d5e991e537cec7b": {
+      "source": "MCP 地址",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/VisionSettingsCard.tsx",
+          "line": 64,
+          "column": 29
         }
       ]
     },
@@ -3935,6 +4489,18 @@
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
           "line": 121,
           "column": 70
+        }
+      ]
+    },
+    "9e4abce6cd2948e7": {
+      "source": "自定义供应商",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/AddModelSource.tsx",
+          "line": 50,
+          "column": 20
         }
       ]
     },
@@ -4007,7 +4573,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 247,
+          "line": 252,
           "column": 26
         }
       ]
@@ -4021,6 +4587,20 @@
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
           "line": 37,
           "column": 29
+        }
+      ]
+    },
+    "9fe710f2f79e8af4": {
+      "source": "失败 {count}",
+      "kind": "template",
+      "placeholders": [
+        "count"
+      ],
+      "refs": [
+        {
+          "file": "features/calls/CallTimeline.tsx",
+          "line": 36,
+          "column": 46
         }
       ]
     },
@@ -4043,7 +4623,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 64,
+          "line": 66,
           "column": 34
         }
       ]
@@ -4069,7 +4649,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 209,
+          "line": 215,
           "column": 22
         }
       ]
@@ -4122,13 +4702,18 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 342,
+          "line": 348,
           "column": 432
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 350,
+          "line": 356,
           "column": 193
+        },
+        {
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 108,
+          "column": 92
         },
         {
           "file": "features/settings/CommitSettingsCard.tsx",
@@ -4157,7 +4742,7 @@
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 181,
+          "line": 184,
           "column": 133
         },
         {
@@ -4166,9 +4751,26 @@
           "column": 103
         },
         {
+          "file": "features/settings/VisionSettingsCard.tsx",
+          "line": 56,
+          "column": 103
+        },
+        {
           "file": "shared/ui/Modal.tsx",
           "line": 42,
           "column": 223
+        }
+      ]
+    },
+    "a33f3804768e68ee": {
+      "source": "断开连接",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 110,
+          "column": 126
         }
       ]
     },
@@ -4198,15 +4800,15 @@
         }
       ]
     },
-    "a3ab741ceb188e9e": {
-      "source": "未记录请求内容，请开启详细记录后重试。",
+    "a380125a40e0ad8c": {
+      "source": "暂无调用记录",
       "kind": "text",
       "placeholders": [],
       "refs": [
         {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 59,
-          "column": 44
+          "file": "features/calls/CallList.tsx",
+          "line": 33,
+          "column": 95
         }
       ]
     },
@@ -4231,7 +4833,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 137,
+          "line": 143,
           "column": 15
         }
       ]
@@ -4265,6 +4867,18 @@
         }
       ]
     },
+    "a63280253f17d440": {
+      "source": "会话",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallDetails.tsx",
+          "line": 43,
+          "column": 6
+        }
+      ]
+    },
     "a66e11477dcc97c1": {
       "source": "添加 {name} 账号",
       "kind": "template",
@@ -4286,8 +4900,20 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 342,
+          "line": 348,
           "column": 715
+        }
+      ]
+    },
+    "a6b29cd290efd9d2": {
+      "source": "Magpie 本机网关",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/AddModelSource.tsx",
+          "line": 41,
+          "column": 20
         }
       ]
     },
@@ -4296,16 +4922,6 @@
       "kind": "text",
       "placeholders": [],
       "refs": [
-        {
-          "file": "features/calls/CallTable.tsx",
-          "line": 186,
-          "column": 32
-        },
-        {
-          "file": "features/calls/CallTable.tsx",
-          "line": 189,
-          "column": 25
-        },
         {
           "file": "features/models/CursorModelTestResult.tsx",
           "line": 58,
@@ -4320,7 +4936,7 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 160,
+          "line": 158,
           "column": 61
         }
       ]
@@ -4332,12 +4948,12 @@
       "refs": [
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 266,
+          "line": 279,
           "column": 113
         },
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 266,
+          "line": 279,
           "column": 131
         }
       ]
@@ -4356,25 +4972,39 @@
         }
       ]
     },
+    "a87ee639f34b4091": {
+      "source": "筛选代理",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallsPage.tsx",
+          "line": 53,
+          "column": 40
+        }
+      ]
+    },
     "a98585871c5313ff": {
       "source": "显示名称",
       "kind": "text",
       "placeholders": [],
       "refs": [
         {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 26,
-          "column": 6
-        },
-        {
-          "file": "features/calls/CallTable.tsx",
-          "line": 30,
-          "column": 15
-        },
-        {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 165,
+          "line": 163,
           "column": 25
+        }
+      ]
+    },
+    "a9ab292ea9feecdc": {
+      "source": "上游",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallDetails.tsx",
+          "line": 39,
+          "column": 6
         }
       ]
     },
@@ -4384,6 +5014,16 @@
       "placeholders": [],
       "refs": [
         {
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 129,
+          "column": 131
+        },
+        {
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 140,
+          "column": 106
+        },
+        {
           "file": "features/plugins/PluginResourcePanels.tsx",
           "line": 382,
           "column": 107
@@ -4392,6 +5032,18 @@
           "file": "shared/ui/ModelSelect.tsx",
           "line": 233,
           "column": 67
+        }
+      ]
+    },
+    "abe490445708fb0f": {
+      "source": "先在这台电脑上启动 Magpie，BYOK 会自动找到它并同步可用的对话模型。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 98,
+          "column": 16
         }
       ]
     },
@@ -4414,7 +5066,7 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 166,
+          "line": 164,
           "column": 132
         }
       ]
@@ -4431,15 +5083,20 @@
         }
       ]
     },
-    "ad6a60ee93d3ba3e": {
-      "source": "正在加载调用详情…",
+    "acd37b4c796c10b9": {
+      "source": "子代理",
       "kind": "text",
       "placeholders": [],
       "refs": [
         {
-          "file": "features/calls/CallDetailsPage.tsx",
-          "line": 32,
-          "column": 69
+          "file": "features/calls/CallsPage.tsx",
+          "line": 43,
+          "column": 117
+        },
+        {
+          "file": "features/calls/tokenParts.ts",
+          "line": 57,
+          "column": 66
         }
       ]
     },
@@ -4587,24 +5244,24 @@
       "refs": [
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 137,
-          "column": 10
+          "line": 123,
+          "column": 131
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 350,
+          "line": 356,
           "column": 49
         }
       ]
     },
-    "b4411558b932266f": {
-      "source": "上游类型",
+    "b29b5f90acb11b35": {
+      "source": "最新上下文",
       "kind": "text",
       "placeholders": [],
       "refs": [
         {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 21,
+          "file": "features/calls/CallTimeline.tsx",
+          "line": 35,
           "column": 6
         }
       ]
@@ -4633,6 +5290,18 @@
         }
       ]
     },
+    "b4de26e01a0514db": {
+      "source": "全部代理",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallsPage.tsx",
+          "line": 53,
+          "column": 101
+        }
+      ]
+    },
     "b502b1d414664337": {
       "source": "提示词：{tokens}",
       "kind": "template",
@@ -4647,30 +5316,17 @@
         }
       ]
     },
-    "b5141d3d19e9a048": {
-      "source": "是",
-      "kind": "text",
-      "placeholders": [],
+    "b611f111a5991677": {
+      "source": "总耗时 P50 {time}",
+      "kind": "template",
+      "placeholders": [
+        "time"
+      ],
       "refs": [
         {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 28,
-          "column": 52
-        },
-        {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 45,
-          "column": 33
-        },
-        {
-          "file": "features/calls/CallTable.tsx",
-          "line": 53,
-          "column": 63
-        },
-        {
-          "file": "features/calls/CallTable.tsx",
-          "line": 143,
-          "column": 42
+          "file": "features/calls/CallTimeline.tsx",
+          "line": 34,
+          "column": 40
         }
       ]
     },
@@ -4693,7 +5349,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 157,
+          "line": 160,
           "column": 45
         }
       ]
@@ -4719,7 +5375,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 284,
+          "line": 289,
           "column": 22
         }
       ]
@@ -4743,7 +5399,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 347,
+          "line": 353,
           "column": 103
         }
       ]
@@ -4755,13 +5411,8 @@
       "refs": [
         {
           "file": "features/calls/CallDetails.tsx",
-          "line": 16,
+          "line": 41,
           "column": 6
-        },
-        {
-          "file": "features/calls/CallTable.tsx",
-          "line": 64,
-          "column": 15
         }
       ]
     },
@@ -4779,6 +5430,18 @@
           "file": "features/settings/ProxySettingsCard.tsx",
           "line": 71,
           "column": 48
+        }
+      ]
+    },
+    "b9f63682be746440": {
+      "source": "首字 P50",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallTimeline.tsx",
+          "line": 34,
+          "column": 6
         }
       ]
     },
@@ -4806,7 +5469,7 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 165,
+          "line": 163,
           "column": 99
         }
       ]
@@ -4833,8 +5496,20 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 201,
+          "line": 207,
           "column": 13
+        }
+      ]
+    },
+    "bb23834f312534a0": {
+      "source": "同步目录",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 119,
+          "column": 50
         }
       ]
     },
@@ -4845,13 +5520,8 @@
       "refs": [
         {
           "file": "features/calls/CallDetails.tsx",
-          "line": 69,
-          "column": 62
-        },
-        {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 74,
-          "column": 20
+          "line": 99,
+          "column": 52
         }
       ]
     },
@@ -4865,7 +5535,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 285,
+          "line": 290,
           "column": 31
         }
       ]
@@ -4877,20 +5547,8 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 276,
+          "line": 281,
           "column": 40
-        }
-      ]
-    },
-    "bc46d30173d82e05": {
-      "source": "需先在「插件」页安装并启用 ZCode 插件，才能为模型伪造 ZCode 环境。",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/models/CursorModelEditor.tsx",
-          "line": 224,
-          "column": 7
         }
       ]
     },
@@ -4913,12 +5571,12 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 355,
+          "line": 361,
           "column": 45
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 358,
+          "line": 364,
           "column": 42
         }
       ]
@@ -4961,6 +5619,23 @@
         }
       ]
     },
+    "c106fff00d2f893a": {
+      "source": "主代理",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallsPage.tsx",
+          "line": 44,
+          "column": 32
+        },
+        {
+          "file": "features/calls/tokenParts.ts",
+          "line": 58,
+          "column": 37
+        }
+      ]
+    },
     "c19d4b2bd8f39f22": {
       "source": "迁移文件无法读取，可能已损坏",
       "kind": "text",
@@ -4994,13 +5669,8 @@
       "refs": [
         {
           "file": "features/calls/CallDetails.tsx",
-          "line": 58,
-          "column": 14
-        },
-        {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 58,
-          "column": 51
+          "line": 97,
+          "column": 136
         }
       ]
     },
@@ -5017,6 +5687,18 @@
           "file": "features/settings/MigrationSettingsCard.tsx",
           "line": 104,
           "column": 18
+        }
+      ]
+    },
+    "c5090637ff56ae34": {
+      "source": "缓存输入占比",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallTimeline.tsx",
+          "line": 33,
+          "column": 6
         }
       ]
     },
@@ -5044,6 +5726,18 @@
         }
       ]
     },
+    "c734a04d5704da5b": {
+      "source": "工具名称",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/VisionSettingsCard.tsx",
+          "line": 65,
+          "column": 29
+        }
+      ]
+    },
     "c7ea2c9bc43134bd": {
       "source": "编辑模型",
       "kind": "text",
@@ -5051,8 +5745,32 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 342,
+          "line": 348,
           "column": 62
+        }
+      ]
+    },
+    "c85ef7328f09e129": {
+      "source": "生成配对码",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/BrowserDevToolsCard.tsx",
+          "line": 26,
+          "column": 109
+        }
+      ]
+    },
+    "c8b72077acebce6e": {
+      "source": "有缓存读取的请求",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallTimeline.tsx",
+          "line": 32,
+          "column": 6
         }
       ]
     },
@@ -5063,25 +5781,13 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 171,
+          "line": 170,
           "column": 27
         },
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 171,
+          "line": 170,
           "column": 58
-        }
-      ]
-    },
-    "c8df3c14a003bfcd": {
-      "source": "无法加载调用详情",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/calls/CallDetailsPage.tsx",
-          "line": 29,
-          "column": 26
         }
       ]
     },
@@ -5090,6 +5796,16 @@
       "kind": "text",
       "placeholders": [],
       "refs": [
+        {
+          "file": "features/calls/CallDetails.tsx",
+          "line": 37,
+          "column": 6
+        },
+        {
+          "file": "features/calls/CallList.tsx",
+          "line": 41,
+          "column": 16
+        },
         {
           "file": "features/home/overview/OverviewTimeRangeFilter.tsx",
           "line": 123,
@@ -5139,13 +5855,8 @@
       "placeholders": [],
       "refs": [
         {
-          "file": "features/calls/CallTable.tsx",
-          "line": 41,
-          "column": 15
-        },
-        {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 164,
+          "line": 162,
           "column": 25
         },
         {
@@ -5167,23 +5878,6 @@
         }
       ]
     },
-    "cea1aafe9416de7b": {
-      "source": "请求头",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 57,
-          "column": 14
-        },
-        {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 57,
-          "column": 51
-        }
-      ]
-    },
     "cfae1a14d2120c57": {
       "source": "详细模式",
       "kind": "text",
@@ -5191,12 +5885,12 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 166,
+          "line": 169,
           "column": 22
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 172,
+          "line": 175,
           "column": 20
         }
       ]
@@ -5208,7 +5902,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 203,
+          "line": 206,
           "column": 21
         }
       ]
@@ -5225,6 +5919,18 @@
           "file": "features/settings/MigrationSettingsCard.tsx",
           "line": 91,
           "column": 16
+        }
+      ]
+    },
+    "d0b36b8ca2040ba0": {
+      "source": "输出速度",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallDetails.tsx",
+          "line": 47,
+          "column": 6
         }
       ]
     },
@@ -5247,7 +5953,7 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 175,
+          "line": 174,
           "column": 50
         }
       ]
@@ -5259,8 +5965,32 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 159,
+          "line": 162,
           "column": 7
+        }
+      ]
+    },
+    "d24c10d37db0feea": {
+      "source": "图片",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 155,
+          "column": 35
+        }
+      ]
+    },
+    "d2909f1647e7c891": {
+      "source": "其他",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 138,
+          "column": 53
         }
       ]
     },
@@ -5312,12 +6042,12 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 159,
+          "line": 157,
           "column": 70
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 355,
+          "line": 361,
           "column": 27
         }
       ]
@@ -5329,7 +6059,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 342,
+          "line": 348,
           "column": 675
         },
         {
@@ -5346,7 +6076,7 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 166,
+          "line": 164,
           "column": 69
         }
       ]
@@ -5394,17 +6124,17 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 168,
+          "line": 167,
           "column": 121
         },
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 170,
+          "line": 169,
           "column": 122
         },
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 173,
+          "line": 172,
           "column": 122
         }
       ]
@@ -5416,7 +6146,7 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 175,
+          "line": 174,
           "column": 137
         }
       ]
@@ -5428,7 +6158,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 340,
+          "line": 346,
           "column": 11
         }
       ]
@@ -5454,7 +6184,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 352,
+          "line": 358,
           "column": 27
         }
       ]
@@ -5507,6 +6237,35 @@
         }
       ]
     },
+    "d9c7a110575a76f6": {
+      "source": "搜索模型名称或 ID",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 126,
+          "column": 45
+        },
+        {
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 126,
+          "column": 74
+        }
+      ]
+    },
+    "d9efc03671b14c23": {
+      "source": "筛选模型",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallsPage.tsx",
+          "line": 51,
+          "column": 40
+        }
+      ]
+    },
     "da521d1c1cbd36af": {
       "source": "需要授权安装证书",
       "kind": "text",
@@ -5514,7 +6273,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 348,
+          "line": 354,
           "column": 47
         }
       ]
@@ -5538,12 +6297,12 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 121,
+          "line": 119,
           "column": 88
         },
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 166,
+          "line": 164,
           "column": 54
         }
       ]
@@ -5574,6 +6333,18 @@
           "file": "features/models/LegacyModelImport.tsx",
           "line": 69,
           "column": 56
+        }
+      ]
+    },
+    "ddab0426977ce948": {
+      "source": "首字",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallList.tsx",
+          "line": 46,
+          "column": 67
         }
       ]
     },
@@ -5625,6 +6396,18 @@
         }
       ]
     },
+    "deffada94761157b": {
+      "source": "未记录该内容。开启「详细记录」后，新的调用会保存请求与响应。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallDetails.tsx",
+          "line": 143,
+          "column": 49
+        }
+      ]
+    },
     "df1baa9f706d970b": {
       "source": "将新增",
       "kind": "text",
@@ -5637,6 +6420,18 @@
         }
       ]
     },
+    "df31805bd8f6fa23": {
+      "source": "管理模型",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/CursorModelCards.tsx",
+          "line": 84,
+          "column": 163
+        }
+      ]
+    },
     "df3d58c7d84b85f2": {
       "source": "设置",
       "kind": "text",
@@ -5644,12 +6439,12 @@
       "refs": [
         {
           "file": "features/models/CursorModelCards.tsx",
-          "line": 194,
+          "line": 207,
           "column": 64
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 320,
+          "line": 325,
           "column": 30
         },
         {
@@ -5666,13 +6461,8 @@
       "refs": [
         {
           "file": "features/calls/CallDetails.tsx",
-          "line": 61,
+          "line": 98,
           "column": 33
-        },
-        {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 64,
-          "column": 32
         }
       ]
     },
@@ -5685,6 +6475,23 @@
           "file": "features/settings/ProxySettingsCard.tsx",
           "line": 72,
           "column": 121
+        }
+      ]
+    },
+    "e009c148d1890dac": {
+      "source": "合计",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallList.tsx",
+          "line": 50,
+          "column": 42
+        },
+        {
+          "file": "features/calls/TokenBar.tsx",
+          "line": 14,
+          "column": 46
         }
       ]
     },
@@ -5735,30 +6542,6 @@
           "file": "features/home/charts/ContributionCalendarChart.tsx",
           "line": 252,
           "column": 50
-        }
-      ]
-    },
-    "e14f20d572c02611": {
-      "source": "上游调用序号",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 19,
-          "column": 6
-        }
-      ]
-    },
-    "e17a5b9c90cda6ab": {
-      "source": "模型已复制",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/models/CursorSettingsPage.tsx",
-          "line": 221,
-          "column": 26
         }
       ]
     },
@@ -5860,7 +6643,7 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 159,
+          "line": 157,
           "column": 54
         }
       ]
@@ -5901,7 +6684,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 77,
+          "line": 80,
           "column": 17
         }
       ]
@@ -5918,20 +6701,51 @@
         }
       ]
     },
+    "e5d89ed4e84b853d": {
+      "source": "自动发现本机端口，无需填写 API Key",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 100,
+          "column": 52
+        }
+      ]
+    },
+    "e65001dd0b69e84b": {
+      "source": "仅失败",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallsPage.tsx",
+          "line": 54,
+          "column": 66
+        }
+      ]
+    },
+    "e6bcfb3bc67d5ee0": {
+      "source": "图片识别",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/VisionSettingsCard.tsx",
+          "line": 54,
+          "column": 29
+        }
+      ]
+    },
     "e77e3d58b0dcffaa": {
       "source": "耗时",
       "kind": "text",
       "placeholders": [],
       "refs": [
         {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 33,
-          "column": 6
-        },
-        {
-          "file": "features/calls/CallTable.tsx",
-          "line": 82,
-          "column": 15
+          "file": "features/calls/CallList.tsx",
+          "line": 47,
+          "column": 42
         }
       ]
     },
@@ -5942,12 +6756,12 @@
       "refs": [
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 152,
+          "line": 150,
           "column": 25
         },
         {
           "file": "features/models/CursorModelEditor.tsx",
-          "line": 152,
+          "line": 150,
           "column": 55
         }
       ]
@@ -5976,6 +6790,18 @@
         }
       ]
     },
+    "e91c1c39c2519de4": {
+      "source": "Chrome 扩展配对码",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/BrowserDevToolsCard.tsx",
+          "line": 28,
+          "column": 75
+        }
+      ]
+    },
     "e9d8d890d33584e8": {
       "source": "没有可用的重置卡。",
       "kind": "text",
@@ -5995,20 +6821,8 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 163,
+          "line": 166,
           "column": 26
-        }
-      ]
-    },
-    "eb11e2df1d8ae387": {
-      "source": "上游地址",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 22,
-          "column": 6
         }
       ]
     },
@@ -6019,7 +6833,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 352,
+          "line": 358,
           "column": 44
         }
       ]
@@ -6031,7 +6845,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 348,
+          "line": 354,
           "column": 77
         }
       ]
@@ -6068,13 +6882,8 @@
       "placeholders": [],
       "refs": [
         {
-          "file": "features/calls/CallTable.tsx",
-          "line": 183,
-          "column": 15
-        },
-        {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 319,
+          "line": 325,
           "column": 98
         }
       ]
@@ -6098,7 +6907,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 347,
+          "line": 353,
           "column": 53
         }
       ]
@@ -6122,7 +6931,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 222,
+          "line": 225,
           "column": 16
         }
       ]
@@ -6158,15 +6967,19 @@
         }
       ]
     },
-    "f4694c46b1e19602": {
-      "source": "最终请求类型",
-      "kind": "text",
-      "placeholders": [],
+    "eff9e68587cca479": {
+      "source": "{messages} 条消息 · {tools} 个工具定义 · 发起 {launched} 次",
+      "kind": "template",
+      "placeholders": [
+        "messages",
+        "tools",
+        "launched"
+      ],
       "refs": [
         {
           "file": "features/calls/CallDetails.tsx",
-          "line": 23,
-          "column": 6
+          "line": 49,
+          "column": 20
         }
       ]
     },
@@ -6239,8 +7052,13 @@
       "placeholders": [],
       "refs": [
         {
+          "file": "features/calls/CallDetails.tsx",
+          "line": 137,
+          "column": 16
+        },
+        {
           "file": "shared/ui/JsonEditor.tsx",
-          "line": 228,
+          "line": 232,
           "column": 79
         }
       ]
@@ -6288,7 +7106,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 251,
+          "line": 256,
           "column": 21
         }
       ]
@@ -6360,18 +7178,6 @@
         }
       ]
     },
-    "f9b55ca75425161b": {
-      "source": "未记录响应内容，请开启详细记录后重试。",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/calls/CallDetails.tsx",
-          "line": 65,
-          "column": 44
-        }
-      ]
-    },
     "fa5b4b8a751c7d1b": {
       "source": "Cursor 使用的本地代理端口；填写 0 时启动时随机选择。",
       "kind": "text",
@@ -6379,7 +7185,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 190,
+          "line": 193,
           "column": 21
         }
       ]
@@ -6410,6 +7216,23 @@
           "file": "features/plugins/PluginManagementPage.tsx",
           "line": 324,
           "column": 23
+        }
+      ]
+    },
+    "fb04addb4c2654f5": {
+      "source": "输出",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallList.tsx",
+          "line": 45,
+          "column": 66
+        },
+        {
+          "file": "features/calls/tokenParts.ts",
+          "line": 21,
+          "column": 27
         }
       ]
     },
@@ -6481,7 +7304,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 333,
+          "line": 339,
           "column": 21
         }
       ]
@@ -6495,6 +7318,18 @@
           "file": "shared/ui/Select.tsx",
           "line": 142,
           "column": 90
+        }
+      ]
+    },
+    "fd313ae7f4c257b9": {
+      "source": "上下文增长",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/CallTimeline.tsx",
+          "line": 108,
+          "column": 24
         }
       ]
     },
@@ -6551,6 +7386,18 @@
         }
       ]
     },
+    "fe810b3c74747061": {
+      "source": "正在读取 Magpie 状态…",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/MagpieChannel.tsx",
+          "line": 95,
+          "column": 65
+        }
+      ]
+    },
     "fea405f9b01d1416": {
       "source": "概览",
       "kind": "text",
@@ -6582,7 +7429,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 311,
+          "line": 316,
           "column": 38
         }
       ]
@@ -6614,7 +7461,7 @@
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 181,
+          "line": 184,
           "column": 121
         },
         {
@@ -6643,17 +7490,17 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 72,
+          "line": 75,
           "column": 46
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 202,
+          "line": 205,
           "column": 22
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 217,
+          "line": 220,
           "column": 58
         }
       ]

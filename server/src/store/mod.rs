@@ -6,6 +6,7 @@ mod cursor_traces;
 mod input_anchors;
 mod legacy_config;
 mod llm_calls;
+mod magpie;
 mod maintenance;
 mod messages;
 mod migrations;
@@ -16,7 +17,9 @@ mod settings;
 mod sqlite;
 mod storage;
 mod tool_rounds;
+mod vision;
 mod writer;
+pub use vision::VisionSettings;
 
 pub use cas::*;
 pub(crate) use cursor_traces::BufferedCursorTraceChunk;

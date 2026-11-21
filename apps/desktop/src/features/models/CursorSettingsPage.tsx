@@ -19,7 +19,8 @@ import { addIcon } from "../../shared/ui/icons";
 import { useMessage } from "../../shared/ui/message";
 import { PageActions } from "../../shell/PageActions";
 import { appStore, useAppStore } from "../../shared/store/appStore";
-import { isZcodePluginReady } from "../../shared/utils/zcodeEnvironment";
+import { AddModelSource } from "./AddModelSource";
+import { MagpieDialog } from "./MagpieChannel";
 
 export function CursorSettingsPage() {
   const { models, cursorHarness, cursorBusy, plugins } = useAppStore();
@@ -43,6 +44,8 @@ export function CursorSettingsPage() {
   const [groupBaseUrlDraft, setGroupBaseUrlDraft] = useState("");
   const [groupApiKeyDraft, setGroupApiKeyDraft] = useState("");
   const [groupSettingsBusy, setGroupSettingsBusy] = useState(false);
+  const [choosingSource, setChoosingSource] = useState(false);
+  const [magpieOpen, setMagpieOpen] = useState(false);
   const activeModelTests = useRef(new Map<string, { testId: string; controller: AbortController; cancelling: boolean }>());
   const caReady = cursorHarness?.ca === "ready";
   const cursorTakenOver = cursorHarness?.settings_applied ?? false;
@@ -52,8 +55,9 @@ export function CursorSettingsPage() {
     ...models.map((model) => ({ model_hash: model.model_hash, display_name: model.display_name })),
     ...pluginModels.map((model) => ({ model_hash: model.id, display_name: model.displayName })),
   ];
-  const providerGroups = cursorModelGroups(models, "provider");
-  const typeGroups = cursorModelGroups(models, "type");
+  const manualModels = models.filter(m => !m.gateway_capabilities);
+  const providerGroups = cursorModelGroups(manualModels, "provider");
+  const typeGroups = cursorModelGroups(manualModels, "type");
   const canGroupByProvider = providerGroups.length > 1;
   const canGroupByType = typeGroups.length > 1;
 
@@ -83,9 +87,10 @@ export function CursorSettingsPage() {
     setModelOptions([model.model_id]);
     setDraft({
       providerId: `builtin/${model.type}`,
+      editing: true,
       model: modelInput(model),
       openAIExtraParamsText: JSON.stringify(model.openai_extra_params, null, 2),
-      customHeadersText: JSON.stringify(model.custom_headers, null, 2),
+      customHeadersText: "",
       anthropicExtraParamsText: JSON.stringify(model.anthropic_extra_params, null, 2),
     });
   };
@@ -93,8 +98,9 @@ export function CursorSettingsPage() {
     if (!draft) return false;
     setDiscovering(true);
     try {
-      const custom_headers = parseHeaders(draft.customHeadersText);
+      const custom_headers = editing && !draft.customHeadersText.trim() ? null : parseHeaders(draft.customHeadersText);
       const result = await api.discoverModels({
+        model_hash: editing?.model_hash,
         type: draft.model.type,
         base_url: draft.model.base_url.trim(),
         api_key: draft.model.api_key.trim(),
@@ -112,7 +118,7 @@ export function CursorSettingsPage() {
   };
   const persist = async (): Promise<Model | null> => {
     if (!draft) return null;
-    const input = draftInput(draft);
+    const input = draftInput(draft, editing !== null);
     if (editing) return appStore.updateCursorModel(editing.model_hash, input);
     return (await appStore.createModels([input]))?.[0] ?? null;
   };
@@ -204,26 +210,24 @@ export function CursorSettingsPage() {
       setBatchTesting(false);
     }
   };
-  const duplicateModel = async (model: Model) => {
-    const names = new Set(models.map((item) => item.display_name));
+  const duplicateModel = (model: Model) => {
+    const names = new Set(models.map(item => item.display_name));
     const baseName = t("{name} 副本", { name: model.display_name });
     let displayName = baseName;
-    let suffix = 2;
-    while (names.has(displayName)) {
-      displayName = `${baseName} ${suffix}`;
-      suffix += 1;
-    }
-    const created = await appStore.createModels([{
-      ...modelInput(model),
-      sort_order: models.length + 1,
-      display_name: displayName,
-    }]);
-    if (created) message(t("模型已复制"));
+    for (let suffix = 2; names.has(displayName); suffix += 1) displayName = `${baseName} ${suffix}`;
+    setEditing(null);
+    setModelOptions([model.model_id]);
+    setDraft({
+      providerId: `builtin/${model.type}`,
+      model: { ...modelInput(model), sort_order: models.length + 1, display_name: displayName, custom_headers_enabled: false },
+      openAIExtraParamsText: JSON.stringify(model.openai_extra_params, null, 2),
+      customHeadersText: "", anthropicExtraParamsText: JSON.stringify(model.anthropic_extra_params, null, 2),
+    });
   };
   const openGroupSettings = (group: CursorModelGroup) => {
     setGroupNameDraft(group.models.find((model) => model.group_name?.trim())?.group_name?.trim() ?? "");
     setGroupBaseUrlDraft(sharedValue(group.models.map((model) => model.base_url)) ?? "");
-    setGroupApiKeyDraft(sharedValue(group.models.map((model) => model.api_key)) ?? "");
+    setGroupApiKeyDraft("");
     setSettingsGroup(group);
   };
   const saveGroupSettings = async () => {
@@ -242,7 +246,7 @@ export function CursorSettingsPage() {
         };
         if (input.group_name === (model.group_name ?? null)
           && input.base_url === model.base_url
-          && input.api_key === model.api_key) continue;
+          && !api_key) continue;
         await api.updateModel(model.model_hash, input);
       }
       await appStore.refresh();
@@ -260,7 +264,8 @@ export function CursorSettingsPage() {
   }, [message]);
 
   const list = <CursorModelCards
-    models={models}
+    models={manualModels}
+    magpieModels={models.filter(m => m.gateway_capabilities)}
     pluginModels={pluginModels}
     grouping={grouping}
     disabled={cursorBusy}
@@ -274,6 +279,7 @@ export function CursorSettingsPage() {
     onPluginSettings={() => navigate("/plugins")}
     onReorder={reorderModels}
     onGroupSettings={openGroupSettings}
+    onMagpieSettings={() => setMagpieOpen(true)}
   />;
 
   const refreshCa = async () => {
@@ -288,7 +294,7 @@ export function CursorSettingsPage() {
   const content = <CursorCaProvider><CursorCaGate busy={cursorBusy} waitingForRefresh={waitingForCaRefresh} onInitialize={() => void initializeCa()} onRefresh={() => void refreshCa()}>
     <div className={styles.page}>
       <LegacyModelImport>{({ busy: importingLegacyModels, previewing, open }) =>
-        <CursorModelProvider><CursorModelGate busy={cursorBusy || importingLegacyModels} previewingImport={previewing} onAdd={openNew} onImport={open}>{list}</CursorModelGate></CursorModelProvider>
+        <CursorModelProvider><CursorModelGate busy={cursorBusy || importingLegacyModels} previewingImport={previewing} onAdd={() => setChoosingSource(true)} onImport={open}>{list}</CursorModelGate></CursorModelProvider>
       }</LegacyModelImport>
     </div>
   </CursorCaGate></CursorCaProvider>;
@@ -324,7 +330,7 @@ export function CursorSettingsPage() {
         </div>}
       </div>
     </PageActions>
-    <PageActions><TooltipTrigger label={caReady ? t("添加模型") : t("请先初始化 CA")}><button className={controls.iconButton} aria-label={t("添加模型")} disabled={!caReady || cursorBusy} onClick={openNew}><Icon icon={addIcon} size="1.1em" /></button></TooltipTrigger></PageActions>
+    <PageActions><TooltipTrigger label={caReady ? t("添加模型") : t("请先初始化 CA")}><button className={controls.iconButton} aria-label={t("添加模型")} disabled={!caReady || cursorBusy} onClick={() => setChoosingSource(true)}><Icon icon={addIcon} size="1.1em" /></button></TooltipTrigger></PageActions>
     <PageContent title="Cursor" sections={[{ key: "cursor-settings", estimatedHeight: estimatedModelHeight, content }]} />
     <ConfirmDialog
       open={confirmDisableTakeover}
@@ -341,7 +347,7 @@ export function CursorSettingsPage() {
     </ConfirmDialog>
     <Modal fullHeight open={draft !== null} title={editing ? t("编辑模型") : t("添加模型")} banner={draft && (editorTesting || editorTestState) ? <CursorModelTestResult state={editorTestState} testing={editorTesting} /> : undefined} busy={cursorBusy || savingAndTesting} onClose={() => { if (editing && editorTesting) void cancelModelTest(editing.model_hash); setDraft(null); setEditing(null); }} onSubmit={() => void save()} submitLabel={t("保存")} secondaryAction={<button type="button" className={controls.secondary} disabled={cursorBusy || savingAndTesting} onClick={() => void (editorTesting && editing ? cancelModelTest(editing.model_hash) : saveAndTest())}>{savingAndTesting ? t("处理中…") : editorTesting ? t("取消测试") : t("保存并测试")}</button>}>
       {draft && <>
-        <CursorModelEditor draft={draft} modelOptions={modelOptions} discovering={discovering} zcodePluginReady={isZcodePluginReady(plugins)} onChange={setDraft} onDiscover={discover} />
+        <CursorModelEditor draft={draft} modelOptions={modelOptions} discovering={discovering} onChange={setDraft} onDiscover={discover} />
       </>}
     </Modal>
     <ConfirmDialog open={caCommand !== null} title={t("安装本地 CA")} cancelLabel={t("关闭")} confirmLabel={t("打开终端")} onCancel={() => setCaCommand(null)} onConfirm={openCaTerminal}>
@@ -360,13 +366,20 @@ export function CursorSettingsPage() {
         </FormField>
       </div>}
     </Modal>
+    <AddModelSource
+      open={choosingSource}
+      onClose={() => setChoosingSource(false)}
+      onMagpie={() => { setChoosingSource(false); setMagpieOpen(true); }}
+      onCustom={() => { setChoosingSource(false); openNew(); }}
+    />
+    <MagpieDialog open={magpieOpen} onClose={() => setMagpieOpen(false)} />
     <ConfirmDialog open={deleting !== null} title={t("删除模型")} cancelLabel={t("取消")} confirmLabel={t("删除")} onCancel={() => setDeleting(null)} onConfirm={() => { if (deleting) void appStore.deleteModel(deleting.model_hash); setDeleting(null); }}><p>{t("确定删除这个模型吗？")}</p></ConfirmDialog>
   </>;
 }
 
 function modelInput(model: Model): ModelInput {
   const { model_hash: _hash, created_at_ms: _created, updated_at_ms: _updated, ...input } = model;
-  return input;
+  return { ...input, api_key: "", custom_headers: null };
 }
 
 /** 组内所有模型取值一致时返回该值,否则返回 null(表单留空表示保持不变)。 */
@@ -376,7 +389,7 @@ function sharedValue(values: string[]): string | null {
   return rest.every((value) => value === first) ? first : null;
 }
 
-function draftInput(draft: CursorModelDraft): ModelInput {
+function draftInput(draft: CursorModelDraft, editing: boolean): ModelInput {
   const model = {
     ...draft.model,
     display_name: draft.model.display_name.trim(),
@@ -385,10 +398,10 @@ function draftInput(draft: CursorModelDraft): ModelInput {
     tooltip_data: draft.model.tooltip_data.trim(),
     model_id: draft.model.model_id.trim(),
     openai_extra_params: parseObject(draft.openAIExtraParamsText, t("OpenAI 额外参数")),
-    custom_headers: parseHeaders(draft.customHeadersText),
+    custom_headers: editing && !draft.customHeadersText.trim() ? null : parseHeaders(draft.customHeadersText),
     anthropic_extra_params: parseObject(draft.anthropicExtraParamsText, t("Anthropic 额外参数")),
   };
-  if (!model.display_name || !model.base_url || !model.api_key || !model.tooltip_data || !model.model_id) throw new Error(t("服务器地址或完整请求 URL、API Key、模型名称、显示名称和备注不能为空"));
+  if (!model.display_name || !model.base_url || (!editing && !model.api_key) || !model.tooltip_data || !model.model_id) throw new Error(t("服务器地址或完整请求 URL、API Key、模型名称、显示名称和备注不能为空"));
   for (const [label, value] of [[t("上下文窗口 Token"), model.context_window_tokens], [t("最大输出 Token"), model.type === "openai" ? model.max_completion_tokens : model.anthropic_max_tokens], [t("思考预算 Token"), model.thinking_budget_tokens]] as const) {
     if (value !== null && (!Number.isSafeInteger(value) || value <= 0)) throw new Error(t("{label} 必须是大于 0 的整数", { label }));
   }

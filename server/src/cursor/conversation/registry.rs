@@ -23,6 +23,7 @@ pub struct ConversationRegistry {
 #[derive(Clone)]
 pub(crate) struct ConversationDependencies {
     pub store: Store,
+    pub plugins: Option<crate::plugin::PluginRegistry>,
     pub provider: Arc<dyn Provider>,
     pub compiler: PromptCompiler,
     pub web_cache: WebCache,
@@ -50,6 +51,7 @@ impl ConversationRegistry {
         compiler: PromptCompiler,
         web_cache: WebCache,
         local_rules_dir: Option<std::path::PathBuf>,
+        plugins: Option<crate::plugin::PluginRegistry>,
     ) -> Self {
         Self {
             inner: Arc::new(RegistryInner {
@@ -59,6 +61,7 @@ impl ConversationRegistry {
                 dependencies: ConversationDependencies {
                     store,
                     provider,
+                    plugins,
                     compiler,
                     web_cache,
                     local_rules_dir,

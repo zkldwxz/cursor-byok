@@ -218,7 +218,16 @@ async fn dynamic_mcp_uses_one_definition_for_stream_ui_exec_and_result() {
                         )),
                     }],
                     is_error: false,
-                    structured_content: None,
+                    structured_content: Some(prost_types::Struct {
+                        fields: BTreeMap::from([(
+                            "result".into(),
+                            prost_types::Value {
+                                kind: Some(prost_types::value::Kind::StringValue(
+                                    "navigated".into(),
+                                )),
+                            },
+                        )]),
+                    }),
                 })),
             })),
             ..Default::default()
@@ -230,11 +239,19 @@ async fn dynamic_mcp_uses_one_definition_for_stream_ui_exec_and_result() {
     let codec::ClientExecEvent::Completed(completion) = event else {
         panic!("expected completed MCP result")
     };
+    assert_eq!(completion.result().content, "navigated");
     let Some(pb::tool_call::Tool::McpToolCall(tool)) = &completion.tool_call().tool else {
         panic!("expected rendered MCP result")
     };
     assert_eq!(tool.args.as_ref().unwrap().name, definition.name);
-    assert!(tool.result.is_some());
+    let Some(pb::mcp_tool_result::Result::Success(wire_result)) = tool
+        .result
+        .as_ref()
+        .and_then(|result| result.result.as_ref())
+    else {
+        panic!("expected the tool card to receive the MCP success payload")
+    };
+    assert!(wire_result.structured_content.is_some());
 }
 
 #[tokio::test]
@@ -829,6 +846,7 @@ async fn one_run_can_auto_compact_again_after_more_tool_output() {
     let (_directory, store) = fixtures::temp_store().await;
     let model = store
         .create_model(&ModelConfigInput {
+            supports_images: true,
             sort_order: 0,
             display_name: "Repeated compaction".into(),
             group_name: None,

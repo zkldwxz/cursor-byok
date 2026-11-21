@@ -1,0 +1,8 @@
+description: Read-only code navigation in one workspace folder
+prompt: Use the workspace language server for symbol definitions, implementations and references. Use the editor's Grep for literals and comments.
+single_project: true
+fixed_tools:
+  - get_symbols_overview
+  - find_symbol
+  - find_referencing_symbols
+  - find_implementations

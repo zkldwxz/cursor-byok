@@ -3,12 +3,14 @@ import type {
   CursorHarnessStatus,
   ExternalApiSettings,
   LlmCall,
+  MagpieCatalog,
   Model,
   Overview,
   OverviewTokenUsageBucket,
   ProxySettings,
   StatisticsStorage,
   TabSettings,
+  VisionSettings,
 } from "../shared/api";
 
 const API_ROOT = "/__byok-api__/api";
@@ -32,6 +34,25 @@ const models: Model[] = [
   createModel({ hash: "mock-mistral-large", order: 15, name: "Mistral Large", type: "openai", url: "https://api.mistral.ai", modelId: "mistral-large-latest", endpoint: "/v1/chat/completions" }),
   createModel({ hash: "mock-mistral-small", order: 16, name: "Mistral Small", type: "openai", url: "https://api.mistral.ai", modelId: "mistral-small-latest", endpoint: "/v1/chat/completions" }),
 ];
+
+const magpieModels: MagpieCatalog["models"] = [
+  { id: "anthropic/claude-sonnet-4.5", magpie_label: "Claude Sonnet 4.5", context_window: 200_000, reasoning: true, modalities: { input: ["text", "image"] } },
+  { id: "anthropic/claude-haiku-4.5", magpie_label: "Claude Haiku 4.5", context_window: 200_000, reasoning: true, modalities: { input: ["text", "image"] } },
+  { id: "openai/gpt-5.2", magpie_label: "GPT-5.2", context_window: 400_000, reasoning: true, modalities: { input: ["text", "image"] } },
+  { id: "openai/gpt-5.2-mini", magpie_label: "GPT-5.2 mini", context_window: 400_000, reasoning: true, modalities: { input: ["text"] } },
+  { id: "google/gemini-2.5-pro", magpie_label: "Gemini 2.5 Pro", context_window: 1_048_576, reasoning: true, modalities: { input: ["text", "image"] } },
+  { id: "deepseek/deepseek-v3.2", magpie_label: "DeepSeek V3.2", context_window: 128_000, reasoning: false, modalities: { input: ["text"] } },
+];
+let magpie: MagpieCatalog | null = null;
+
+function magpieCursorModels(): Model[] {
+  if (!magpie) return [];
+  const disabled = magpie.disabled;
+  return magpie.models.filter(model => !disabled.includes(model.id)).map((model, index) => ({
+    ...createModel({ hash: `magpie-${model.id}`, order: 100 + index, name: model.magpie_label ?? model.id, type: "openai", url: `http://127.0.0.1:${magpie!.port}`, modelId: model.id }),
+    gateway_capabilities: { thinking: Boolean(model.reasoning), efforts: model.reasoning ? ["low", "medium", "high"] : [] },
+  }));
+}
 
 const calls: LlmCall[] = Array.from({ length: 24 }, (_, index) => {
   const model = models[index % models.length];
@@ -67,6 +88,9 @@ const calls: LlmCall[] = Array.from({ length: 24 }, (_, index) => {
     reasoning_tokens: index % 2 === 0 ? 420 + index * 11 : null,
     message_count: 14 + (index % 8),
     tool_count: 3 + (index % 5),
+    launched_tool_count: index % 4,
+    run_kind: index % 6 === 2 ? "subagent" : "root",
+    subagent_kind: index % 6 === 2 ? "Explore" : null,
     http_status: failed ? 429 : 200,
     error_kind: failed ? "provider_rate_limit" : null,
     error_message: failed ? "Mock provider rate limit" : null,
@@ -86,7 +110,8 @@ let harnessStatus: CursorHarnessStatus = {
 };
 
 let detailed = true;
-let portSettings = { proxy_port: 0, service_port: 0 };
+let portSettings = { proxy_port: 0, service_port: 0, inference_port: 0 };
+let visionSettings: VisionSettings = { mode: "cursor" };
 let externalApiSettings: ExternalApiSettings = { enabled: false, api_key: "" };
 let proxySettings: ProxySettings = {
   mode: "default",
@@ -110,7 +135,23 @@ export function installDemoApi() {
     const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
     const body = await readBody(input, init);
 
-    if (path === "/models" && method === "GET") return json(models);
+    if (path === "/plugins/runtime" && method === "GET") return json({ state: "ready", version: "demo", target: null, phase: null, downloaded_bytes: 0, total_bytes: null, error: null });
+    if (path === "/plugins" && method === "GET") return json([]);
+    if (path === "/models" && method === "GET") return json([...models, ...magpieCursorModels()]);
+    if (path === "/providers/magpie" && method === "GET") return json(magpie);
+    if (path === "/providers/magpie" && method === "POST") {
+      magpie = { port: 18_642, models: magpieModels, disabled: magpie?.disabled ?? ["openai/gpt-5.2-mini", "deepseek/deepseek-v3.2"] };
+      return empty();
+    }
+    if (path === "/providers/magpie" && method === "DELETE") {
+      magpie = null;
+      return empty();
+    }
+    if (path === "/providers/magpie/selection" && method === "PUT" && magpie) {
+      const enabled = body as string[];
+      magpie = { ...magpie, disabled: magpie.models.map(model => model.id).filter(id => !enabled.includes(id)) };
+      return empty();
+    }
     if (path === "/models" && method === "POST") return json(models);
     if (path === "/models/order") return json(models);
     if (path === "/models/discover") return json({ models: models.map((model) => model.model_id) });
@@ -139,20 +180,25 @@ export function installDemoApi() {
       };
       return json(harnessStatus);
     }
+    if (path === "/settings/pricing" && method === "GET") return json({ input_per_million: 0, output_per_million: 0, cache_read_per_million: 0, cache_write_per_million: 0 });
     if (path === "/settings/observability" && method === "GET") return json({ detailed });
     if (path === "/settings/observability") {
       detailed = Boolean((body as { detailed?: unknown } | null)?.detailed);
       return json({ detailed });
+    }
+    if (path === "/settings/vision") {
+      if (method === "PUT") visionSettings = body as VisionSettings;
+      return json(visionSettings);
     }
     if (path === "/settings/ports" && method === "GET") return json(portSettings);
     if (path === "/settings/ports") {
       portSettings = body as typeof portSettings;
       return json(portSettings);
     }
-    if (path === "/settings/external-api" && method === "GET") return json(externalApiSettings);
+    if (path === "/settings/external-api" && method === "GET") return json({ ...externalApiSettings, base_url: "http://127.0.0.1:3000/byok/v1" });
     if (path === "/settings/external-api") {
       externalApiSettings = body as ExternalApiSettings;
-      return json(externalApiSettings);
+      return json({ ...externalApiSettings, base_url: "http://127.0.0.1:3000/byok/v1" });
     }
     if (path === "/settings/storage/statistics" && method === "GET") return json(storage);
     if (path === "/settings/storage/statistics") {
@@ -198,13 +244,13 @@ function createModel({ hash, order, name, type, url, modelId, endpoint = "/v1/re
 }): Model {
   return {
     model_hash: hash,
+    supports_images: true,
     sort_order: order,
     display_name: name,
     group_name: null,
     type,
     base_url: url,
     use_full_url: false,
-    api_key: "demo-key",
     tooltip_data: `${name} Mock 通道`,
     model_id: modelId,
     reasoning_effort: type === "openai" ? "high" : null,
@@ -212,7 +258,6 @@ function createModel({ hash, order, name, type, url, modelId, endpoint = "/v1/re
     openai_extra_params_enabled: false,
     openai_extra_params: {},
     custom_headers_enabled: false,
-    custom_headers: {},
     anthropic_extra_params_enabled: false,
     anthropic_extra_params: {},
     context_window_tokens: 200_000,
@@ -282,8 +327,9 @@ function createCallDetail(id: string): CallDetail {
       byte_count: 8_426,
     },
     response_chunks: [
-      { seq: 1, received_offset_ms: 418, data: "event: response.created", byte_count: 128 },
-      { seq: 2, received_offset_ms: 512, data: "event: response.output_text.delta", byte_count: 256 },
+      { seq: 1, received_offset_ms: 418, data: `event: response.created\ndata: {"type":"response.created","response":{"id":"resp_demo","model":"${call.model_id}"}}\n\n`, byte_count: 128 },
+      { seq: 2, received_offset_ms: 512, data: 'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"Mock answer"}\n\n', byte_count: 96 },
+      { seq: 3, received_offset_ms: 1_380, data: 'event: response.completed\ndata: {"type":"response.completed","response":{"status":"completed","usage":{"input_tokens":4800,"output_tokens":820}}}\n\n', byte_count: 164 },
     ],
     cursor_trace: null,
   };
