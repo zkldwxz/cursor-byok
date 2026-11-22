@@ -56,7 +56,8 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           pattern: byok-semantic-*
-          path: apps/workspace-symbols
+          # Each artifact was uploaded from bin/, so its root holds <platform>/.
+          path: apps/workspace-symbols/bin
           merge-multiple: true
       - name: Install Node
         uses: actions/setup-node@v4
