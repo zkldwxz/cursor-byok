@@ -21,6 +21,7 @@ pub fn is_symbol_query(query: &str) -> bool {
 pub fn rerank(
     scores: HashMap<usize, f32>,
     chunks: &[Chunk],
+    anchors: &[Option<usize>],
     query: &str,
     top_k: usize,
 ) -> Vec<(usize, f32)> {
@@ -86,9 +87,11 @@ pub fn rerank(
             .then_with(|| left.0.cmp(&right.0))
     });
     let mut selected = Vec::new();
-    let mut per_file = HashMap::<&str, usize>::new();
+    let mut per_location = HashMap::<usize, usize>::new();
     for (index, mut score) in ranked {
-        let count = per_file.entry(&chunks[index].file_path).or_default();
+        let count = per_location
+            .entry(anchors[index].unwrap_or(index))
+            .or_default();
         if *count > 0 {
             score *= 0.5_f32.powi(*count as i32);
         }
@@ -152,7 +155,7 @@ mod tests {
         });
         for _ in 0..32 {
             let scores = [(0, 1.0), (1, 1.0), (2, 1.0)].into_iter().collect();
-            let ranked = rerank(scores, &chunks, "format the receipt", 3);
+            let ranked = rerank(scores, &chunks, &[None; 3], "format the receipt", 3);
             assert_eq!(
                 ranked
                     .into_iter()
@@ -161,6 +164,31 @@ mod tests {
                 [0, 1, 2]
             );
         }
+    }
+
+    #[test]
+    fn a_separate_implementation_is_not_a_duplicate_just_because_it_shares_a_file() {
+        let chunks = [
+            ("src/queue.rs", 1, 12),
+            ("src/queue.rs", 150, 170),
+            ("src/layout.rs", 1, 12),
+        ]
+        .map(|(path, start, end)| Chunk {
+            file_path: path.into(),
+            start_line: start,
+            end_line: end,
+            language: Some("rust".into()),
+            content: String::new(),
+        });
+        let scores = [(0, 1.0), (1, 0.95), (2, 0.65)].into_iter().collect();
+        let ranked = rerank(
+            scores,
+            &chunks,
+            &[None; 3],
+            "where are expired records evicted",
+            2,
+        );
+        assert_eq!(ranked.iter().map(|r| r.0).collect::<Vec<_>>(), [0, 1]);
     }
 
     #[test]

@@ -184,6 +184,8 @@ mod tests {
                 .collect(),
             chunks,
             definitions: Vec::new(),
+            declarations: Vec::new(),
+            function_anchors: vec![None; contents.len()],
             vectors: Vec::new(),
         }
     }
@@ -207,6 +209,14 @@ mod tests {
         assert_eq!(matches[0].coverage, 1.0);
         assert!(matches[1].coverage < matches[0].coverage);
         assert!(index.search("missing_identifier", 3).is_empty());
+    }
+
+    #[test]
+    fn a_numeric_literal_distinguishes_otherwise_identical_operations() {
+        let mut files = [indexed_file(&["retry_after(15)", "retry_after(90)"])];
+        let index = Bm25Index::from_files(&mut files);
+        assert_eq!(index.search("retry after 90 seconds", 1)[0].document, 1);
+        assert!(index.search("900", 2).is_empty());
     }
 
     #[test]
