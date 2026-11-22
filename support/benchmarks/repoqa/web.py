@@ -8,6 +8,7 @@ import re
 import statistics
 import subprocess
 import time
+from itertools import islice
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -115,19 +116,45 @@ def federation(path):
                 raise RuntimeError(f'{path.name} exited with status {process.returncode}')
 
 
+def searxng(url, query, limit):
+    params = urllib.parse.urlencode({'q': query, 'format': 'json', 'language': 'en'})
+    request = urllib.request.Request(f'{url.rstrip("/")}/search?{params}', headers={'User-Agent': 'public-search-eval'})
+    started = time.monotonic()
+    with urllib.request.urlopen(request, timeout=20) as response:
+        data = json.load(response)
+    return {'seconds': time.monotonic() - started,
+            'hits': [(row['url'], row['title']) for row in data['results'][:limit]],
+            'unresponsive_engines': data.get('unresponsive_engines', [])}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dataset', type=Path, required=True)
     parser.add_argument('--baseline', type=Path, required=True)
     parser.add_argument('--current', type=Path, required=True)
     parser.add_argument('--out', type=Path, required=True)
+    parser.add_argument('--start', type=int, default=0, help='First FRAMES row (zero-based)')
+    parser.add_argument('--count', type=int, default=6, help='Number of consecutive FRAMES rows')
+    parser.add_argument('--queries-from', type=Path, help='Reuse queries from an earlier web.jsonl')
+    parser.add_argument('--searxng-url', help='Benchmark a configured SearXNG instance with JSON enabled')
     parser.add_argument('--base-url', default='http://127.0.0.1:3425/v1')
     args = parser.parse_args()
+    if args.start < 0 or args.count < 1:
+        parser.error('--start must be nonnegative and --count positive')
     if hashlib.sha256(args.dataset.read_bytes()).hexdigest() != FRAMES_SHA256:
         raise ValueError('FRAMES dataset does not match the pinned SHA-256')
     with args.dataset.open(newline='') as source:
         reader = csv.DictReader(source, delimiter='\t')
-        cases = [next(reader) for _ in range(6)]
+        cases = list(islice(reader, args.start, args.start + args.count))
+    if len(cases) != args.count:
+        parser.error('requested slice exceeds the FRAMES dataset')
+    fixed = {}
+    if args.queries_from:
+        for line in args.queries_from.read_text().splitlines():
+            row = json.loads(line)
+            previous = fixed.setdefault(row['id'], row)
+            if previous['query'] != row['query']:
+                raise ValueError(f'FRAMES {row["id"]}: fixed queries disagree')
     args.out.mkdir(parents=True)
     with ExitStack() as stack:
         before = stack.enter_context(federation(args.baseline))
@@ -141,14 +168,20 @@ def main():
         rows = []
         for index, case in enumerate(cases):
             instruction = 'Return one concise, standalone web search query for finding evidence to answer the question. Output the query alone.'
-            body = payload('messages', SWE, '', instruction, [{'role': 'user', 'content': case['Prompt']}])
-            model = send(args.base_url, 'messages', body, SWE)
-            query = model.get('answer', '').strip('"')
+            if args.queries_from:
+                row = fixed[case['']]
+                query, model = row['query'], row['generator']
+            else:
+                body = payload('messages', SWE, '', instruction, [{'role': 'user', 'content': case['Prompt']}])
+                model = send(args.base_url, 'messages', body, SWE)
+                query = model.get('answer', '').strip('"')
             if not query or '\n' in query:
                 raise ValueError(f'FRAMES {index}: SWE-2 failed to produce one query: {model}')
             gold = {title for key, url in case.items() if key.startswith('wikipedia_link_') and url
                     if (title := wiki_title(url)) is not None}
-            order = [('1.0.6', before), ('current', after)]
+            order = [('baseline', before), ('current', after)]
+            if args.searxng_url:
+                order.append(('searxng', lambda query, limit: searxng(args.searxng_url, query, limit)))
             if exa is not None:
                 order.append(('exa-anonymous', exa))
             for name, search in order if index % 2 == 0 else order[::-1]:

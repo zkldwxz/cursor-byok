@@ -109,6 +109,21 @@ impl WebSearch {
             )));
         }
         let mut results = merged.into_values().collect::<Vec<_>>();
+        let phrases = super::query::named_phrases(query);
+        if phrases.len() > 1 {
+            let phrases = phrases
+                .iter()
+                .map(|name| name.to_lowercase())
+                .collect::<Vec<_>>();
+            for hit in &mut results {
+                let title = hit.title.to_lowercase();
+                // A directly named subject is stronger than one single-source
+                // RRF vote, but does not outweigh independent agreement.
+                if phrases.iter().any(|phrase| title.contains(phrase)) {
+                    hit.score *= 1.5;
+                }
+            }
+        }
         results.sort_by(|left, right| {
             right
                 .score
@@ -201,6 +216,93 @@ mod tests {
             .search("test")
             .await
             .is_err());
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn search_unifies_tracking_links_but_preserves_meaningful_query_parameters() {
+        use axum::{extract::Query, routing::get, Router};
+
+        let socket = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = socket.local_addr().unwrap();
+        let app = Router::new()
+            .route("/first", get(|headers: axum::http::HeaderMap, Query(params): Query<HashMap<String, String>>| async move {
+                assert_eq!(headers["user-agent"], "PublicSearchClient/1.0");
+                assert_eq!(params.get("q").map(String::as_str), Some("MCP + cache & 中文"));
+                r#"<div class='res'><a href='https://example.com/page?id=2&amp;utm_source=one#details'>Reference</a><span>Short</span></div>"#
+            }))
+            .route("/second", get(|| async {
+                r#"<div class='res'><a href='https://example.com/page?id=2&amp;gclid=abc'>Reference</a><span>A longer reference excerpt</span></div>
+                   <div class='res'><a href='https://example.com/page?id=3'>Other</a><span>Other page</span></div>"#
+            }));
+        let server = tokio::spawn(async move { axum::serve(socket, app).await.unwrap() });
+        let search = WebSearch::with_engines(["first", "second"].map(|id| {
+            super::super::HtmlEngine::new(
+                id,
+                format!("http://{addr}/{id}?q={{query}}"),
+                ".res",
+                "a",
+                "a",
+                "span",
+            )
+        }));
+
+        let hits = search.search("MCP + cache & 中文").await.unwrap();
+        assert_eq!(hits.len(), 2);
+        assert_eq!(hits[0].url, "https://example.com/page?id=2");
+        assert_eq!(hits[0].engines, ["first", "second"]);
+        assert_eq!(hits[0].chunk, "A longer reference excerpt");
+        assert_eq!(hits[1].url, "https://example.com/page?id=3");
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn compound_query_recovers_named_articles_when_the_reference_search_is_empty() {
+        use axum::{extract::Query, routing::get, Router};
+        use serde_json::json;
+
+        let socket = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = socket.local_addr().unwrap();
+        let app = Router::new()
+            .route("/reference", get(|Query(params): Query<HashMap<String, String>>| async move {
+                let titles = if params["q"] == "\"Marie Curie\" OR \"Niels Bohr\"" {
+                    vec![json!({"title":"Marie Curie","url":"https://example.com/marie-curie"}),
+                         json!({"title":"Niels Bohr","url":"https://example.com/niels-bohr"})]
+                } else {
+                    vec![]
+                };
+                axum::Json(json!({"items": titles}))
+            }))
+            .route("/general", get(|| async {
+                axum::Json(json!({"items":[
+                    {"title":"Physics awards and prizes", "url":"https://aaa.example.com/prizes"},
+                    {"title":"Marie Curie", "url":"https://example.com/marie-curie?utm_source=general"}
+                ]}))
+            }));
+        let server = tokio::spawn(async move { axum::serve(socket, app).await.unwrap() });
+        let engine = |id, path| {
+            super::super::JsonEngine::new(
+                id,
+                format!("http://{addr}/{path}?q={{query}}"),
+                "/items",
+                "/title",
+                "/url",
+                "/snippet",
+                None,
+            )
+        };
+        let search = WebSearch::with_engines([
+            engine("general", "general"),
+            engine("wikipedia", "reference"),
+        ]);
+
+        let hits = search
+            .search("Marie Curie first prize and Niels Bohr second prize")
+            .await
+            .unwrap();
+        assert_eq!(hits[0].title, "Marie Curie");
+        assert_eq!(hits[0].engines, ["general", "wikipedia"]);
+        assert_eq!(hits[1].title, "Niels Bohr");
         server.abort();
     }
 

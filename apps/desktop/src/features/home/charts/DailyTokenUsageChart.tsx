@@ -85,7 +85,13 @@ export function DailyTokenUsageChart({
   const option = useMemo<EChartsCoreOption>(() => ({
     animationDuration: 450,
     animationEasing: "cubicOut",
-    grid: { top: 8, right: 0, bottom: 0, left: 0 },
+    grid: { top: 30, right: 0, bottom: 0, left: 0 },
+    // Four stacked series: the colors need names next to them, not only in the tooltip.
+    legend: {
+      top: 0, right: 0, itemWidth: 10, itemHeight: 10, itemGap: 16, icon: "roundRect",
+      data: [t("输入（非缓存）"), t("缓存输入"), t("缓存写入"), t("模型输出")],
+      textStyle: { color: "#8c8c8c" },
+    },
     tooltip: {
       trigger: "axis",
       confine: true,

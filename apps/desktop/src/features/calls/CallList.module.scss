@@ -119,7 +119,23 @@
   white-space: nowrap;
 }
 
+.modelLogo {
+  align-self: center;
+  color: var(--vscode-descriptionForeground);
+}
+
+// The conversation id gives way before the model name does.
+.modelLine .faint {
+  flex: 0 1000 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .modelName {
+  // Never shrinks for the conversation id; only the room left after the logo bounds it.
+  flex: 0 0 auto;
+  max-width: calc(100% - 1em - 8px);
   min-width: 0;
   overflow: hidden;
   color: var(--vscode-foreground);

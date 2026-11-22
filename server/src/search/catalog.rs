@@ -166,9 +166,9 @@ pub(crate) fn engines() -> Vec<SearchEngine> {
             "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={query}&srlimit=10&format=json",
             "/query/search",
             "/title",
-            "/pageid",
+            "/title",
             "/snippet",
-            "https://en.wikipedia.org/?curid={value}"
+            "https://en.wikipedia.org/wiki/{value}"
         ),
         html!(
             "github",

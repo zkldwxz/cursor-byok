@@ -9,7 +9,8 @@ import { FormField, TextInput } from "../../shared/ui/FormControls";
 import { TitledCard } from "../../shared/ui/TitledCard";
 import { useMessage } from "../../shared/ui/message";
 import { modelProviderName } from "../../shared/utils/modelProvider";
-import { claudeIcon, openAiIcon } from "../../shared/ui/icons";
+import { providerIcon } from "../../shared/ui/icons";
+import { modelLogo } from "../../shared/utils/brandIcons";
 import styles from "./CommitSettingsCard.module.scss";
 
 export function VisionSettingsCard() {
@@ -32,7 +33,8 @@ export function VisionSettingsCard() {
   ];
   const options: ModelSelectOption[] = models.filter(m => m.supports_images).map(m => ({
     value: m.model_hash, group: modelProviderName(m), label: m.display_name || m.model_id,
-    icon: m.type === "anthropic" ? claudeIcon : openAiIcon,
+    iconMask: modelLogo(m),
+    icon: providerIcon,
   }));
   for (const plugin of plugins) {
     for (const provider of plugin.providers.filter(p => p.configured)) {
@@ -56,15 +58,21 @@ export function VisionSettingsCard() {
     <Button size="small" variant="primary" disabled={!canSave || saving} onClick={() => void save()}>{t("保存")}</Button>
   </div> : <button className={styles.textButton} disabled={!saved} onClick={() => setDraft(saved)}>{t("编辑")}</button>}>
     <div className={styles.content}>
-      <small>{t("主模型能识图时直接使用原图。纯文本模型默认由 Cursor 识图，也可指定视觉模型或 MCP。")}</small>
-      {draft ? <>
+      <div className={styles.row}>
+        <div className={styles.details}>
+          <strong>{t("识图方式")}</strong>
+          <small>{t("主模型能识图时直接使用原图。纯文本模型默认由 Cursor 识图，也可指定视觉模型或 MCP。")}</small>
+        </div>
+        {!draft && <span className={styles.value}>{saved ? label : t("加载中…")}</span>}
+      </div>
+      {draft && <>
         <Select ariaLabel={t("识图方式")} options={readers} value={draft.mode} disabled={saving} onChange={mode => setDraft(mode === "model" ? { mode, model_id: "" } : mode === "mcp" ? { mode, url: "", tool: "analyze_image" } : { mode: "cursor" })} />
         {draft.mode === "model" && <ModelSelect mode="single" label={t("指定视觉模型")} options={options} value={draft.model_id} disabled={saving} onChange={model_id => setDraft({ mode: "model", model_id })} />}
         {draft.mode === "mcp" && <>
           <FormField label={t("MCP 地址")} hint={t("使用 Streamable HTTP。工具的 image 参数接收图片数据 URL，prompt 参数接收问题。") }><TextInput value={draft.url} disabled={saving} onChange={e => setDraft({ ...draft, url: e.target.value })} /></FormField>
           <FormField label={t("工具名称")}><TextInput value={draft.tool} disabled={saving} onChange={e => setDraft({ ...draft, tool: e.target.value })} /></FormField>
         </>}
-      </> : <span className={styles.value}>{saved ? label : t("加载中…")}</span>}
+      </>}
     </div>
   </TitledCard>;
 }

@@ -194,6 +194,53 @@ async def symbols_and_errors(args, env, log):
                 'semantic_recovery': dict(**restored, first_ms=ms, hits=hits, related_ms=related_ms)}
 
 
+async def branch_switch(args, env, log):
+    root = args.out / 'branch-fixture'
+    root.mkdir()
+
+    def git(*command):
+        subprocess.run(['git', '-C', str(root), '-c', 'commit.gpgsign=false',
+                        '-c', 'core.hooksPath=/dev/null', '-c', 'user.name=Search Fixture',
+                        '-c', 'user.email=fixture@example.invalid', *command],
+                       check=True, capture_output=True, timeout=15)
+
+    git('init', '-q', '-b', 'before')
+    (root / 'original.py').write_text('def calculate_invoice():\n    return sum([7, 9])\n')
+    git('add', '.')
+    git('commit', '-qm', 'Original fixture')
+    git('switch', '-qc', 'after')
+    (root / 'original.py').unlink()
+    (root / 'replacement.py').write_text('def calculate_refund():\n    return sum([3, 5])\n')
+    git('add', '-A')
+    git('commit', '-qm', 'Replace invoice with refund')
+    git('switch', '-q', 'before')
+
+    server = registrations(root, args)['semantic']
+    async with start(server, env, log) as (rpc, _, _):
+        hits, cold = await search(rpc, 'calculate_invoice')
+        assert covers(hits[0], ('original.py', 1)), hits
+        hits, warm = await search(rpc, 'calculate_invoice')
+        assert covers(hits[0], ('original.py', 1)), hits
+        git('switch', '-q', 'after')
+        switched_at = time.monotonic()
+        first_query_ms = None
+        while True:
+            hits, query_ms = await search(rpc, 'calculate_refund')
+            if first_query_ms is None:
+                first_query_ms = query_ms
+            if hits and covers(hits[0], ('replacement.py', 1)) and all(hit[0] != 'original.py' for hit in hits):
+                break
+            if time.monotonic() - switched_at > 10:
+                raise AssertionError(f'Semble did not refresh after a branch checkout: {hits}')
+            await asyncio.sleep(0.1)
+        refreshed = (time.monotonic() - switched_at) * 1000
+    async with start(server, env, log) as (rpc, _, _):
+        restarted_hits, reopened = await search(rpc, 'calculate_refund')
+        assert restarted_hits == hits, restarted_hits
+    return {'cold_ms': cold, 'warm_ms': warm, 'first_query_after_switch_ms': first_query_ms,
+            'fresh_results_after_switch_ms': refreshed, 'reopened_ms': reopened}
+
+
 async def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for flag in ('dataset', 'out', 'model', 'scip', 'semble', 'serena'):
@@ -206,6 +253,8 @@ async def main():
                HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1')
     log = args.out / 'servers.stderr.log'
     symbols = await symbols_and_errors(args, env, log)
+    checkout = await branch_switch(args, env, log)
+    print(f'Branch checkout: updated results in {checkout["fresh_results_after_switch_ms"]:.0f} ms', flush=True)
     print('SCIP fixture: outline, definition, references, implementations, missing symbol and restart passed', flush=True)
     with (args.out / 'retrieval.jsonl').open('x') as rows:
         processes = await retrieval(args, env, log, rows)
@@ -220,7 +269,7 @@ async def main():
                 for name in ('extension.cjs', 'semantic.cjs', 'symbols.yml')}
     result = {'platform': platform.platform(), 'dataset_sha256': DATASET_SHA256, 'extension_sha256': manifest,
                   'cache_bytes': sum(p.stat().st_size for p in cache.rglob('*') if p.is_file()),
-                  'symbols': symbols, 'semantic': {'processes': processes, 'retrieval': retrieval_stats}}
+                  'symbols': symbols, 'semantic': {'processes': processes, 'retrieval': retrieval_stats, 'branch_switch': checkout}}
     (args.out / 'report.json').write_text(json.dumps(result, indent=2) + '\n')
     print(args.out / 'report.json')
 

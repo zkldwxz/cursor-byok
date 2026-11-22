@@ -20,7 +20,21 @@ from benchmark import (
     write_jsonl,
 )
 
-PROTOCOLS = ('messages', 'chat/completions')
+PROTOCOLS = ('messages', 'chat/completions', 'responses')
+
+
+def response_stream_event(event, usage):
+    kind = event.get('type')
+    if kind == 'response.output_text.delta':
+        return event['delta']
+    if kind == 'response.failed':
+        raise ValueError(event['response']['error'])
+    if kind in ('response.completed', 'response.incomplete'):
+        response = event['response']
+        if response['model'] != SWE:
+            raise ValueError(f'Unexpected Responses model: {response["model"]}')
+        usage.update(response['usage'])
+    return None
 
 
 def stream_call(protocol, body, session):
@@ -35,6 +49,7 @@ def stream_call(protocol, body, session):
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     usage = {}
     answer = []
+    first_text = None
     started = time.monotonic()
     with opener.open(request, timeout=90) as stream:
         for line in stream:
@@ -55,6 +70,9 @@ def stream_call(protocol, body, session):
                     usage.update(event.get('usage') or {})
                 if event.get('type') == 'content_block_delta' and event['delta'].get('type') == 'text_delta':
                     answer.append(event['delta']['text'])
+            elif protocol == 'responses':
+                if text := response_stream_event(event, usage):
+                    answer.append(text)
             else:
                 if event.get('model', SWE) != SWE:
                     raise ValueError(f'Unexpected Chat Completions model: {event["model"]}')
@@ -62,11 +80,13 @@ def stream_call(protocol, body, session):
                 for choice in event.get('choices') or []:
                     if text := choice.get('delta', {}).get('content'):
                         answer.append(text)
+            if answer and first_text is None:
+                first_text = time.monotonic() - started
     count, cached, written, output = usage_counts(protocol, usage)
     if cached is None:
         raise ValueError('The model stream did not report cache reads')
     return {'usage': usage, 'input': count, 'cached': cached, 'written': written, 'output': output,
-            'answer': ''.join(answer), 'elapsed': time.monotonic() - started}
+            'answer': ''.join(answer), 'first_text': first_text, 'elapsed': time.monotonic() - started}
 
 
 def session_run(repo, row, protocol, affinity, rounds, context_chars):
@@ -89,6 +109,9 @@ def session_run(repo, row, protocol, affinity, rounds, context_chars):
             body = {'model': SWE, 'stream': True, 'max_tokens': 384,
                     'system': [{'type': 'text', 'text': system, 'cache_control': {'type': 'ephemeral'}}],
                     'messages': messages}
+        elif protocol == 'responses':
+            body = {'model': SWE, 'stream': True, 'instructions': system, 'input': history,
+                    'store': False, 'max_output_tokens': 384}
         else:
             body = {'model': SWE, 'stream': True, 'stream_options': {'include_usage': True},
                     'max_completion_tokens': 384, 'messages': [{'role': 'system', 'content': system}, *history]}
@@ -139,6 +162,7 @@ def main():
         share = 100 * sum(r['cached'] for r in warm) / sum(r['input'] for r in warm)
         sustained = sum(r['cached'] / r['input'] >= 0.95 for r in warm)
         print(protocol, affinity, len(warm), f'{share:.2f}%', '>=95%', sustained,
+              'P50 first text', round(statistics.median(r['first_text'] for r in warm), 2),
               'P50 seconds', round(statistics.median(r['elapsed'] for r in warm), 2), flush=True)
 
 

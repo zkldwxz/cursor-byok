@@ -63,10 +63,20 @@ API Key 和设置只存在本机。模型流量仍会发往你选择的上游。
 
 在本机启动 Magpie，然后打开 **Cursor → Magpie → 连接 Magpie**，选择启用的模型。应用自动发现网关端口，启动时和每 10 分钟同步一次；手动供应商不受影响。
 
+## 网页搜索服务
+
+内置网页搜索无需额外账号。如果要搜索公开网页，可以在 Cursor 的 MCP 配置中添加 [Exa 官方 MCP](https://github.com/exa-labs/exa-mcp-server#authentication)：
+
+```json
+{"mcpServers":{"exa":{"url":"https://mcp.exa.ai/mcp?tools=web_search_exa"}}}
+```
+
+开启 `exa` 后按需选用。匿名入口有限流，查询会发送给 Exa，勿携带私有工作区内容。Exa 的客户端开源，托管搜索后端不开源。[SearXNG](https://docs.searxng.org/dev/search_api.html) 可开源自建，结果取决于上游搜索源。两者都不会自动替换内置搜索。
+
 ## 本地 / SSH 工作区搜索
 
-- **文本、文件名和读文件**由 Cursor 在工作区执行 Grep / Glob / Read。**按描述定位代码**使用 Semble，**定义、实现和引用**使用 Serena。两项服务由 [BYOK Workspace Symbols](apps/workspace-symbols/README.md) 为每个受信任的工作区根目录单独注册。
-- 在有源码的机器上安装 `uv tool install 'semble[mcp]==0.7.3'` 和 `uv tool install -p 3.13 serena-agent==2.1.0`，再在目标 Cursor 窗口用 **Extensions: Install from VSIX** 安装扩展。SSH 窗口安装到 **SSH: 主机**。在 MCP 设置中启用对应目录的 `semantic-…` 和 `symbols-…`。Semble 在工作区主机运行本地嵌入和索引，Serena 的语言服务器也在该主机启动。
+- **文本、文件名和读文件**由 Cursor 在工作区执行 Grep / Glob / Read。**按函数名或描述定位代码**使用自研 Rust 索引 `byok-semantic`，**定义、实现和引用**使用当前 Cursor 窗口已加载的语言扩展。两项服务由 [BYOK Workspace Symbols](apps/workspace-symbols/README.md) 为每个受信任的工作区根目录单独注册。
+- 在有源码的机器上执行 `cargo install --path apps/semantic-mcp` 安装 `byok-semantic`，再在目标 Cursor 窗口用 **Extensions: Install from VSIX** 安装扩展。SSH 窗口安装到 **SSH: 主机**。在 MCP 设置中启用对应目录的 `semantic-…` 和 `symbols-…`。`byok-semantic` 在工作区主机运行本地嵌入和索引；`symbols-…` 直接使用该窗口的语言服务，无需额外安装。
 - **BYOK 和 Magpie 留在桌面机器**。开启接管后，桌面静默启动也会恢复本地代理。SSH 窗口运行 **BYOK: Check Remote Inference Route** 查看该窗口的有效配置；它只报告设置，不证明网络已连通。若为 `auto` / `never`，在 **Remote Settings** 将 `cursorAgentHost.remoteInferenceRoute` 设为 `always`，再用 **Developer: Reload Window** 重载该 SSH 窗口。Cursor 3.31.15 只在 Agent Host 启动时读取此值，私有推理远端会忽略 `always`。不要把远端 `localhost` 填作桌面 Magpie 地址。
 
 ### SSH 长对话、内存和磁盘

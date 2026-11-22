@@ -297,13 +297,15 @@ pub fn compile_context(context: &pb::RequestContext, today: &str) -> String {
         ));
     }
     {
-        let servers = context
+        let mut servers = context
             .mcp_meta_tool_options
             .as_ref()
             .into_iter()
             .flat_map(|options| &options.mcp_descriptors)
             .filter_map(compile_mcp_descriptor)
             .collect::<Vec<_>>();
+        // Discovery order can change after an MCP reconnect without changing the catalog.
+        servers.sort_unstable();
         if !servers.is_empty() {
             sections.push(format!(
                 "<mcp_meta_tools>\nThe following MCP tools are available. Call a listed tool directly with CallMcpTool without calling GetMcpTools first. If a call returns an error, use it to correct the arguments or authentication and retry when appropriate.\n<mcp_meta_tool_servers>\n{}\n</mcp_meta_tool_servers>\n</mcp_meta_tools>",
@@ -318,7 +320,7 @@ fn compile_mcp_descriptor(server: &pb::McpDescriptor) -> Option<String> {
     if server.server_identifier.trim().is_empty() {
         return None;
     }
-    let tools = server
+    let mut tools = server
         .tools
         .iter()
         .filter(|tool| !tool.tool_name.trim().is_empty())
@@ -348,6 +350,7 @@ fn compile_mcp_descriptor(server: &pb::McpDescriptor) -> Option<String> {
     if tools.is_empty() {
         return None;
     }
+    tools.sort_unstable();
     Some(format!(
         "<mcp_meta_tool_server name=\"{}\" identifier=\"{}\">\n<tools>\n{}\n</tools>\n</mcp_meta_tool_server>",
         xml(if server.server_name.trim().is_empty() {
@@ -868,6 +871,59 @@ mod tests {
             content: content.into(),
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn rediscovering_the_same_mcp_directory_in_a_new_order_keeps_the_context_identical() {
+        let tool = |name: &str, description: &str| pb::McpToolDescriptor {
+            tool_name: name.into(),
+            description: Some(description.into()),
+            ..Default::default()
+        };
+        let server = |id: &str, tools| pb::McpDescriptor {
+            server_identifier: id.into(),
+            tools,
+            ..Default::default()
+        };
+        let mut context = pb::RequestContext {
+            mcp_meta_tool_options: Some(pb::McpMetaToolOptions {
+                mcp_descriptors: vec![
+                    server(
+                        "symbols-fixture",
+                        vec![
+                            tool("references", "Find uses"),
+                            tool("definition", "Find declaration"),
+                        ],
+                    ),
+                    server(
+                        "semantic-fixture",
+                        vec![tool("search", "Search the workspace")],
+                    ),
+                ],
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        crate::cursor::tools::devtools::inject(&mut context);
+        let original = compile_context(&context, "2026-11-21");
+        assert!(original.contains("local_run") && original.contains("Find uses"));
+        let directory = &mut context
+            .mcp_meta_tool_options
+            .as_mut()
+            .unwrap()
+            .mcp_descriptors;
+        directory[0].tools.reverse();
+        directory.reverse();
+        crate::cursor::tools::devtools::inject(&mut context);
+        assert_eq!(original, compile_context(&context, "2026-11-21"));
+        let directory = &mut context
+            .mcp_meta_tool_options
+            .as_mut()
+            .unwrap()
+            .mcp_descriptors;
+        directory[0].tools[0].description =
+            Some("Search related code and return line numbers".into());
+        assert_ne!(original, compile_context(&context, "2026-11-21"));
     }
 
     #[test]

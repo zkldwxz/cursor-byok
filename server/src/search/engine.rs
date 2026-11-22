@@ -197,7 +197,9 @@ impl JsonEngine {
         let link = match self.link_template {
             Some(template) => template.replace(
                 "{value}",
-                &url::form_urlencoded::byte_serialize(link.as_bytes()).collect::<String>(),
+                &url::form_urlencoded::byte_serialize(link.as_bytes())
+                    .collect::<String>()
+                    .replace('+', "%20"),
             ),
             None => link,
         };
@@ -226,7 +228,23 @@ impl SearchEngine {
     ) -> Result<Vec<SearchHit>, String> {
         match self {
             Self::Html(engine) => engine.search(client, query).await,
-            Self::Json(engine) => engine.search(client, query).await,
+            Self::Json(engine) => {
+                let hits = engine.search(client, query).await?;
+                // A full compound question can match no encyclopedia article even
+                // though its named subjects have useful individual articles.
+                if engine.id == "wikipedia" && hits.is_empty() {
+                    let phrases = super::query::named_phrases(query);
+                    if phrases.len() > 1 {
+                        let expanded = phrases
+                            .iter()
+                            .map(|phrase| format!("\"{phrase}\""))
+                            .collect::<Vec<_>>()
+                            .join(" OR ");
+                        return engine.search(client, &expanded).await;
+                    }
+                }
+                Ok(hits)
+            }
         }
     }
 }
@@ -263,7 +281,7 @@ fn search_url(template: &str, query: &str) -> String {
 }
 
 fn user_agent() -> &'static str {
-    "Mozilla/5.0 (compatible; CursorBYOK/0.1; +https://github.com)"
+    "PublicSearchClient/1.0"
 }
 
 fn json_text(value: &Value) -> String {

@@ -10,7 +10,8 @@ import { PageActions } from "../../shell/PageActions";
 import { appStore, useAppStore } from "../../shared/store/appStore";
 import { formatTimeInput, parseTimeInput } from "../../shared/utils/parseTimeInput";
 import { modelProviderName } from "../../shared/utils/modelProvider";
-import { claudeIcon, flatColorOrganizationIcon, openAiIcon } from "../../shared/ui/icons";
+import { flatColorOrganizationIcon, providerIcon } from "../../shared/ui/icons";
+import { modelLogo } from "../../shared/utils/brandIcons";
 import { useI18n } from "../../i18n/store";
 
 type TimeRange = { startMs: number; endMs: number };
@@ -139,13 +140,13 @@ export function HomePage() {
     await appStore.refresh();
     setRefreshVersion((version) => version + 1);
   };
-  const iconFor = (type: string) => type === "anthropic" ? claudeIcon : openAiIcon;
   const modelOptions = [
     ...models.map((model) => ({
       value: model.model_hash,
       label: model.display_name,
       group: modelProviderName(model),
-      icon: iconFor(model.type),
+      iconMask: modelLogo(model),
+      icon: providerIcon,
     })),
     ...plugins.flatMap((plugin) => plugin.providers.flatMap((provider) =>
       provider.configured ? provider.models.filter((model) => model.enabled).map((model) => ({

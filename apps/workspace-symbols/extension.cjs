@@ -1,5 +1,9 @@
 //! Registers workspace-local semantic search and language-server MCP entry points.
 const { createHash } = require('node:crypto');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { createHandler, startServer } = require('./navigation.cjs');
 
 function activate(context, vscode = require('vscode')) {
   const { workspace } = vscode;
@@ -17,38 +21,64 @@ function activate(context, vscode = require('vscode')) {
   if (!mcp?.registerServer || !mcp.unregisterServer) {
     throw new Error('BYOK Workspace Symbols requires Cursor’s MCP registration API.');
   }
+
+  // MCP servers are plain stdio processes and cannot call the vscode API, so each
+  // workspace root gets a socket the extension host answers on; the registered
+  // command is a tiny relay that pipes stdio to that socket. ELECTRON_RUN_AS_NODE
+  // makes process.execPath (the Cursor binary on the workspace host) behave like
+  // plain node. The socket lives in a private mkdtemp directory: globalStorage
+  // paths routinely exceed the 104-byte sun_path limit on macOS, and the 0700
+  // directory is what restricts access.
+  const socketDir = fs.mkdtempSync(path.join(os.tmpdir(), 'byok-'));
+  context.subscriptions.push({ dispose() { fs.rmSync(socketDir, { recursive: true, force: true }); } });
   const registered = new Map();
+  const pending = [];
   function add(folder) {
     const uri = folder.uri.toString();
     if (registered.has(uri)) return;
     const slug = folder.name.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 8);
     const id = createHash('sha256').update(uri).digest('hex').slice(0, 10);
     const configuration = workspace.getConfiguration('byok.workspaceSymbols');
-    const names = [`symbols-${slug}-${id}`, `semantic-${slug}-${id}`];
-    mcp.registerServer({name: names[0], server: {
-      command: configuration.get('executable', 'serena'),
-      args: ['start-mcp-server', '--transport', 'stdio', '--agent-interface', 'tools', '--language-backend', 'LSP', '--project', folder.uri.fsPath,
-        '--context', context.asAbsolutePath('symbols.yml'), '--enable-web-dashboard', 'false', '--open-web-dashboard', 'false'],
-      env: {},
-    }});
-    mcp.registerServer({name: names[1], server: {
+    const socketPath = process.platform === 'win32'
+      ? `\\\\.\\pipe\\byok-symbols-${id}`
+      : path.join(socketDir, `s-${id}.sock`);
+    const entry = { names: [`symbols-${slug}-${id}`, `semantic-${slug}-${id}`], socketPath, server: null };
+    entry.ready = startServer(socketPath, createHandler(vscode, { rootUri: folder.uri, workspaceName: folder.name }))
+      .then(server => { entry.server = server; })
+      .catch(err => console.error(`byok-symbols: cannot listen on ${socketPath}: ${err.message}`));
+    pending.push(entry.ready);
+    registered.set(uri, entry);
+    mcp.registerServer({ name: entry.names[0], server: {
       command: process.execPath,
-      args: [context.asAbsolutePath('semantic.cjs'), folder.uri.fsPath, configuration.get('semanticExecutable', 'semble')],
-      env: {ELECTRON_RUN_AS_NODE: '1', SEMBLE_MCP_IDLE_TIMEOUT: '300', TOKENIZERS_PARALLELISM: 'false'},
-    }});
-    registered.set(uri, names);
+      args: [context.asAbsolutePath('relay.cjs')],
+      env: { ELECTRON_RUN_AS_NODE: '1', BYOK_SYMBOLS_SOCKET: socketPath },
+    } });
+    mcp.registerServer({ name: entry.names[1], server: {
+      command: configuration.get('semanticExecutable', 'byok-semantic'),
+      args: [folder.uri.fsPath],
+      env: {},
+    } });
   }
   function remove(uri) {
-    const names = registered.get(uri);
-    if (names === undefined) return;
-    for (const name of names) mcp.unregisterServer(name);
+    const entry = registered.get(uri);
+    if (entry === undefined) return;
+    for (const name of entry.names) mcp.unregisterServer(name);
     registered.delete(uri);
+    const close = () => {
+      entry.server?.close();
+      // Windows named pipes leave no file behind.
+      if (process.platform !== 'win32') fs.rmSync(entry.socketPath, { force: true });
+    };
+    if (entry.server) close();
+    else entry.ready.then(close, close);
   }
-  context.subscriptions.push({dispose() {for (const uri of registered.keys()) remove(uri);}});
+  context.subscriptions.push({ dispose() { for (const uri of registered.keys()) remove(uri); } });
   for (const folder of workspace.workspaceFolders ?? []) add(folder);
-  context.subscriptions.push(workspace.onDidChangeWorkspaceFolders(({added, removed}) => {
+  context.subscriptions.push(workspace.onDidChangeWorkspaceFolders(({ added, removed }) => {
     for (const folder of removed) remove(folder.uri.toString());
     for (const folder of added) add(folder);
   }));
+  // The host ignores activate's return value; tests await ready for the sockets.
+  return { ready: Promise.all(pending) };
 }
-module.exports = {activate};
+module.exports = { activate };

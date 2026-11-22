@@ -63,9 +63,19 @@ For an upstream model and account with Ultrafast access, select **OpenAI → Res
 
 For Magpie, start the gateway locally, open **Cursor → Magpie → Connect**, then choose which models to enable. The app discovers the loopback port, refreshes the catalog on startup and every ten minutes, and keeps your manual providers unchanged.
 
+## Web search providers
+
+The built-in web tool does not require another account. For public web searches, you can add the [official Exa MCP](https://github.com/exa-labs/exa-mcp-server#authentication) to Cursor's MCP configuration:
+
+```json
+{"mcpServers":{"exa":{"url":"https://mcp.exa.ai/mcp?tools=web_search_exa"}}}
+```
+
+Enable `exa` in Cursor's MCP settings and select it for public web queries. Anonymous access is rate-limited. The query is sent to Exa; do not include private workspace data. Exa's client is open source; its hosted search is not. For an open-source self-hosted aggregator, [SearXNG](https://docs.searxng.org/dev/search_api.html) can be benchmarked separately; its quality depends on the configured upstreams. Neither replaces the built-in tool automatically.
+
 ## Local and Remote SSH workspace search
 
-Cursor executes Grep, Glob and Read in the workspace. Install [BYOK Workspace Symbols](apps/workspace-symbols/README.md), Semble and Serena on the host that holds the files. Each trusted root registers `semantic-…` for natural-language search and `symbols-…` for definitions, implementations and references. Semble embeds and indexes locally on that host.
+Cursor executes Grep, Glob and Read in the workspace. Install [BYOK Workspace Symbols](apps/workspace-symbols/README.md) and `byok-semantic` (`cargo install --path apps/semantic-mcp`) on the host that holds the files. Each trusted root registers `semantic-…` for finding code by name or behavior and `symbols-…` for definitions, implementations and references. `byok-semantic` embeds and indexes locally on that host; `symbols-…` answers from the language extensions already loaded in that Cursor window and needs no extra install.
 
 Keep BYOK and Magpie on the desktop machine. In an SSH window run **BYOK: Check Remote Inference Route**. If the effective `cursorAgentHost.remoteInferenceRoute` is `auto` or `never`, set it to `always` in Remote Settings and reload that window. In Cursor 3.31.15 private-inference remotes ignore this setting. The command reports configuration, not a live connectivity test.
 
