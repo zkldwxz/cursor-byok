@@ -330,12 +330,13 @@ fn apply_model(body: &mut Value, model: &crate::model::ModelSpec) -> Result<()> 
 
 fn merge_usage(total: &mut Usage, update: Usage) {
     merge_usage_field(&mut total.input_tokens, update.input_tokens);
-    merge_usage_field(&mut total.context_input_tokens, update.context_input_tokens);
     merge_usage_field(&mut total.output_tokens, update.output_tokens);
     merge_usage_field(&mut total.total_tokens, update.total_tokens);
     merge_usage_field(&mut total.cache_read_tokens, update.cache_read_tokens);
     merge_usage_field(&mut total.cache_write_tokens, update.cache_write_tokens);
     merge_usage_field(&mut total.reasoning_tokens, update.reasoning_tokens);
+    // Cache counts and uncached input can be reported in separate SSE events.
+    total.context_input_tokens = context_input_tokens(total);
     if let Some(request_tokens) = total
         .context_input_tokens
         .zip(total.output_tokens)
@@ -495,20 +496,24 @@ pub(crate) fn anthropic_usage(value: &Value) -> Usage {
     let cache_write_tokens = value
         .get("cache_creation_input_tokens")
         .and_then(Value::as_u64);
-    let context_input_tokens = input_tokens.map(|input| {
-        input
-            .saturating_add(cache_read_tokens.unwrap_or_default())
-            .saturating_add(cache_write_tokens.unwrap_or_default())
-    });
-    Usage {
+    let mut usage = Usage {
         input_tokens,
-        context_input_tokens,
         output_tokens: value.get("output_tokens").and_then(Value::as_u64),
         total_tokens: value.get("total_tokens").and_then(Value::as_u64),
         cache_read_tokens,
         cache_write_tokens,
-        reasoning_tokens: None,
-    }
+        ..Usage::default()
+    };
+    usage.context_input_tokens = context_input_tokens(&usage);
+    usage
+}
+
+fn context_input_tokens(usage: &Usage) -> Option<u64> {
+    usage.input_tokens.map(|input| {
+        input
+            .saturating_add(usage.cache_read_tokens.unwrap_or_default())
+            .saturating_add(usage.cache_write_tokens.unwrap_or_default())
+    })
 }
 
 #[cfg(test)]
@@ -654,6 +659,23 @@ mod tests {
         assert_eq!(usage.input_tokens, Some(10));
         assert_eq!(usage.context_input_tokens, Some(60));
         assert_eq!(usage.output_tokens, Some(5));
+    }
+
+    #[test]
+    fn split_usage_events_count_cache_reads_and_writes_in_the_request_total() {
+        let mut usage = Usage::default();
+        merge_usage(
+            &mut usage,
+            anthropic_usage(&json!({"input_tokens": 100, "output_tokens": 0})),
+        );
+        merge_usage(
+            &mut usage,
+            anthropic_usage(
+                &json!({"cache_read_input_tokens": 9500, "cache_creation_input_tokens": 400, "output_tokens": 17}),
+            ),
+        );
+        assert_eq!(usage.context_input_tokens, Some(10_000));
+        assert_eq!(usage.total_tokens, Some(10_017));
     }
 
     #[test]

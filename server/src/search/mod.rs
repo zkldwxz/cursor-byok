@@ -4,6 +4,7 @@ mod catalog;
 mod engine;
 mod federation;
 mod fetch;
+mod query;
 
 pub use cache::{WebCache, WebCacheEntry};
 pub use engine::{HtmlEngine, JsonEngine, SearchEngine, SearchHit};
