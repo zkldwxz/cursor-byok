@@ -22,6 +22,8 @@ function activate(context, vscode = require('vscode')) {
     throw new Error('BYOK Workspace Symbols requires Cursor’s MCP registration API.');
   }
 
+  const semanticBinary = resolveSemanticBinary(context, vscode);
+
   // MCP servers are plain stdio processes and cannot call the vscode API, so each
   // workspace root gets a socket the extension host answers on; the registered
   // command is a tiny relay that pipes stdio to that socket. ELECTRON_RUN_AS_NODE
@@ -38,7 +40,6 @@ function activate(context, vscode = require('vscode')) {
     if (registered.has(uri)) return;
     const slug = folder.name.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 8);
     const id = createHash('sha256').update(uri).digest('hex').slice(0, 10);
-    const configuration = workspace.getConfiguration('byok.workspaceSymbols');
     const socketPath = process.platform === 'win32'
       ? `\\\\.\\pipe\\byok-symbols-${id}`
       : path.join(socketDir, `s-${id}.sock`);
@@ -53,11 +54,13 @@ function activate(context, vscode = require('vscode')) {
       args: [context.asAbsolutePath('relay.cjs')],
       env: { ELECTRON_RUN_AS_NODE: '1', BYOK_SYMBOLS_SOCKET: socketPath },
     } });
-    mcp.registerServer({ name: entry.names[1], server: {
-      command: configuration.get('semanticExecutable', 'byok-semantic'),
-      args: [folder.uri.fsPath],
-      env: {},
-    } });
+    if (semanticBinary) {
+      mcp.registerServer({ name: entry.names[1], server: {
+        command: semanticBinary,
+        args: [folder.uri.fsPath],
+        env: {},
+      } });
+    }
   }
   function remove(uri) {
     const entry = registered.get(uri);
@@ -80,5 +83,25 @@ function activate(context, vscode = require('vscode')) {
   }));
   // The host ignores activate's return value; tests await ready for the sockets.
   return { ready: Promise.all(pending) };
+}
+
+// The VSIX bundles one byok-semantic per supported platform under bin/. VS Code
+// extension extraction does not restore the Unix executable bit, so an
+// unpacked binary needs its mode repaired before it can be spawned.
+function resolveSemanticBinary(context, vscode) {
+  const file = process.platform === 'win32' ? 'byok-semantic.exe' : 'byok-semantic';
+  const binary = context.asAbsolutePath(path.join('bin', `${process.platform}-${process.arch}`, file));
+  try {
+    if (process.platform !== 'win32' && !(fs.statSync(binary).mode & 0o111)) {
+      fs.chmodSync(binary, 0o755);
+    }
+    return binary;
+  } catch (err) {
+    const why = err?.code === 'ENOENT' ? 'is missing' : `cannot be marked executable (${err.message})`;
+    vscode.window?.showErrorMessage(
+      `BYOK Workspace Symbols: the bundled byok-semantic for ${process.platform}-${process.arch} ${why} at ${binary}; semantic code search is unavailable. Reinstall the extension to repair it.`,
+    );
+    return null;
+  }
 }
 module.exports = { activate };
