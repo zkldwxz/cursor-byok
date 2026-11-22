@@ -4,7 +4,8 @@ import type { LlmCall } from "../../shared/api";
 import { Card } from "../../shared/ui/Card";
 import { Icon } from "../../shared/ui/Icon";
 import { TooltipTrigger } from "../../shared/ui/TooltipTrigger";
-import { chevronRightIcon } from "../../shared/ui/icons";
+import { chevronRightIcon, providerIcon } from "../../shared/ui/icons";
+import { modelLogo } from "../../shared/utils/brandIcons";
 import { CallDetails } from "./CallDetails";
 import { TokenBar } from "./TokenBar";
 import { agentLabel, compactTokens, duration, isFailed, outputSpeed, tokenTotal } from "./tokenParts";
@@ -78,6 +79,7 @@ function CallRow({ call, scale, dark, open, onToggle }: { call: LlmCall; scale: 
       <span><span className={[styles.tag, call.run_kind === "subagent" && styles.subagent].filter(Boolean).join(" ")}>{agentLabel(call)}</span></span>
       <span className={styles.model}>
         <span className={styles.modelLine} title={call.model_id}>
+          <Icon className={styles.modelLogo} mask={modelLogo({ model_id: call.model_id, base_url: call.provider_url })} icon={providerIcon} size="1em" />
           <span className={styles.modelName}>{call.display_name}</span>
           {call.route === "cursor_official" && <span className={styles.route}>{t("Cursor 官方")}</span>}
           <span className={styles.faint}>{call.conversation_id.slice(0, 8)}</span>

@@ -109,6 +109,7 @@ let harnessStatus: CursorHarnessStatus = {
   ca_install_command: null,
 };
 
+let commitSettings = { model_id: "mock-claude-sonnet", prompt: "", prompt_locale: "zh-CN", default_prompt: "Summarize the staged diff as a Conventional Commit message." };
 let detailed = true;
 let portSettings = { proxy_port: 0, service_port: 0, inference_port: 0 };
 let visionSettings: VisionSettings = { mode: "cursor" };
@@ -181,6 +182,10 @@ export function installDemoApi() {
       return json(harnessStatus);
     }
     if (path === "/settings/pricing" && method === "GET") return json({ input_per_million: 0, output_per_million: 0, cache_read_per_million: 0, cache_write_per_million: 0 });
+    if (path === "/settings/commit") {
+      if (method === "PUT") commitSettings = { ...commitSettings, ...(body as object) };
+      return json(commitSettings);
+    }
     if (path === "/settings/observability" && method === "GET") return json({ detailed });
     if (path === "/settings/observability") {
       detailed = Boolean((body as { detailed?: unknown } | null)?.detailed);
