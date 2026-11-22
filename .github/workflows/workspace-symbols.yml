@@ -77,9 +77,11 @@ jobs:
           for d in darwin-arm64 darwin-x64 linux-x64 linux-arm64 win32-x64; do
             echo "== $d"; file "apps/workspace-symbols/bin/$d/"byok-semantic* | head -1
           done
-          file apps/workspace-symbols/bin/linux-x64/byok-semantic | grep -qi "statically linked" \
-            && echo "linux-x64 is statically linked" \
-            || { echo "::error::linux-x64 byok-semantic is not statically linked"; exit 1; }
+          # musl output is reported as "statically linked" or "static-pie linked".
+          for d in linux-x64 linux-arm64; do
+            file "apps/workspace-symbols/bin/$d/byok-semantic" | grep -qE "statically linked|static-pie linked" \
+              || { echo "::error::$d byok-semantic is not statically linked"; exit 1; }
+          done
       - name: Extension checks
         run: npm --prefix apps/workspace-symbols run check
       - name: Package VSIX
