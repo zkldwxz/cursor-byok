@@ -3,8 +3,9 @@ mod account;
 mod ca;
 mod proxy;
 mod settings;
+pub mod workspace_extension;
 
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
@@ -16,6 +17,8 @@ use crate::{
 };
 
 use self::{ca::CaManager, proxy::ProxyRuntime};
+
+pub use workspace_extension::WorkspaceExtensionStatus;
 
 pub(crate) fn proxy_host_allowed(host: &str) -> bool {
     proxy::is_cursor_host(host)
@@ -79,18 +82,23 @@ struct Inner {
     backend_addr: RwLock<Option<SocketAddr>>,
     tab_mode: Arc<RwLock<TabMode>>,
     proxy: Mutex<ProxyRuntime>,
+    workspace_extensions: workspace_extension::WorkspaceExtensions,
 }
 
 impl CursorHarness {
-    pub fn new(store: Store) -> Result<Self> {
+    pub fn new(store: Store, app_version: String) -> Result<Self> {
         Ok(Self {
             inner: Arc::new(Inner {
-                store,
+                store: store.clone(),
                 ca: CaManager::managed()?,
                 ca_initialization: Mutex::new(()),
                 backend_addr: RwLock::new(None),
                 tab_mode: Arc::new(RwLock::new(TabMode::default())),
                 proxy: Mutex::new(ProxyRuntime::default()),
+                workspace_extensions: workspace_extension::WorkspaceExtensions::managed(
+                    store,
+                    app_version,
+                )?,
             }),
         })
     }
@@ -174,6 +182,22 @@ impl CursorHarness {
         let saved = self.inner.store.set_tab_settings(settings).await?;
         *self.inner.tab_mode.write() = saved.mode;
         Ok(saved)
+    }
+
+    pub async fn workspace_extension_status(
+        &self,
+    ) -> Result<workspace_extension::WorkspaceExtensionStatus> {
+        self.inner.workspace_extensions.status().await
+    }
+
+    pub async fn install_workspace_extension(
+        &self,
+    ) -> Result<workspace_extension::WorkspaceExtensionStatus> {
+        self.inner.workspace_extensions.install().await
+    }
+
+    pub async fn save_workspace_extension_vsix(&self) -> Result<PathBuf> {
+        self.inner.workspace_extensions.save_vsix().await
     }
 
     async fn enable(&self) -> Result<()> {

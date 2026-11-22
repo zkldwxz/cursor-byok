@@ -11,6 +11,7 @@ import { PageContent } from "../../shell/layout/PageContent";
 import { LegacyModelImport } from "./LegacyModelImport";
 import { MagpiePage, magpieSummary, useMagpieCatalog } from "./MagpieProvider";
 import { ProviderList, protocolLabel } from "./ProviderList";
+import { WorkspaceExtensionBanner } from "./WorkspaceExtensionBanner";
 import { ProviderPage } from "./ProviderPage";
 import { ProviderIcon, ProviderTitle } from "./ProviderParts";
 import providerStyles from "./Providers.module.scss";
@@ -313,6 +314,7 @@ export function CursorSettingsPage() {
       : null;
   const content = <CursorCaProvider><CursorCaGate busy={cursorBusy} waitingForRefresh={waitingForCaRefresh} onInitialize={() => void initializeCa()} onRefresh={() => void refreshCa()}>
     <div className={styles.page}>
+      <WorkspaceExtensionBanner />
       {providerView ?? <LegacyModelImport>{({ busy: importingLegacyModels, previewing, open: openImport }) => <ProviderList
         providers={providers}
         magpie={magpie.catalog}

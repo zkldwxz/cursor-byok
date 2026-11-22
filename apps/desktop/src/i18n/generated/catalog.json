@@ -71,7 +71,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 340,
+          "line": 342,
           "column": 119
         },
         {
@@ -209,7 +209,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 171,
+          "line": 172,
           "column": 27
         }
       ]
@@ -292,7 +292,7 @@
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 443,
+          "line": 445,
           "column": 73
         }
       ]
@@ -343,7 +343,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 454,
+          "line": 456,
           "column": 89
         }
       ]
@@ -572,7 +572,7 @@
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 453,
+          "line": 455,
           "column": 36
         }
       ]
@@ -596,7 +596,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 347,
+          "line": 349,
           "column": 192
         },
         {
@@ -683,12 +683,12 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 380,
+          "line": 382,
           "column": 46
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 396,
+          "line": 398,
           "column": 74
         }
       ]
@@ -749,6 +749,16 @@
       "placeholders": [],
       "refs": [
         {
+          "file": "features/models/WorkspaceExtensionBanner.tsx",
+          "line": 42,
+          "column": 138
+        },
+        {
+          "file": "features/models/WorkspaceExtensionBanner.tsx",
+          "line": 54,
+          "column": 138
+        },
+        {
           "file": "features/settings/AppLifecycleSettingsCard.tsx",
           "line": 158,
           "column": 27
@@ -762,12 +772,12 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 409,
+          "line": 411,
           "column": 45
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 412,
+          "line": 414,
           "column": 42
         }
       ]
@@ -874,7 +884,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 417,
+          "line": 419,
           "column": 52
         }
       ]
@@ -1038,7 +1048,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 447,
+          "line": 449,
           "column": 89
         }
       ]
@@ -1200,7 +1210,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 55,
+          "line": 56,
           "column": 43
         }
       ]
@@ -1255,7 +1265,7 @@
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 446,
+          "line": 448,
           "column": 186
         }
       ]
@@ -1284,12 +1294,12 @@
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 386,
+          "line": 388,
           "column": 20
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 417,
+          "line": 419,
           "column": 76
         },
         {
@@ -1371,7 +1381,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 385,
+          "line": 387,
           "column": 14
         }
       ]
@@ -1454,7 +1464,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 460,
+          "line": 462,
           "column": 70
         }
       ]
@@ -1519,7 +1529,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 417,
+          "line": 419,
           "column": 99
         },
         {
@@ -1575,6 +1585,18 @@
         }
       ]
     },
+    "3055a035f0eb7a8b": {
+      "source": "更新",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/WorkspaceExtensionBanner.tsx",
+          "line": 54,
+          "column": 150
+        }
+      ]
+    },
     "3260348163d03b8e": {
       "source": "留空保持不变",
       "kind": "text",
@@ -1587,12 +1609,12 @@
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 410,
+          "line": 412,
           "column": 35
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 413,
+          "line": 415,
           "column": 41
         }
       ]
@@ -1681,7 +1703,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 445,
+          "line": 447,
           "column": 137
         }
       ]
@@ -1925,6 +1947,20 @@
         }
       ]
     },
+    "3dda2055d1047f2e": {
+      "source": "VSIX 已保存到 {path}",
+      "kind": "template",
+      "placeholders": [
+        "path"
+      ],
+      "refs": [
+        {
+          "file": "features/models/WorkspaceExtensionBanner.tsx",
+          "line": 17,
+          "column": 26
+        }
+      ]
+    },
     "3f6c25aa329163a4": {
       "source": "原接口路径会追加到此服务地址。",
       "kind": "text",
@@ -1944,7 +1980,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 347,
+          "line": 349,
           "column": 178
         },
         {
@@ -1961,7 +1997,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 401,
+          "line": 403,
           "column": 80
         },
         {
@@ -2091,7 +2127,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 180,
+          "line": 181,
           "column": 27
         }
       ]
@@ -2242,7 +2278,7 @@
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 446,
+          "line": 448,
           "column": 34
         }
       ]
@@ -2254,7 +2290,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 396,
+          "line": 398,
           "column": 703
         },
         {
@@ -2472,7 +2508,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 217,
+          "line": 218,
           "column": 13
         }
       ]
@@ -2496,7 +2532,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 355,
+          "line": 357,
           "column": 68
         },
         {
@@ -2566,7 +2602,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 276,
+          "line": 277,
           "column": 47
         }
       ]
@@ -2607,7 +2643,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 348,
+          "line": 350,
           "column": 102
         }
       ]
@@ -2641,7 +2677,7 @@
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 446,
+          "line": 448,
           "column": 83
         }
       ]
@@ -3072,7 +3108,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 568,
+          "line": 576,
           "column": 43
         }
       ]
@@ -3320,6 +3356,20 @@
         }
       ]
     },
+    "6e45df4e214bda9e": {
+      "source": "工作区扩展 v{version} 已安装",
+      "kind": "template",
+      "placeholders": [
+        "version"
+      ],
+      "refs": [
+        {
+          "file": "features/models/WorkspaceExtensionBanner.tsx",
+          "line": 30,
+          "column": 14
+        }
+      ]
+    },
     "6e86570183c3cdd0": {
       "source": "当前已是最新版本",
       "kind": "text",
@@ -3394,12 +3444,12 @@
       "refs": [
         {
           "file": "shared/store/appStore.ts",
-          "line": 219,
+          "line": 254,
           "column": 23
         },
         {
           "file": "shared/store/appStore.ts",
-          "line": 226,
+          "line": 261,
           "column": 25
         }
       ]
@@ -3500,7 +3550,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 563,
+          "line": 571,
           "column": 43
         }
       ]
@@ -3526,6 +3576,23 @@
           "file": "features/settings/SettingsPage.tsx",
           "line": 306,
           "column": 23
+        }
+      ]
+    },
+    "7bb419cfbb77b421": {
+      "source": "另存 VSIX",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/WorkspaceExtensionBanner.tsx",
+          "line": 25,
+          "column": 141
+        },
+        {
+          "file": "features/models/WorkspaceExtensionBanner.tsx",
+          "line": 31,
+          "column": 96
         }
       ]
     },
@@ -3577,7 +3644,7 @@
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 441,
+          "line": 443,
           "column": 67
         }
       ]
@@ -3714,7 +3781,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 501,
+          "line": 509,
           "column": 21
         }
       ]
@@ -3728,6 +3795,18 @@
           "file": "features/models/ProviderList.tsx",
           "line": 35,
           "column": 9
+        }
+      ]
+    },
+    "81c5c154c323add4": {
+      "source": "远程服务器：本地装好后，在 Cursor 扩展视图对它点“Install in SSH: …”即可装到远端",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/WorkspaceExtensionBanner.tsx",
+          "line": 60,
+          "column": 45
         }
       ]
     },
@@ -3753,7 +3832,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 215,
+          "line": 216,
           "column": 11
         }
       ]
@@ -3852,6 +3931,18 @@
           "file": "features/settings/AppLifecycleSettingsCard.tsx",
           "line": 72,
           "column": 25
+        }
+      ]
+    },
+    "869e0b7e8fa4efbc": {
+      "source": "暂不",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/WorkspaceExtensionBanner.tsx",
+          "line": 26,
+          "column": 129
         }
       ]
     },
@@ -3983,6 +4074,21 @@
         }
       ]
     },
+    "8ca99a871ab10455": {
+      "source": "已安装 v{installed}，最新 v{expected}",
+      "kind": "template",
+      "placeholders": [
+        "installed",
+        "expected"
+      ],
+      "refs": [
+        {
+          "file": "features/models/WorkspaceExtensionBanner.tsx",
+          "line": 49,
+          "column": 14
+        }
+      ]
+    },
     "8cbcf741e727dbf7": {
       "source": "模型配置",
       "kind": "text",
@@ -4069,7 +4175,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 461,
+          "line": 463,
           "column": 87
         }
       ]
@@ -4155,7 +4261,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 355,
+          "line": 357,
           "column": 79
         },
         {
@@ -4196,7 +4302,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 417,
+          "line": 419,
           "column": 250
         }
       ]
@@ -4254,7 +4360,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 55,
+          "line": 56,
           "column": 61
         }
       ]
@@ -4368,6 +4474,18 @@
           "file": "features/plugins/PluginResourcePanels.tsx",
           "line": 215,
           "column": 147
+        }
+      ]
+    },
+    "9bb8f8d13651f879": {
+      "source": "安装完成，重载 Cursor 窗口后生效",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/WorkspaceExtensionBanner.tsx",
+          "line": 21,
+          "column": 15
         }
       ]
     },
@@ -4615,7 +4733,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 226,
+          "line": 227,
           "column": 22
         }
       ]
@@ -4668,12 +4786,12 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 396,
+          "line": 398,
           "column": 432
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 404,
+          "line": 406,
           "column": 194
         },
         {
@@ -4794,7 +4912,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 154,
+          "line": 155,
           "column": 15
         }
       ]
@@ -4847,12 +4965,12 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 377,
+          "line": 379,
           "column": 100
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 404,
+          "line": 406,
           "column": 49
         }
       ]
@@ -4878,7 +4996,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 396,
+          "line": 398,
           "column": 715
         }
       ]
@@ -5176,7 +5294,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 378,
+          "line": 380,
           "column": 73
         }
       ]
@@ -5355,7 +5473,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 401,
+          "line": 403,
           "column": 103
         }
       ]
@@ -5452,7 +5570,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 218,
+          "line": 219,
           "column": 13
         }
       ]
@@ -5543,6 +5661,18 @@
           "file": "features/home/metrics/CacheHitRateChart.tsx",
           "line": 58,
           "column": 62
+        }
+      ]
+    },
+    "c025d077cd6da356": {
+      "source": "更新工作区搜索扩展",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/WorkspaceExtensionBanner.tsx",
+          "line": 48,
+          "column": 16
         }
       ]
     },
@@ -5684,7 +5814,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 396,
+          "line": 398,
           "column": 62
         }
       ]
@@ -5824,7 +5954,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 406,
+          "line": 408,
           "column": 27
         }
       ]
@@ -5974,6 +6104,18 @@
         }
       ]
     },
+    "d32b429875e5b97e": {
+      "source": "未检测到 Cursor 命令行，请先手动安装扩展",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/WorkspaceExtensionBanner.tsx",
+          "line": 40,
+          "column": 105
+        }
+      ]
+    },
     "d34335433395cd3a": {
       "source": "登录系统后自动启动 Cursor BYOK。",
       "kind": "text",
@@ -5998,7 +6140,7 @@
         },
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 409,
+          "line": 411,
           "column": 27
         }
       ]
@@ -6010,7 +6152,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 396,
+          "line": 398,
           "column": 675
         },
         {
@@ -6114,7 +6256,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 394,
+          "line": 396,
           "column": 11
         }
       ]
@@ -6222,7 +6364,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 402,
+          "line": 404,
           "column": 47
         }
       ]
@@ -6282,6 +6424,18 @@
           "file": "features/models/LegacyModelImport.tsx",
           "line": 69,
           "column": 56
+        }
+      ]
+    },
+    "dbe29c0362ef8452": {
+      "source": "让 Agent 按函数名和描述找代码、查引用",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/WorkspaceExtensionBanner.tsx",
+          "line": 39,
+          "column": 14
         }
       ]
     },
@@ -6592,7 +6746,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 406,
+          "line": 408,
           "column": 45
         }
       ]
@@ -6763,6 +6917,18 @@
         }
       ]
     },
+    "e8f88f51ccb085ea": {
+      "source": "安装",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/WorkspaceExtensionBanner.tsx",
+          "line": 42,
+          "column": 150
+        }
+      ]
+    },
     "e91c1c39c2519de4": {
       "source": "Chrome 扩展配对码",
       "kind": "text",
@@ -6806,7 +6972,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 402,
+          "line": 404,
           "column": 77
         }
       ]
@@ -6856,7 +7022,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 401,
+          "line": 403,
           "column": 53
         }
       ]
@@ -7139,6 +7305,18 @@
         }
       ]
     },
+    "fa32e069c8aec057": {
+      "source": "安装工作区搜索扩展",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/WorkspaceExtensionBanner.tsx",
+          "line": 38,
+          "column": 16
+        }
+      ]
+    },
     "fa5b4b8a751c7d1b": {
       "source": "Cursor 使用的本地代理端口；填写 0 时启动时随机选择。",
       "kind": "text",
@@ -7265,7 +7443,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 387,
+          "line": 389,
           "column": 21
         }
       ]
@@ -7277,7 +7455,7 @@
       "refs": [
         {
           "file": "features/models/CursorSettingsPage.tsx",
-          "line": 371,
+          "line": 373,
           "column": 18
         },
         {
