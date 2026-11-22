@@ -253,5 +253,17 @@ pub fn api_router(service: ControlService) -> Router {
             "/__byok-api__/api/harness/cursor/enabled",
             put(harness::set_enabled),
         )
+        .route(
+            "/__byok-api__/api/harness/cursor/workspace-extension/status",
+            get(harness::workspace_extension_status),
+        )
+        .route(
+            "/__byok-api__/api/harness/cursor/workspace-extension/install",
+            post(harness::install_workspace_extension),
+        )
+        .route(
+            "/__byok-api__/api/harness/cursor/workspace-extension/vsix",
+            post(harness::save_workspace_extension_vsix),
+        )
         .with_state(service)
 }

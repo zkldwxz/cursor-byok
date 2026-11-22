@@ -154,7 +154,7 @@ impl ControlService {
         app_version: String,
     ) -> Result<Self> {
         Ok(Self {
-            cursor_harness: CursorHarness::new(store.clone())?,
+            cursor_harness: CursorHarness::new(store.clone(), app_version.clone())?,
             magpie: crate::provider::magpie::Magpie::managed(store.clone())?,
             store,
             provider,

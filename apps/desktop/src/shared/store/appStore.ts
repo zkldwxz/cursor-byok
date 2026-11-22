@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { api, type CursorHarnessStatus, type LlmCall, type Model, type ModelInput, type Overview, type PluginDescriptor, type PluginRuntimeStatus, type PortSettings, type TokenPricingSettings } from "../api";
+import { api, type CursorHarnessStatus, type LlmCall, type Model, type ModelInput, type Overview, type PluginDescriptor, type PluginRuntimeStatus, type PortSettings, type TokenPricingSettings, type WorkspaceExtensionStatus } from "../api";
 import { applyTheme, isThemeId, type ThemeId } from "../theme/theme";
 
 export const DEFAULT_TOKEN_PRICING: TokenPricingSettings = {
@@ -21,6 +21,10 @@ export type AppSnapshot = {
   theme: ThemeId;
   cursorHarness: CursorHarnessStatus | null;
   cursorBusy: boolean;
+  workspaceExtension: WorkspaceExtensionStatus | null;
+  workspaceExtensionBusy: boolean;
+  workspaceExtensionError: string | null;
+  workspaceExtensionDismissed: boolean;
   pluginRuntime: PluginRuntimeStatus | null;
   plugins: PluginDescriptor[];
 };
@@ -56,6 +60,10 @@ let snapshot: AppSnapshot = {
   theme: savedTheme(),
   cursorHarness: null,
   cursorBusy: false,
+  workspaceExtension: null,
+  workspaceExtensionBusy: false,
+  workspaceExtensionError: null,
+  workspaceExtensionDismissed: false,
   pluginRuntime: null,
   plugins: [],
 };
@@ -86,7 +94,7 @@ export const appStore = {
   async refresh() {
     update({ busy: true, error: null });
     try {
-      const [models, calls, overview, settings, ports, pricing, cursorHarness, pluginRuntime, plugins] = await Promise.all([
+      const [models, calls, overview, settings, ports, pricing, cursorHarness, workspaceExtension, pluginRuntime, plugins] = await Promise.all([
         api.models(),
         api.calls(),
         api.overview(),
@@ -94,10 +102,11 @@ export const appStore = {
         api.ports(),
         api.pricingSettings(),
         api.cursorHarness(),
+        api.workspaceExtensionStatus(),
         api.pluginRuntime(),
         api.plugins(),
       ]);
-      update({ models, calls, overview, detailed: settings.detailed, ports, pricing, cursorHarness, pluginRuntime, plugins });
+      update({ models, calls, overview, detailed: settings.detailed, ports, pricing, cursorHarness, workspaceExtension, pluginRuntime, plugins });
     } catch (cause) {
       update({ error: cause instanceof Error ? cause.message : String(cause) });
     } finally {
@@ -177,6 +186,32 @@ export const appStore = {
     try { update({ cursorHarness: await api.setCursorEnabled(enabled) }); }
     catch (cause) { update({ error: cause instanceof Error ? cause.message : String(cause) }); }
     finally { update({ cursorBusy: false }); }
+  },
+  async installWorkspaceExtension() {
+    update({ workspaceExtensionBusy: true, workspaceExtensionError: null });
+    try {
+      update({ workspaceExtension: await api.installWorkspaceExtension() });
+      return true;
+    } catch (cause) {
+      update({ workspaceExtensionError: cause instanceof Error ? cause.message : String(cause) });
+      return false;
+    } finally {
+      update({ workspaceExtensionBusy: false });
+    }
+  },
+  async saveWorkspaceExtensionVsix() {
+    update({ workspaceExtensionBusy: true, workspaceExtensionError: null });
+    try {
+      return (await api.saveWorkspaceExtensionVsix()).saved_to;
+    } catch (cause) {
+      update({ workspaceExtensionError: cause instanceof Error ? cause.message : String(cause) });
+      return null;
+    } finally {
+      update({ workspaceExtensionBusy: false });
+    }
+  },
+  dismissWorkspaceExtension() {
+    update({ workspaceExtensionDismissed: true, workspaceExtensionError: null });
   },
   async createModels(models: ModelInput[]) {
     update({ cursorBusy: true, error: null });

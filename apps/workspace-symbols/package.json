@@ -3,7 +3,7 @@
   "displayName": "BYOK Workspace Symbols",
   "description": "Semantic code search, symbol definitions and references from the active local or SSH workspace.",
   "publisher": "cursor-byok",
-  "version": "1.2.0",
+  "version": "1.1.0",
   "license": "MIT",
   "engines": {
     "vscode": "^1.93.0"
@@ -24,17 +24,6 @@
     }
   },
   "contributes": {
-    "configuration": {
-      "title": "BYOK Workspace Symbols",
-      "properties": {
-        "byok.workspaceSymbols.semanticExecutable": {
-          "type": "string",
-          "default": "byok-semantic",
-          "scope": "machine",
-          "description": "byok-semantic executable on the workspace host. Reload the window after changing it."
-        }
-      }
-    },
     "commands": [
       {
         "command": "byok.checkInferenceRoute",
@@ -46,10 +35,11 @@
     "extension.cjs",
     "navigation.cjs",
     "relay.cjs",
+    "bin/",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "check": "node --check extension.cjs && node --check navigation.cjs && node --check relay.cjs && node --test test/*.test.cjs"
+    "check": "node --check extension.cjs && node --check navigation.cjs && node --check relay.cjs && node scripts/check-version.mjs && node --test test/*.test.cjs"
   }
 }

@@ -196,10 +196,18 @@ jobs:
           path: legacy-update/*
           if-no-files-found: error
 
+  workspace_symbols:
+    name: Build workspace-symbols VSIX
+    needs: prepare
+    if: needs.prepare.outputs.should_publish == 'true'
+    uses: ./.github/workflows/workspace-symbols.yml
+    permissions:
+      contents: read
+
   finalize:
     name: Publish GitHub Release
-    needs: [prepare, publish]
-    if: needs.prepare.outputs.should_publish == 'true' && needs.publish.result == 'success'
+    needs: [prepare, publish, workspace_symbols]
+    if: needs.prepare.outputs.should_publish == 'true' && needs.publish.result == 'success' && needs.workspace_symbols.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -209,6 +217,11 @@ jobs:
           pattern: legacy-update-*
           path: legacy-update
           merge-multiple: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: byok-workspace-symbols-vsix
+          path: vsix
 
       - name: Generate legacy update manifest
         env:
@@ -270,6 +283,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: gh release upload "v${VERSION}" legacy-update/* --clobber
+
+      - name: Upload workspace-symbols VSIX
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: gh release upload "v${VERSION}" vsix/byok-workspace-symbols-*.vsix vsix/byok-workspace-symbols-*.vsix.sha256 --clobber
 
       - name: Publish the completed release
         env:

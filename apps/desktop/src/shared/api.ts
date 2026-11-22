@@ -141,6 +141,14 @@ export interface CursorHarnessStatus {
   ca_install_command: string | null;
 }
 
+export type WorkspaceExtensionState = "missing" | "outdated" | "current";
+export interface WorkspaceExtensionStatus {
+  state: WorkspaceExtensionState;
+  installed_version: string | null;
+  expected_version: string;
+  cursor_cli: boolean;
+}
+
 export interface PortSettings {
   proxy_port: number;
   service_port: number;
@@ -570,6 +578,9 @@ export const api = {
     await writeText(text);
   },
   setCursorEnabled: (enabled: boolean) => request<CursorHarnessStatus>("/harness/cursor/enabled", { method: "PUT", body: JSON.stringify({ enabled }) }),
+  workspaceExtensionStatus: () => request<WorkspaceExtensionStatus>("/harness/cursor/workspace-extension/status"),
+  installWorkspaceExtension: () => request<WorkspaceExtensionStatus>("/harness/cursor/workspace-extension/install", { method: "POST" }),
+  saveWorkspaceExtensionVsix: () => request<{ saved_to: string }>("/harness/cursor/workspace-extension/vsix", { method: "POST" }),
   calls: () => request<LlmCall[]>("/llm-calls?limit=500"),
   pairBrowserDevTools: () => request<{ token: string }>("/browser-devtools/pair", { method: "POST" }),
   call: (id: string) => request<CallDetail>(`/llm-calls/${encodeURIComponent(id)}`),

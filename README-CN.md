@@ -76,7 +76,7 @@ API Key 和设置只存在本机。模型流量仍会发往你选择的上游。
 ## 本地 / SSH 工作区搜索
 
 - **文本、文件名和读文件**由 Cursor 在工作区执行 Grep / Glob / Read。**按函数名或描述定位代码**使用自研 Rust 索引 `byok-semantic`，**定义、实现和引用**使用当前 Cursor 窗口已加载的语言扩展。两项服务由 [BYOK Workspace Symbols](apps/workspace-symbols/README.md) 为每个受信任的工作区根目录单独注册。
-- 在有源码的机器上执行 `cargo install --path apps/semantic-mcp` 安装 `byok-semantic`，再在目标 Cursor 窗口用 **Extensions: Install from VSIX** 安装扩展。SSH 窗口安装到 **SSH: 主机**。在 MCP 设置中启用对应目录的 `semantic-…` 和 `symbols-…`。`byok-semantic` 在工作区主机运行本地嵌入和索引；`symbols-…` 直接使用该窗口的语言服务，无需额外安装。
+- [BYOK Workspace Symbols](apps/workspace-symbols/README.md) 的 VSIX 已内置全部平台的 `byok-semantic` 二进制，无需 `cargo install`。开启接管后，桌面 BYOK 的 Cursor 页会提示安装或更新扩展，一键完成（也可以把 VSIX 另存到下载目录手动安装）；安装后重载 Cursor 窗口生效，再在 MCP 设置中启用对应目录的 `semantic-…` 和 `symbols-…`。`byok-semantic` 在工作区主机运行本地嵌入和索引；`symbols-…` 直接使用该窗口的语言服务，无需额外安装。SSH 远端：先在本地装好，再在 Cursor 扩展视图对它点 **Install in SSH: …** 把同一个 VSIX 装到远端，远端会自动选中对应平台的二进制。
 - **BYOK 和 Magpie 留在桌面机器**。开启接管后，桌面静默启动也会恢复本地代理。SSH 窗口运行 **BYOK: Check Remote Inference Route** 查看该窗口的有效配置；它只报告设置，不证明网络已连通。若为 `auto` / `never`，在 **Remote Settings** 将 `cursorAgentHost.remoteInferenceRoute` 设为 `always`，再用 **Developer: Reload Window** 重载该 SSH 窗口。Cursor 3.31.15 只在 Agent Host 启动时读取此值，私有推理远端会忽略 `always`。不要把远端 `localhost` 填作桌面 Magpie 地址。
 
 ### SSH 长对话、内存和磁盘
