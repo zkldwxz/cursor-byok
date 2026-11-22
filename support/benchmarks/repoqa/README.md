@@ -39,6 +39,8 @@ RepoQA 的官方任务要求从长源码上下文直接抽取完整函数，并�
 - **缓存 token 占比**按 `Σcached / Σinput` 计算。Messages 分母含普通输入、缓存读取和缓存创建。Chat Completions 与 Responses 总输入字段已经含缓存输入。缺少读写字段保留 `null`。冷请求命中的网关公共前缀会保留在原始统计里。
 - 请求直接进入本机 Magpie 的三个 HTTP 接口。记录整次非流式响应时间及原始 `usage`。同模型可以横比三个协议入口，Sol 的结果还受模型和上游路由影响。此实验不测 Cursor Agent 会话恢复之后的缓存，也不测流式首 token。
 
+连续流式对照可用 `cache_continuation.py --protocols messages chat/completions responses`。每种协议分别跑无亲和和同会话亲和两组，报告输入 Token 缓存占比、达到 95% 的续轮数、首段正文及结束耗时。用 `--context-chars 250000 --repos psf/black --rounds 5 --workers 1` 复测长上下文。它直接调用 Magpie，不经过 Cursor 对话恢复和 BYOK 历史投影。
+
 ## 复跑
 
 在仓库根执行。`uv` 用于创建独立的上游 Python 环境。Rust 和 Python 共用固定模型权重和 tokenizer。下载的数据文件在运行前校验 SHA‑256。
@@ -99,9 +101,32 @@ SERENA_HOME="$bench_dir/serena-home" python3 -m support.benchmarks.repoqa.worksp
   --out "$bench_dir/workspace-mcp-01"
 ```
 
-脚本调用扩展的注册函数，再按注册参数启动真实进程。Semble 使用本地模型。首次运行 Serena 可能安装 TypeScript 语言服务器。`report.json` 含 MCP 注册至发现耗时、语义首查与重启首查、符号工具回包和故障恢复结果。`retrieval.jsonl` 含六仓库描述题及同题符号名查询的逐题候选。该脚本使用独立的索引目录，每次给新的 `--out`。首次建索引不包含下载模型的耗时。
+脚本调用扩展的注册函数，再按注册参数启动真实进程。Semble 使用本地模型。首次运行 Serena 可能安装 TypeScript 语言服务器。`report.json` 含 MCP 注册至发现耗时、语义首查与重启首查、符号工具回包和故障恢复结果。`retrieval.jsonl` 含六仓库描述题及同题符号名查询的逐题候选。该脚本使用独立的索引目录，每次给新的 `--out`。首次建索引不包含下载模型的耗时。分支用例会在临时 Git 仓库替换文件，测量旧结果消失、新定义出现，以及重启后复用索引的时间；不连接 SSH 主机。
 
 [工作区 MCP 验收报告](results/2026-11-21/workspace-mcp/README.md)
+
+## 复跑索引互补与 BYOK 长续轮
+
+用实际 MCP 输出和 Rust 候选，按相同的前五、前十预算对照。不把候选并集当作前十成绩。
+
+```bash
+python3 support/benchmarks/repoqa/hybrid_retrieval.py \
+  --rust "$bench_dir/repoqa-run-01/retrieval.jsonl" \
+  --mcp "$bench_dir/workspace-mcp-01/retrieval.jsonl"
+python3 support/benchmarks/repoqa/adapter_workloads.py \
+  --dataset "$bench_dir/repoqa-2024-06-23.json.gz" \
+  --retrieval "$bench_dir/repoqa-run-01/retrieval.jsonl" \
+  --out "$bench_dir/tool-continuation"
+cargo build -p cursor-server --example repo-cache-bench
+for protocol in messages chat/completions responses; do
+  target/debug/examples/repo-cache-bench "$protocol" \
+    < "$bench_dir/tool-continuation/workloads.jsonl" > "$bench_dir/tool-continuation/${protocol##*/}.jsonl"
+done
+```
+
+此流程由生产协议适配器流式调用本机 Magpie 的 SWE‑2，回填真实公开源码；不启动 Cursor 会话，不读取用户工作区。网页回归可以传 `--queries-from` 重用早先的 `web.jsonl`，以 `--start 6 --count 6` 另跑留出集，或用 `--searxng-url` 加入启用 JSON 的自建实例。见[本轮复测结论](recall-and-cache-followup.md)。
+
+[Rust 检索漏召回归因与跨语料验收](rust-miss-audit.md) 记录逐题审计的复跑方法、独立仓库和片段集的结果，以及完整 React 索引上的查询时延。另见[完整 React/Vue 的独立留出与交替对照](results/2026-11-22/search-proof/README.md)，包括冻结标签、二进制指纹和原始样本。
 
 ## 输出
 

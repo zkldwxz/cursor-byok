@@ -64,14 +64,14 @@ def usage_counts(protocol, usage):
     return usage['input_tokens'], details.get('cached_tokens'), details.get('cache_write_tokens'), usage['output_tokens']
 
 
-def repos(dataset, corpus):
+def repos(dataset, corpus, repository_names=REPOSITORIES):
     raw = dataset.read_bytes()
     if hashlib.sha256(raw).hexdigest() != DATASET_SHA256:
         raise ValueError('RepoQA gzip does not match the pinned SHA-256')
     rows = json.loads(gzip.decompress(raw))
     selected = {row['repo']: dict(row, language=lang) for lang, entries in rows.items()
-                for row in entries if row['repo'] in REPOSITORIES}
-    for name in REPOSITORIES:
+                for row in entries if row['repo'] in repository_names}
+    for name in repository_names:
         repo = selected[name]
         root = corpus / name
         for path, contents in repo['content'].items():
@@ -245,11 +245,12 @@ def main():
     parser.add_argument('--upstream-python', type=Path, help='Python executable with pinned upstream Semble installed')
     parser.add_argument('--base-url', default='http://127.0.0.1:3425/v1')
     parser.add_argument('--retrieval-only', action='store_true')
+    parser.add_argument('--repos', nargs='+', default=REPOSITORIES, help='Explicit repository list in the pinned corpus')
     parser.add_argument('--workers', type=int, default=2, help='Independent model sequences run in parallel')
     args = parser.parse_args()
     out = args.out.resolve()
     out.mkdir(parents=True)
-    corpus = list(repos(args.dataset, out / 'corpus'))
+    corpus = list(repos(args.dataset, out / 'corpus', args.repos))
     config = {'dataset': DATASET, 'dataset_sha256': DATASET_SHA256, 'base_url': args.base_url,
               'platform': platform.platform(), 'rust_binary_sha256': hashlib.sha256(args.rust_query.read_bytes()).hexdigest(),
               'started_epoch': time.time(), 'workers': args.workers, 'upstream': bool(args.upstream_python),
