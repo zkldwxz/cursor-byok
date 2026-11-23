@@ -351,8 +351,20 @@ fn compile_mcp_descriptor(server: &pb::McpDescriptor) -> Option<String> {
         return None;
     }
     tools.sort_unstable();
+    let instructions = server
+        .server_use_instructions
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| {
+            format!(
+                "<server_use_instructions>\n{}\n</server_use_instructions>\n",
+                xml(value)
+            )
+        })
+        .unwrap_or_default();
     Some(format!(
-        "<mcp_meta_tool_server name=\"{}\" identifier=\"{}\">\n<tools>\n{}\n</tools>\n</mcp_meta_tool_server>",
+        "<mcp_meta_tool_server name=\"{}\" identifier=\"{}\">\n{instructions}<tools>\n{}\n</tools>\n</mcp_meta_tool_server>",
         xml(if server.server_name.trim().is_empty() {
             &server.server_identifier
         } else {
@@ -907,6 +919,8 @@ mod tests {
         crate::cursor::tools::devtools::inject(&mut context);
         let original = compile_context(&context, "2026-11-21");
         assert!(original.contains("local_run") && original.contains("Find uses"));
+        // The model must learn where DevTools act (the desktop, not the workspace).
+        assert!(original.contains("<server_use_instructions>"));
         let directory = &mut context
             .mcp_meta_tool_options
             .as_mut()

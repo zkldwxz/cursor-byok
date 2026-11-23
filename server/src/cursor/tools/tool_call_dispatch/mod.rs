@@ -28,9 +28,13 @@ pub(super) struct ToolStart {
     pub completion: Option<ToolCompletion>,
 }
 
-pub(super) enum InteractionContinuation {
-    Completed(Box<ToolCompletion>),
-    Pending,
+impl ToolStart {
+    fn pending() -> Self {
+        Self {
+            messages: Vec::new(),
+            completion: None,
+        }
+    }
 }
 
 pub(super) async fn start(
@@ -143,7 +147,7 @@ pub(super) async fn resume_interaction(
     fetch: &WebFetch,
     pending: PendingInteraction,
     response: &pb::InteractionResponse,
-) -> Result<InteractionContinuation> {
+) -> Result<ToolStart> {
     if devtools::is_local_run(&pending.call) {
         return devtools::resume(results, pending, response);
     }

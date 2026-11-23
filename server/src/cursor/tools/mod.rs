@@ -44,16 +44,20 @@ pub struct DispatchedTool {
     pub completion: Option<ToolCompletion>,
 }
 
+impl DispatchedTool {
+    fn pending() -> Self {
+        Self {
+            messages: Vec::new(),
+            completion: None,
+        }
+    }
+}
+
 pub struct ToolBatchState<'a> {
     pub completed: &'a HashSet<String>,
     pub started: &'a HashSet<String>,
     pub response_text: &'a str,
     pub response_thinking: &'a str,
-}
-
-pub enum ClientToolEvent {
-    Completed(Box<ToolCompletion>),
-    Pending,
 }
 
 impl ToolDispatcher {
@@ -214,9 +218,9 @@ impl ToolDispatcher {
     pub async fn interaction_response(
         &self,
         response: &pb::InteractionResponse,
-    ) -> Result<ClientToolEvent> {
+    ) -> Result<DispatchedTool> {
         if self.runtime.is_interrupted(response.id).await {
-            return Ok(ClientToolEvent::Pending);
+            return Ok(DispatchedTool::pending());
         }
         let pending = match self.runtime.take_interaction(response.id).await {
             Some(pending) => pending,
@@ -225,14 +229,14 @@ impl ToolDispatcher {
                     id = response.id,
                     "ignoring duplicate terminal interaction response"
                 );
-                return Ok(ClientToolEvent::Pending);
+                return Ok(DispatchedTool::pending());
             }
             None => {
                 tracing::warn!(
                     id = response.id,
                     "ignoring response for unknown interaction"
                 );
-                return Ok(ClientToolEvent::Pending);
+                return Ok(DispatchedTool::pending());
             }
         };
         let call = pending.call.clone();
@@ -247,22 +251,16 @@ impl ToolDispatcher {
         {
             Ok(continuation) => continuation,
             Err(Error::Protocol(message)) => {
-                return Ok(ClientToolEvent::Completed(Box::new(
-                    compat::failure_with_message(&call, message),
-                )));
+                return Ok(validation_failure(&call, message));
             }
             Err(Error::Json(error)) => {
-                return Ok(ClientToolEvent::Completed(Box::new(
-                    compat::failure_with_message(&call, error.to_string()),
-                )));
+                return Ok(validation_failure(&call, error.to_string()));
             }
             Err(error) => return Err(error),
         };
-        Ok(match continuation {
-            tool_call_dispatch::InteractionContinuation::Completed(completion) => {
-                ClientToolEvent::Completed(completion)
-            }
-            tool_call_dispatch::InteractionContinuation::Pending => ClientToolEvent::Pending,
+        Ok(DispatchedTool {
+            messages: continuation.messages,
+            completion: continuation.completion,
         })
     }
 }

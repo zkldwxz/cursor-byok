@@ -14,7 +14,7 @@ use crate::{
             codec, compat,
             runtime::CursorToolRuntime,
             tool_call_result::{tool_result_channel, ToolResultReceiver, ToolResultSender},
-            ClientToolEvent, ToolDispatcher,
+            ToolDispatcher,
         },
         transport::{OrderedInbox, TransportHandle},
     },
@@ -351,10 +351,14 @@ impl ConversationRuntime {
                                         };
                                         match generation.tools.interaction_response(&message).await
                                         {
-                                            Ok(ClientToolEvent::Completed(completion)) => {
-                                                generation.results.send(*completion)
+                                            Ok(dispatched) => {
+                                                for message in &dispatched.messages {
+                                                    let _ = handle.emit(message);
+                                                }
+                                                if let Some(completion) = dispatched.completion {
+                                                    generation.results.send(completion);
+                                                }
                                             }
-                                            Ok(ClientToolEvent::Pending) => {}
                                             Err(error) => generation.results.send_error(error),
                                         }
                                     }
