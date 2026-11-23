@@ -38,7 +38,6 @@ reqwest = { version = "0.12", default-features = false, features = ["brotli", "d
 rmcp = { version = "0.8.5", features = ["client", "transport-streamable-http-client-reqwest"] }
 regex = "1"
 rcgen = { version = "0.14", features = ["aws_lc_rs", "pem", "x509-parser"] }
-scraper = "0.24"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
