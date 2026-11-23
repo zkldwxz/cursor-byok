@@ -17,14 +17,14 @@ use crate::{
     model::{
         ContentPart, CursorRunTraceArtifact, CursorRunTraceSummary, LlmCallRequest,
         LlmCallResponseChunk, LlmCallSummary, ModelConfig, ModelConfigInput, ModelInvocation,
-        ModelRequest, ModelSpec, ModelType, Overview, ProjectedContent, ProjectedMessage,
-        PromptSpec, ProviderType, Role,
+        ModelPrice, ModelPriceEntry, ModelRequest, ModelSpec, ModelType, Overview,
+        ProjectedContent, ProjectedMessage, PromptSpec, ProviderType, Role,
     },
     plugin::{PluginDescriptor, PluginRegistry, PluginRuntime, PluginRuntimeStatus},
     provider::{is_valid_response_event, ModelEvent, Provider},
     store::{
         CommitSettings, DesktopSettings, ExternalApiSettings, PortSettings, ProxySettings,
-        ProxySettingsInput, StatisticsStorage, Store, TabSettings, TokenPricingSettings,
+        ProxySettingsInput, StatisticsStorage, Store, TabSettings,
     },
     Error, Result,
 };
@@ -862,15 +862,36 @@ impl ControlService {
         self.store.set_commit_settings(settings).await
     }
 
-    pub async fn pricing_settings(&self) -> Result<TokenPricingSettings> {
-        self.store.pricing_settings().await
+    pub async fn model_price_entries(&self) -> Result<Vec<ModelPriceEntry>> {
+        self.store.model_price_entries().await
     }
 
-    pub async fn set_pricing_settings(
+    #[allow(clippy::too_many_arguments)]
+    pub async fn set_model_price(
         &self,
-        settings: TokenPricingSettings,
-    ) -> Result<TokenPricingSettings> {
-        self.store.set_pricing_settings(settings).await
+        provider_url: &str,
+        model_id: &str,
+        input_per_million: f64,
+        output_per_million: f64,
+        cache_read_per_million: Option<f64>,
+        cache_write_per_million: Option<f64>,
+        currency: &str,
+    ) -> Result<ModelPrice> {
+        self.store
+            .set_model_price(
+                provider_url,
+                model_id,
+                input_per_million,
+                output_per_million,
+                cache_read_per_million,
+                cache_write_per_million,
+                currency,
+            )
+            .await
+    }
+
+    pub async fn clear_model_price(&self, provider_url: &str, model_id: &str) -> Result<()> {
+        self.store.clear_model_price(provider_url, model_id).await
     }
 }
 

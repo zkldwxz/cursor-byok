@@ -10,6 +10,7 @@ mod magpie;
 mod maintenance;
 mod messages;
 mod migrations;
+mod model_prices;
 mod models;
 mod overview;
 mod runs;
