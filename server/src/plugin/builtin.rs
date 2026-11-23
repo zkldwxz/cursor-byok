@@ -1,269 +1,43 @@
-//! Pre-installs bundled built-in plugins into the user's installed directory.
+//! Removes bundled plugins that earlier releases pre-installed into the user's installed directory.
 use std::path::Path;
 
-use super::definition::write_if_changed;
 use crate::Result;
 
-/// 随二进制打包的内置插件文件;发布构建没有源码目录,靠这里预装。
-const CODEX_AUTH: &[(&str, &str)] = &[
-    (
-        "plugin.json",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/codex-auth/plugin.json"
-        )),
-    ),
-    (
-        "main.ts",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/codex-auth/main.ts"
-        )),
-    ),
-    (
-        "provider.ts",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/codex-auth/provider.ts"
-        )),
-    ),
-    (
-        "models.ts",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/codex-auth/models.ts"
-        )),
-    ),
-    (
-        "oauth.ts",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/codex-auth/oauth.ts"
-        )),
-    ),
-    (
-        "resources.ts",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/codex-auth/resources.ts"
-        )),
-    ),
-    (
-        "assets/codex.svg",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/codex-auth/assets/codex.svg"
-        )),
-    ),
+/// Plugin ids this app no longer bundles. Earlier releases wrote them into
+/// `plugins/installed`; a copy left behind would keep loading, so startup
+/// deletes exactly those directories and never a user-authored plugin.
+const RETIRED_IDS: &[&str] = &[
+    "dev.cursorbyok.plugins.zcode",
+    "dev.cursorbyok.examples.codex-auth",
+    "dev.cursorbyok.examples.grok-auth",
+    "dev.cursorbyok.plugins.antigravity-auth",
 ];
 
-const GROK_AUTH: &[(&str, &str)] = &[
-    (
-        "plugin.json",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/grok-auth/plugin.json"
-        )),
-    ),
-    (
-        "main.ts",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/grok-auth/main.ts"
-        )),
-    ),
-    (
-        "provider.ts",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/grok-auth/provider.ts"
-        )),
-    ),
-    (
-        "models.ts",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/grok-auth/models.ts"
-        )),
-    ),
-    (
-        "oauth.ts",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/grok-auth/oauth.ts"
-        )),
-    ),
-    (
-        "resources.ts",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/grok-auth/resources.ts"
-        )),
-    ),
-    (
-        "assets/grok.svg",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/grok-auth/assets/grok.svg"
-        )),
-    ),
-];
+/// Directory names the retired plugins used; a missing directory is normal.
+const RETIRED_DIRECTORIES: &[&str] = &["zcode-auth", "codex-auth", "grok-auth", "antigravity-auth"];
 
-const ANTIGRAVITY_AUTH: &[(&str, &str)] = &[
-    (
-        "plugin.json",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/antigravity-auth/plugin.json"
-        )),
-    ),
-    (
-        "main.ts",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/antigravity-auth/main.ts"
-        )),
-    ),
-    (
-        "provider.ts",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/antigravity-auth/provider.ts"
-        )),
-    ),
-    (
-        "models.ts",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/antigravity-auth/models.ts"
-        )),
-    ),
-    (
-        "oauth.ts",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/antigravity-auth/oauth.ts"
-        )),
-    ),
-    (
-        "google_oauth.ts",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/antigravity-auth/google_oauth.ts"
-        )),
-    ),
-    (
-        "resources.ts",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/antigravity-auth/resources.ts"
-        )),
-    ),
-    (
-        "assets/antigravity.svg",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/plugins/build-in/antigravity-auth/assets/antigravity.svg"
-        )),
-    ),
-];
-
-const PLUGINS: &[(&str, &[(&str, &str)])] = &[
-    ("codex-auth", CODEX_AUTH),
-    ("grok-auth", GROK_AUTH),
-    ("antigravity-auth", ANTIGRAVITY_AUTH),
-];
-
-/// 把内置插件预装到 installed 目录。manifest 的 version 是缓存键:
-/// 版本一致时零写盘;版本变化时整目录同步并清理旧版本残留文件。
 pub(super) fn install(installed: &Path) -> Result<()> {
-    let retired = installed.join("zcode-auth");
-    let manifest = retired.join("plugin.json");
-    let is_retired_builtin = match std::fs::read(&manifest) {
-        Ok(bytes) => match serde_json::from_slice::<serde_json::Value>(&bytes) {
-            Ok(value) => value["id"] == "dev.cursorbyok.plugins.zcode",
+    for name in RETIRED_DIRECTORIES {
+        let directory = installed.join(name);
+        let manifest = directory.join("plugin.json");
+        let is_retired = match std::fs::read(&manifest) {
+            Ok(bytes) => match serde_json::from_slice::<serde_json::Value>(&bytes) {
+                Ok(value) => value["id"]
+                    .as_str()
+                    .is_some_and(|id| RETIRED_IDS.contains(&id)),
+                Err(error) => {
+                    tracing::warn!(path = %manifest.display(), %error, "cannot identify retired plugin");
+                    false
+                }
+            },
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
             Err(error) => {
-                tracing::warn!(path = %manifest.display(), %error, "cannot identify retired plugin");
+                tracing::warn!(path = %manifest.display(), %error, "cannot read retired plugin manifest");
                 false
             }
-        },
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
-        Err(error) => {
-            tracing::warn!(path = %manifest.display(), %error, "cannot read retired plugin manifest");
-            false
-        }
-    };
-    if is_retired_builtin {
-        std::fs::remove_dir_all(retired)?;
-    }
-    for (name, files) in PLUGINS {
-        let directory = installed.join(name);
-        if disk_version(&directory) == Some(embedded_version(files)?) {
-            continue;
-        }
-        write_plugin(&directory, files)?;
-    }
-    Ok(())
-}
-
-fn embedded_version(files: &[(&str, &str)]) -> Result<String> {
-    let manifest = files
-        .iter()
-        .find(|(name, _)| *name == "plugin.json")
-        .map(|(_, content)| *content)
-        .expect("built-in plugin bundles plugin.json");
-    let value: serde_json::Value = serde_json::from_str(manifest)?;
-    value
-        .get("version")
-        .and_then(serde_json::Value::as_str)
-        .map(str::to_owned)
-        .ok_or_else(|| crate::Error::Config("built-in plugin manifest requires version".into()))
-}
-
-fn disk_version(directory: &Path) -> Option<String> {
-    let manifest = std::fs::read_to_string(directory.join("plugin.json")).ok()?;
-    let value: serde_json::Value = serde_json::from_str(&manifest).ok()?;
-    Some(value.get("version")?.as_str()?.to_owned())
-}
-
-fn write_plugin(directory: &Path, files: &[(&str, &str)]) -> Result<()> {
-    for (relative, content) in files {
-        let path = directory.join(relative);
-        let parent = path.parent().expect("plugin file path has a parent");
-        std::fs::create_dir_all(parent)?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o700))?;
-        }
-        write_if_changed(&path, content)?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
-        }
-    }
-    prune_unknown_files(directory, directory, files)?;
-    Ok(())
-}
-
-/// 删除插件目录中不在嵌入清单里的文件与空目录(旧版本残留)。
-fn prune_unknown_files(root: &Path, directory: &Path, files: &[(&str, &str)]) -> Result<()> {
-    for entry in std::fs::read_dir(directory)? {
-        let entry = entry?;
-        let path = entry.path();
-        if entry.file_type()?.is_dir() {
-            prune_unknown_files(root, &path, files)?;
-            if std::fs::read_dir(&path)?.next().is_none() {
-                std::fs::remove_dir(&path)?;
-            }
-            continue;
-        }
-        let known = files
-            .iter()
-            .any(|(relative, _)| root.join(relative) == path);
-        if !known {
-            std::fs::remove_file(&path)?;
+        };
+        if is_retired {
+            std::fs::remove_dir_all(directory)?;
         }
     }
     Ok(())
@@ -274,82 +48,65 @@ mod tests {
     use super::*;
 
     #[test]
-    fn upgrades_retire_the_bundled_zcode_plugin_but_not_user_plugins() {
+    fn retiring_removes_each_bundled_plugin_from_an_existing_install() {
         let root = tempfile::tempdir().unwrap();
-        let old = root.path().join("zcode-auth");
-        std::fs::create_dir(&old).unwrap();
+        let manifests = [
+            ("codex-auth", "dev.cursorbyok.examples.codex-auth"),
+            ("grok-auth", "dev.cursorbyok.examples.grok-auth"),
+            (
+                "antigravity-auth",
+                "dev.cursorbyok.plugins.antigravity-auth",
+            ),
+            ("zcode-auth", "dev.cursorbyok.plugins.zcode"),
+        ];
+        for (directory, id) in manifests {
+            let path = root.path().join(directory);
+            std::fs::create_dir_all(&path).unwrap();
+            std::fs::write(
+                path.join("plugin.json"),
+                format!(r#"{{"id":"{id}","version":"0.1.0"}}"#),
+            )
+            .unwrap();
+        }
+        install(root.path()).unwrap();
+        for (directory, _) in manifests {
+            assert!(
+                !root.path().join(directory).exists(),
+                "{directory} survived"
+            );
+        }
+    }
+
+    #[test]
+    fn a_same_named_user_plugin_is_kept() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("codex-auth");
+        std::fs::create_dir_all(&path).unwrap();
+        std::fs::write(path.join("plugin.json"), r#"{"id":"my.plugin"}"#).unwrap();
+        install(root.path()).unwrap();
+        assert!(path.join("plugin.json").is_file());
+    }
+
+    #[test]
+    fn an_invalid_manifest_does_not_block_the_other_retirements() {
+        let root = tempfile::tempdir().unwrap();
+        let broken = root.path().join("codex-auth");
+        std::fs::create_dir(&broken).unwrap();
+        std::fs::write(broken.join("plugin.json"), "{").unwrap();
+        let grok = root.path().join("grok-auth");
+        std::fs::create_dir(&grok).unwrap();
         std::fs::write(
-            old.join("plugin.json"),
-            r#"{"id":"dev.cursorbyok.plugins.zcode","version":"0.1.0"}"#,
+            grok.join("plugin.json"),
+            r#"{"id":"dev.cursorbyok.examples.grok-auth"}"#,
         )
         .unwrap();
-        install(root.path()).unwrap();
-        assert!(!old.join("plugin.json").exists());
-        std::fs::create_dir_all(&old).unwrap();
-        std::fs::write(old.join("plugin.json"), r#"{"id":"my.plugin"}"#).unwrap();
-        install(root.path()).unwrap();
-        assert!(old.join("plugin.json").is_file());
-    }
-
-    #[test]
-    fn an_invalid_retired_manifest_does_not_block_other_builtins() {
-        let root = tempfile::tempdir().unwrap();
-        let old = root.path().join("zcode-auth");
-        std::fs::create_dir(&old).unwrap();
-        std::fs::write(old.join("plugin.json"), "{").unwrap();
 
         install(root.path()).unwrap();
 
-        assert!(root.path().join("codex-auth/plugin.json").is_file());
         assert_eq!(
-            std::fs::read_to_string(old.join("plugin.json")).unwrap(),
+            std::fs::read_to_string(broken.join("plugin.json")).unwrap(),
             "{"
         );
-    }
-
-    fn embedded_main() -> &'static str {
-        CODEX_AUTH
-            .iter()
-            .find(|(name, _)| *name == "main.ts")
-            .unwrap()
-            .1
-    }
-
-    #[test]
-    fn install_is_version_gated_and_syncs_on_version_change() {
-        let root = tempfile::tempdir().unwrap();
-        let plugin = root.path().join("codex-auth");
-
-        install(root.path()).unwrap();
-        assert_eq!(
-            std::fs::read_to_string(plugin.join("main.ts")).unwrap(),
-            embedded_main()
-        );
-        assert!(root
-            .path()
-            .join("antigravity-auth/assets/antigravity.svg")
-            .is_file());
-
-        // 版本一致:本地改动与额外文件保持原样,不发生任何写盘。
-        std::fs::write(plugin.join("main.ts"), "edited").unwrap();
-        std::fs::write(plugin.join("stale.ts"), "extra").unwrap();
-        install(root.path()).unwrap();
-        assert_eq!(
-            std::fs::read_to_string(plugin.join("main.ts")).unwrap(),
-            "edited"
-        );
-        assert!(plugin.join("stale.ts").exists());
-
-        // 版本变化:整目录同步回嵌入内容并清理残留。
-        let manifest = std::fs::read_to_string(plugin.join("plugin.json")).unwrap();
-        let mut value: serde_json::Value = serde_json::from_str(&manifest).unwrap();
-        value["version"] = serde_json::Value::String("0.0.1".into());
-        std::fs::write(plugin.join("plugin.json"), value.to_string()).unwrap();
-        install(root.path()).unwrap();
-        assert_eq!(
-            std::fs::read_to_string(plugin.join("main.ts")).unwrap(),
-            embedded_main()
-        );
-        assert!(!plugin.join("stale.ts").exists());
+        assert!(!grok.exists());
     }
 }
