@@ -65,13 +65,15 @@ API Key 和设置只存在本机。模型流量仍会发往你选择的上游。
 
 ## 网页搜索服务
 
-内置网页搜索无需额外账号。如果要搜索公开网页，可以在 Cursor 的 MCP 配置中添加 [Exa 官方 MCP](https://github.com/exa-labs/exa-mcp-server#authentication)：
+内置网页搜索会把查询发送给 [Exa 官方 MCP 服务](https://github.com/exa-labs/exa-mcp-server)，无需账号，查询里勿携带私有工作区内容。匿名访问有限流，额度用完时工具会直接说明，没有其他内置搜索源。Exa 的客户端开源，托管搜索后端不开源。
+
+搜索较多时，可以在 Cursor 的 MCP 设置里添加自己的搜索 MCP，例如登录[自己账号](https://github.com/exa-labs/exa-mcp-server#authentication)的 Exa：
 
 ```json
 {"mcpServers":{"exa":{"url":"https://mcp.exa.ai/mcp?tools=web_search_exa"}}}
 ```
 
-开启 `exa` 后按需选用。匿名入口有限流，查询会发送给 Exa，勿携带私有工作区内容。Exa 的客户端开源，托管搜索后端不开源。[SearXNG](https://docs.searxng.org/dev/search_api.html) 可开源自建，结果取决于上游搜索源。两者都不会自动替换内置搜索。
+其他搜索 MCP 也可以。它与内置搜索并存，不会替换内置搜索。
 
 ## 本地 / SSH 工作区搜索
 

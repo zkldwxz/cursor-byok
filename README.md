@@ -65,13 +65,15 @@ For Magpie, start the gateway locally, open **Cursor → Magpie → Connect**, t
 
 ## Web search providers
 
-The built-in web tool does not require another account. For public web searches, you can add the [official Exa MCP](https://github.com/exa-labs/exa-mcp-server#authentication) to Cursor's MCP configuration:
+The built-in web search sends each query to [Exa's public MCP service](https://github.com/exa-labs/exa-mcp-server) without an account. Do not include private workspace data in queries. Anonymous access is rate-limited; when the limit is used up, the tool reports it and there is no other built-in source. Exa's client is open source; its hosted search is not.
+
+If you search a lot, add your own search MCP in Cursor's MCP settings, for example Exa with your [own account](https://github.com/exa-labs/exa-mcp-server#authentication):
 
 ```json
 {"mcpServers":{"exa":{"url":"https://mcp.exa.ai/mcp?tools=web_search_exa"}}}
 ```
 
-Enable `exa` in Cursor's MCP settings and select it for public web queries. Anonymous access is rate-limited. The query is sent to Exa; do not include private workspace data. Exa's client is open source; its hosted search is not. For an open-source self-hosted aggregator, [SearXNG](https://docs.searxng.org/dev/search_api.html) can be benchmarked separately; its quality depends on the configured upstreams. Neither replaces the built-in tool automatically.
+Any other search MCP works as well. It is available next to the built-in tool and does not replace it.
 
 ## Local and Remote SSH workspace search
 
