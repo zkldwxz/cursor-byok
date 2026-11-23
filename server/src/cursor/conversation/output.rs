@@ -962,6 +962,7 @@ impl ConversationOutput {
                         event_id,
                         target_run_id: None,
                         messages: vec![message],
+                        finished_subagents: Vec::new(),
                         delivery: MessageDelivery::BreakMessages,
                     },
                 )

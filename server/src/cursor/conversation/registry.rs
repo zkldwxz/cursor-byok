@@ -5,7 +5,9 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{mpsc, Mutex, Notify};
 
 use crate::{
-    cursor::{prompting::PromptCompiler, transport::TransportHandle},
+    cursor::{
+        checkpoint::SubagentCompletions, prompting::PromptCompiler, transport::TransportHandle,
+    },
     model::{ConversationId, RunId},
     provider::Provider,
     run::{CommandResult, RunHandle},
@@ -42,6 +44,7 @@ struct RegistryInner {
 struct ActiveRun {
     run_id: RunId,
     handle: RunHandle,
+    subagent_completions: SubagentCompletions,
 }
 
 impl ConversationRegistry {
@@ -87,12 +90,14 @@ impl ConversationRegistry {
         conversation_id: ConversationId,
         run_id: RunId,
         handle: RunHandle,
+        subagent_completions: SubagentCompletions,
     ) {
         let previous = self.inner.current.lock().await.insert(
             conversation_id,
             ActiveRun {
                 run_id: run_id.clone(),
                 handle,
+                subagent_completions,
             },
         );
         if let Some(previous) = previous.filter(|previous| previous.run_id != run_id) {
@@ -133,6 +138,11 @@ impl ConversationRegistry {
             return CommandResult::StaleTarget;
         }
         let pending = compiled.clone();
+        // Recorded before insertion: the Run may build the checkpoint that
+        // commits these messages before this call returns.
+        active
+            .subagent_completions
+            .extend(compiled.finished_subagents);
         let result = match compiled.delivery {
             MessageDelivery::Ignore => CommandResult::Applied,
             MessageDelivery::InsertMessages => {
