@@ -21,7 +21,7 @@ const DAY_MS = 24 * 60 * 60_000;
 
 function contributionCalendarData(overview: Overview, endMs: number) {
   const tokensByDate = new Map<string, number>();
-  for (const bucket of overview.token_usage_series) {
+  for (const bucket of overview.series) {
     const date = new Date(bucket.bucket_start_ms).toISOString().slice(0, 10);
     const tokens = bucket.input_tokens + bucket.cache_read_tokens + bucket.cache_write_tokens + bucket.output_tokens;
     tokensByDate.set(date, (tokensByDate.get(date) ?? 0) + tokens);
@@ -85,7 +85,7 @@ export function HomePage() {
   }, [preset, customRange, overview, refreshVersion, appliedModels]);
 
   const filteredOverview = rangeOverview ?? overview;
-  const dailyTokenUsage = filteredOverview.token_usage_series.map((bucket) => ({
+  const dailyTokenUsage = filteredOverview.series.map((bucket) => ({
     bucketStartMs: bucket.bucket_start_ms,
     inputTokens: bucket.input_tokens,
     cacheReadTokens: bucket.cache_read_tokens,
@@ -93,15 +93,6 @@ export function HomePage() {
     outputTokens: bucket.output_tokens,
   }));
   const contribution = contributionCalendarData(filteredOverview, selectedRange?.endMs ?? Date.now());
-  const metrics = {
-    llmCalls: filteredOverview.metrics.llm_calls,
-    successfulCalls: filteredOverview.metrics.successful_calls,
-    failedCalls: filteredOverview.metrics.failed_calls,
-    tokenUsage: filteredOverview.metrics.token_usage,
-    promptTokens: filteredOverview.metrics.prompt_tokens,
-    cacheReadTokens: filteredOverview.metrics.cache_read_tokens,
-    cacheWriteTokens: filteredOverview.metrics.cache_write_tokens,
-  };
   const openCustom = (open: boolean) => {
     if (open && !customStart && !customEnd) {
       const now = new Date();
@@ -164,13 +155,13 @@ export function HomePage() {
       estimatedHeight: 240,
       content: <DailyTokenUsageChart
         data={dailyTokenUsage}
-        granularity={filteredOverview.token_usage_granularity}
+        granularity={filteredOverview.granularity}
       />,
     },
     {
       key: "metrics",
-      estimatedHeight: 130,
-      content: <HomeMetrics data={metrics} refreshVersion={refreshVersion} />,
+      estimatedHeight: 132,
+      content: <HomeMetrics metrics={filteredOverview.metrics} series={filteredOverview.series} granularity={filteredOverview.granularity} />,
     },
 
     {

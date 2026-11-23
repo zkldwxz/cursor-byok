@@ -24,7 +24,7 @@ export function ProviderTitle({ icon, name, detail, onBack }: { icon: ReactNode;
     <button type="button" className={styles.crumbBack} onClick={onBack}>Cursor</button>
     <Icon className={styles.crumbSeparator} icon={chevronRightIcon} size="0.8em" />
     {icon}
-    <span>{name}</span>
+    <span className={styles.crumbName}>{name}</span>
     {detail && <span className={styles.crumbDetail}>{detail}</span>}
   </span>;
 }

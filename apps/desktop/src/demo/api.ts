@@ -5,12 +5,16 @@ import type {
   LlmCall,
   MagpieCatalog,
   Model,
+  ModelPrice,
+  ModelPriceEntry,
+  ModelPriceInput,
   Overview,
-  OverviewTokenUsageBucket,
+  OverviewBucket,
   ProxySettings,
   StatisticsStorage,
   TabSettings,
   VisionSettings,
+  WorkspaceExtensionStatus,
 } from "../shared/api";
 
 const API_ROOT = "/__byok-api__/api";
@@ -44,6 +48,17 @@ const magpieModels: MagpieCatalog["models"] = [
   { id: "deepseek/deepseek-v3.2", magpie_label: "DeepSeek V3.2", context_window: 128_000, reasoning: false, modalities: { input: ["text"] } },
 ];
 let magpie: MagpieCatalog | null = null;
+let workspaceExtension: WorkspaceExtensionStatus = { state: "missing", installed_version: null, expected_version: "1.1.0", cursor_cli: true };
+const modelPriceMap = new Map<string, ModelPrice>();
+const priceKey = (providerUrl: string, modelId: string) => `${providerUrl}${modelId}`;
+// Two priced models (one per currency) so the price table and the overview
+// estimate both show priced and unpriced calls.
+modelPriceMap.set(priceKey("https://api.openai.com/v1/responses", "gpt-5.2"), {
+  input_per_million: 1.25, output_per_million: 10, cache_read_per_million: 0.125, cache_write_per_million: null, currency: "USD", updated_at_ms: FIXED_NOW,
+});
+modelPriceMap.set(priceKey("https://api.deepseek.com/v1/chat/completions", "deepseek-chat"), {
+  input_per_million: 2, output_per_million: 8, cache_read_per_million: null, cache_write_per_million: null, currency: "CNY", updated_at_ms: FIXED_NOW,
+});
 
 function magpieCursorModels(): Model[] {
   if (!magpie) return [];
@@ -66,8 +81,8 @@ const calls: LlmCall[] = Array.from({ length: 24 }, (_, index) => {
     provider_call_index: index + 1,
     model_hash: model.model_hash,
     provider_type: model.type,
-    provider_url: model.base_url,
-    request_type: model.type === "anthropic" ? "messages" : "responses",
+    provider_url: model.type === "anthropic" ? `${model.base_url}/v1/messages` : `${model.base_url}${model.openai_endpoint}`,
+    request_type: model.type === "anthropic" ? "anthropic" : "openai-chat",
     request_url: model.type === "anthropic" ? `${model.base_url}/v1/messages` : `${model.base_url}${model.openai_endpoint}`,
     model_id: model.model_id,
     display_name: model.display_name,
@@ -171,6 +186,12 @@ export function installDemoApi() {
     if (path.startsWith("/llm-calls/")) return json(createCallDetail(path.slice("/llm-calls/".length)));
     if (path === "/harness/cursor/status") return json(harnessStatus);
     if (path === "/harness/cursor/ca/initialize") return json(harnessStatus);
+    if (path === "/harness/cursor/workspace-extension/status") return json(workspaceExtension);
+    if (path === "/harness/cursor/workspace-extension/install") {
+      workspaceExtension = { ...workspaceExtension, state: "current", installed_version: workspaceExtension.expected_version };
+      return json(workspaceExtension);
+    }
+    if (path === "/harness/cursor/workspace-extension/vsix") return json({ saved_to: `~/Downloads/byok-workspace-symbols-${workspaceExtension.expected_version}.vsix` });
     if (path === "/harness/cursor/enabled") {
       const enabled = Boolean((body as { enabled?: unknown } | null)?.enabled);
       harnessStatus = {
@@ -181,7 +202,27 @@ export function installDemoApi() {
       };
       return json(harnessStatus);
     }
-    if (path === "/settings/pricing" && method === "GET") return json({ input_per_million: 0, output_per_million: 0, cache_read_per_million: 0, cache_write_per_million: 0 });
+    if (path === "/model-prices" && method === "GET") return json(modelPriceEntries());
+    if (path === "/model-prices" && method === "PUT") {
+      const input = body as ModelPriceInput | null;
+      if (!input || typeof input.provider_url !== "string" || typeof input.model_id !== "string") {
+        return json({ error: "model-prices: provider_url and model_id are required" }, 400);
+      }
+      modelPriceMap.set(`${input.provider_url}${input.model_id}`, {
+        input_per_million: Number(input.input_per_million ?? 0),
+        output_per_million: Number(input.output_per_million ?? 0),
+        cache_read_per_million: input.cache_read_per_million ?? null,
+        cache_write_per_million: input.cache_write_per_million ?? null,
+        currency: input.currency === "CNY" ? "CNY" : "USD",
+        updated_at_ms: Date.now(),
+      });
+      return json({ ok: true });
+    }
+    if (path === "/model-prices" && method === "DELETE") {
+      const key = body as { provider_url?: string; model_id?: string } | null;
+      if (key?.provider_url && key?.model_id) modelPriceMap.delete(`${key.provider_url}${key.model_id}`);
+      return empty();
+    }
     if (path === "/settings/commit") {
       if (method === "PUT") commitSettings = { ...commitSettings, ...(body as object) };
       return json(commitSettings);
@@ -275,6 +316,68 @@ function createModel({ hash, order, name, type, url, modelId, endpoint = "/v1/re
   };
 }
 
+function channelName(call: LlmCall): string {
+  const model = models.find((candidate) => candidate.model_hash === call.model_hash);
+  if (model?.group_name?.trim()) return model.group_name.trim();
+  if (call.model_hash?.startsWith("magpie-")) return "Magpie";
+  try {
+    return new URL(call.provider_url).hostname;
+  } catch {
+    return call.provider_url.replace(/^[a-z]+:\/\//, "").split("/")[0] || call.provider_url;
+  }
+}
+
+function modelPriceEntries(): ModelPriceEntry[] {
+  const latest = new Map<string, { call: LlmCall; ms: number }>();
+  for (const call of calls) {
+    const key = `${call.provider_url}${call.model_id}`;
+    const current = latest.get(key);
+    if (!current || call.created_at_ms > current.ms) latest.set(key, { call, ms: call.created_at_ms });
+  }
+  return [...latest.values()]
+    .sort((a, b) => b.ms - a.ms)
+    .map(({ call }) => {
+      const key = `${call.provider_url}${call.model_id}`;
+      return {
+        provider_url: call.provider_url,
+        model_id: call.model_id,
+        channel_name: channelName(call),
+        last_call_ms: call.created_at_ms,
+        price: modelPriceMap.get(key) ?? null,
+      };
+    });
+}
+
+// Mirrors the server: priced calls sum per currency with fresh input for the
+// provider's usage shape, and every call without a price is counted.
+function demoCosts() {
+  const totals = new Map<string, number>();
+  let unpriced = 0;
+  for (const call of calls) {
+    const price = modelPriceMap.get(priceKey(call.provider_url, call.model_id));
+    if (!price) {
+      unpriced += 1;
+      continue;
+    }
+    const fresh = call.request_type === "anthropic"
+      ? Math.max(0, call.input_tokens ?? 0)
+      : Math.max(0, (call.input_tokens ?? 0) - (call.cache_read_tokens ?? 0) - (call.cache_write_tokens ?? 0));
+    const cacheRead = price.cache_read_per_million ?? price.input_per_million;
+    const cacheWrite = price.cache_write_per_million ?? price.input_per_million;
+    const amount = (
+      fresh * price.input_per_million
+      + (call.cache_read_tokens ?? 0) * cacheRead
+      + (call.cache_write_tokens ?? 0) * cacheWrite
+      + (call.output_tokens ?? 0) * price.output_per_million
+    ) / 1_000_000;
+    totals.set(price.currency, (totals.get(price.currency) ?? 0) + amount);
+  }
+  return {
+    costs: [...totals].map(([currency, amount]) => ({ currency, amount })),
+    unpriced_calls: unpriced,
+  };
+}
+
 function createOverview(params: URLSearchParams): Overview {
   const start = Number(params.get("start_ms"));
   const end = Number(params.get("end_ms"));
@@ -282,35 +385,45 @@ function createOverview(params: URLSearchParams): Overview {
   const granularity = duration <= 2 * 60 * 60_000 ? "minute" : duration <= 2 * 86_400_000 ? "hour" : "day";
   const step = granularity === "minute" ? 60_000 : granularity === "hour" ? 3_600_000 : 86_400_000;
   const count = granularity === "minute" ? Math.min(60, Math.max(10, Math.ceil(duration / step))) : granularity === "hour" ? Math.min(24, Math.max(8, Math.ceil(duration / step))) : Math.min(365, Math.max(7, Math.ceil(duration / step)));
-  const series = createSeries(count, step, Number.isFinite(end) && end > 0 ? end : FIXED_NOW);
+  const { costs, unpriced_calls } = demoCosts();
+  const series = createSeries(count, step, Number.isFinite(end) && end > 0 ? end : FIXED_NOW, costs);
   const totals = series.reduce((sum, bucket) => ({
     input: sum.input + bucket.input_tokens,
     cacheRead: sum.cacheRead + bucket.cache_read_tokens,
     cacheWrite: sum.cacheWrite + bucket.cache_write_tokens,
     output: sum.output + bucket.output_tokens,
-  }), { input: 0, cacheRead: 0, cacheWrite: 0, output: 0 });
-  const llmCalls = Math.max(12, Math.round(count * 5.4));
+    calls: sum.calls + bucket.calls,
+    failed: sum.failed + bucket.failed_calls,
+  }), { input: 0, cacheRead: 0, cacheWrite: 0, output: 0, calls: 0, failed: 0 });
+  const timed = series.filter((bucket) => bucket.calls > 0);
+  const mean = (values: number[]) => values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
 
   return {
     metrics: {
-      llm_calls: llmCalls,
-      successful_calls: llmCalls - Math.max(1, Math.floor(llmCalls * 0.008)),
-      failed_calls: Math.max(1, Math.floor(llmCalls * 0.008)),
+      llm_calls: totals.calls,
+      successful_calls: totals.calls - totals.failed,
+      failed_calls: totals.failed,
       token_usage: totals.input + totals.cacheRead + totals.cacheWrite + totals.output,
       prompt_tokens: totals.input + totals.cacheRead + totals.cacheWrite,
       input_tokens: totals.input,
       cache_read_tokens: totals.cacheRead,
       cache_write_tokens: totals.cacheWrite,
       output_tokens: totals.output,
+      costs,
+      unpriced_calls,
+      avg_ttft_ms: mean(timed.flatMap((bucket) => bucket.avg_ttft_ms ?? [])),
+      output_tokens_per_second: mean(timed.flatMap((bucket) => bucket.output_tokens_per_second ?? [])),
     },
-    token_usage_granularity: granularity,
-    token_usage_series: series,
+    granularity,
+    series,
   };
 }
 
-function createSeries(count: number, step: number, end: number): OverviewTokenUsageBucket[] {
-  return Array.from({ length: count }, (_, index) => {
-    const wave = 0.72 + ((index * 17) % 31) / 50;
+function createSeries(count: number, step: number, end: number, costs: { currency: string; amount: number }[]): OverviewBucket[] {
+  const waves = Array.from({ length: count }, (_, index) => 0.72 + ((index * 17) % 31) / 50);
+  const waveTotal = waves.reduce((sum, wave) => sum + wave, 0);
+  return waves.map((wave, index) => {
+    const calls = Math.max(1, Math.round(5.4 * wave));
     return {
       bucket_start_ms: end - (count - index) * step,
       // input : cache_read = 1 : 99，使默认口径缓存命中率恰为 99%
@@ -318,6 +431,11 @@ function createSeries(count: number, step: number, end: number): OverviewTokenUs
       cache_read_tokens: Math.round(79_200 * wave),
       cache_write_tokens: Math.round(7_500 * wave),
       output_tokens: Math.round(12_500 * wave),
+      calls,
+      failed_calls: index % 9 === 4 ? 1 : 0,
+      avg_ttft_ms: Math.round(620 + ((index * 37) % 23) * 18),
+      output_tokens_per_second: 48 + ((index * 13) % 17) * 1.6,
+      costs: costs.map((cost) => ({ currency: cost.currency, amount: cost.amount * wave / waveTotal })),
     };
   });
 }

@@ -75,6 +75,20 @@
   gap: 8px;
 }
 
+.extensionDismiss {
+  height: 25px;
+  padding: 0 8px;
+  color: var(--vscode-descriptionForeground);
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+
+  &:hover:not(:disabled) {
+    color: var(--vscode-foreground);
+    background: var(--vscode-list-hoverBackground);
+  }
+}
+
 .extensionError {
   color: var(--vscode-errorForeground);
 }

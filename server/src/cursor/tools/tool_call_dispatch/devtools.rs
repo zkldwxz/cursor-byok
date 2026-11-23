@@ -19,7 +19,7 @@ use crate::{
     Error, Result,
 };
 
-use super::{pb, InteractionContinuation, ToolStart};
+use super::{pb, ToolStart};
 
 const QUESTION: &str = "byok-desktop-command";
 const APPROVE: &str = "run-once";
@@ -49,18 +49,13 @@ pub(super) async fn start(
     let mut messages = Vec::new();
     if is_local_run(call) {
         let local = LocalCommand::new(arguments)?;
-        let mut prompt = call.clone();
-        prompt.name = "AskQuestion".into();
-        prompt.arguments = json!({"title":"Run a command on this desktop?", "questions":[{
-            "id": QUESTION,
-            "prompt": format!("Desktop directory: {}\nCommand:\n{}", local.cwd.display(), local.command),
-            "options":[{"id": APPROVE,"label":"Run once"},{"id":"deny","label":"Reject"}]
-        }]});
         let mut approved_call = call.clone();
         // Resolve the cwd before showing it so approval and execution share the same input.
         approved_call.arguments["arguments"]["cwd"] = json!(local.cwd);
         let id = runtime.reserve_interaction(&approved_call).await?;
-        messages.push(codec::tool_query(id, &prompt)?);
+        let question = approval_question(&approved_call)?;
+        messages.push(codec::tool_started(&question, None)?);
+        messages.push(codec::tool_query(id, &question)?);
     } else {
         let call = call.clone();
         let sender = results.clone();
@@ -81,19 +76,75 @@ pub(super) fn resume(
     results: &ToolResultSender,
     pending: PendingInteraction,
     response: &pb::InteractionResponse,
-) -> Result<InteractionContinuation> {
+) -> Result<ToolStart> {
+    let messages = settle_question(&pending, response)?;
+    let failure = |message: String| -> Result<ToolStart> {
+        Ok(ToolStart {
+            messages: messages.clone(),
+            completion: Some(result::mcp_failure(&pending.call, message)?),
+        })
+    };
     if !approved(response) {
-        return Ok(InteractionContinuation::Completed(Box::new(
-            result::mcp_failure(&pending.call, "Desktop command was not approved.".into())?,
-        )));
+        return failure("Desktop command was not approved.".into());
     }
-    let local = LocalCommand::new(tool_arguments(&pending.call)?.1)?;
+    let local = match LocalCommand::new(tool_arguments(&pending.call)?.1) {
+        Ok(local) => local,
+        Err(error) => return failure(error.to_string()),
+    };
     let sender = results.clone();
     tokio::spawn(async move {
         let outcome = local.run().await;
         send(&sender, &pending.call, pending.started_at_ms, outcome);
     });
-    Ok(InteractionContinuation::Pending)
+    Ok(ToolStart {
+        messages,
+        completion: None,
+    })
+}
+
+/// The approval is a separate card: Cursor finds a question's card by its call
+/// id, and the local_run call's id already belongs to an MCP card, which cannot
+/// display a question.
+fn approval_question(call: &ToolCall) -> Result<ToolCall> {
+    let arguments = tool_arguments(call)?.1;
+    let text = |name: &str| {
+        arguments
+            .get(name)
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+    };
+    let mut question = call.clone();
+    question.call_id = format!("{}-approval", call.call_id);
+    question.name = "AskQuestion".into();
+    question.arguments = json!({"title":"Run a command on this desktop?", "questions":[{
+        "id": QUESTION,
+        "prompt": format!("Desktop directory: {}\nCommand:\n{}", text("cwd"), text("command")),
+        "options":[{"id": APPROVE,"label":"Run once"},{"id":"deny","label":"Reject"}]
+    }]});
+    question.arguments_text = question.arguments.to_string();
+    Ok(question)
+}
+
+/// Cursor interrupts the run to redeliver an answer whose question card is not
+/// completed within 30 seconds, so the card settles before the command runs.
+fn settle_question(
+    pending: &PendingInteraction,
+    response: &pb::InteractionResponse,
+) -> Result<Vec<pb::AgentServerMessage>> {
+    use pb::interaction_response::Result::AskQuestionInteractionResponse;
+    if !matches!(response.result.as_ref(), Some(AskQuestionInteractionResponse(reply)) if reply.result.is_some())
+    {
+        return Ok(Vec::new());
+    }
+    let question = approval_question(&pending.call)?;
+    let completion = result::from_interaction(
+        PendingInteraction {
+            call: question.clone(),
+            started_at_ms: pending.started_at_ms,
+        },
+        response,
+    )?;
+    Ok(vec![codec::tool_completed(&question, &completion)])
 }
 
 fn approved(response: &pb::InteractionResponse) -> bool {

@@ -1,13 +1,6 @@
 import { useSyncExternalStore } from "react";
-import { api, type CursorHarnessStatus, type LlmCall, type Model, type ModelInput, type Overview, type PluginDescriptor, type PluginRuntimeStatus, type PortSettings, type TokenPricingSettings, type WorkspaceExtensionStatus } from "../api";
+import { api, type CursorHarnessStatus, type LlmCall, type Model, type ModelInput, type ModelPriceEntry, type Overview, type PluginDescriptor, type PluginRuntimeStatus, type PortSettings, type WorkspaceExtensionStatus } from "../api";
 import { applyTheme, isThemeId, type ThemeId } from "../theme/theme";
-
-export const DEFAULT_TOKEN_PRICING: TokenPricingSettings = {
-  input_per_million: 5.0,
-  output_per_million: 25.0,
-  cache_read_per_million: 0.5,
-  cache_write_per_million: 6.25,
-};
 
 export type AppSnapshot = {
   models: Model[];
@@ -15,7 +8,7 @@ export type AppSnapshot = {
   overview: Overview;
   detailed: boolean;
   ports: PortSettings;
-  pricing: TokenPricingSettings;
+  modelPrices: ModelPriceEntry[];
   busy: boolean;
   error: string | null;
   theme: ThemeId;
@@ -24,7 +17,6 @@ export type AppSnapshot = {
   workspaceExtension: WorkspaceExtensionStatus | null;
   workspaceExtensionBusy: boolean;
   workspaceExtensionError: string | null;
-  workspaceExtensionDismissed: boolean;
   pluginRuntime: PluginRuntimeStatus | null;
   plugins: PluginDescriptor[];
 };
@@ -48,13 +40,17 @@ let snapshot: AppSnapshot = {
       cache_read_tokens: 0,
       cache_write_tokens: 0,
       output_tokens: 0,
+      costs: [],
+      unpriced_calls: 0,
+      avg_ttft_ms: null,
+      output_tokens_per_second: null,
     },
-    token_usage_granularity: "day",
-    token_usage_series: [],
+    granularity: "day",
+    series: [],
   },
   detailed: false,
   ports: { proxy_port: 0, service_port: 0, inference_port: 0 },
-  pricing: DEFAULT_TOKEN_PRICING,
+  modelPrices: [],
   busy: false,
   error: null,
   theme: savedTheme(),
@@ -63,7 +59,6 @@ let snapshot: AppSnapshot = {
   workspaceExtension: null,
   workspaceExtensionBusy: false,
   workspaceExtensionError: null,
-  workspaceExtensionDismissed: false,
   pluginRuntime: null,
   plugins: [],
 };
@@ -94,19 +89,19 @@ export const appStore = {
   async refresh() {
     update({ busy: true, error: null });
     try {
-      const [models, calls, overview, settings, ports, pricing, cursorHarness, workspaceExtension, pluginRuntime, plugins] = await Promise.all([
+      const [models, calls, overview, settings, ports, modelPrices, cursorHarness, workspaceExtension, pluginRuntime, plugins] = await Promise.all([
         api.models(),
         api.calls(),
         api.overview(),
         api.observability(),
         api.ports(),
-        api.pricingSettings(),
+        api.modelPrices(),
         api.cursorHarness(),
         api.workspaceExtensionStatus(),
         api.pluginRuntime(),
         api.plugins(),
       ]);
-      update({ models, calls, overview, detailed: settings.detailed, ports, pricing, cursorHarness, workspaceExtension, pluginRuntime, plugins });
+      update({ models, calls, overview, detailed: settings.detailed, ports, modelPrices, cursorHarness, workspaceExtension, pluginRuntime, plugins });
     } catch (cause) {
       update({ error: cause instanceof Error ? cause.message : String(cause) });
     } finally {
@@ -210,9 +205,6 @@ export const appStore = {
       update({ workspaceExtensionBusy: false });
     }
   },
-  dismissWorkspaceExtension() {
-    update({ workspaceExtensionDismissed: true, workspaceExtensionError: null });
-  },
   async createModels(models: ModelInput[]) {
     update({ cursorBusy: true, error: null });
     try {
@@ -286,6 +278,14 @@ export const appStore = {
     }
   },
 
+  async refreshModelPrices() {
+    try {
+      update({ modelPrices: await api.modelPrices() });
+    } catch (cause) {
+      update({ error: cause instanceof Error ? cause.message : String(cause) });
+    }
+  },
+
   async updateDetailed(detailed: boolean) {
     await perform(async () => update(await api.setObservability(detailed)));
   },
@@ -293,16 +293,6 @@ export const appStore = {
     try {
       update({ error: null });
       update({ ports: await api.setPorts(ports) });
-      return true;
-    } catch (cause) {
-      update({ error: cause instanceof Error ? cause.message : String(cause) });
-      return false;
-    }
-  },
-  async updatePricingSettings(pricing: TokenPricingSettings) {
-    try {
-      update({ error: null });
-      update({ pricing: await api.setPricingSettings(pricing) });
       return true;
     } catch (cause) {
       update({ error: cause instanceof Error ? cause.message : String(cause) });

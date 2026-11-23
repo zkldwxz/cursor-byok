@@ -34,6 +34,7 @@ pub(crate) fn inject(context: &mut pb::RequestContext) {
     options.mcp_descriptors.push(pb::McpDescriptor {
         server_name: "Cursor DevTools (desktop)".into(),
         server_identifier: SERVER.into(),
+        server_use_instructions: Some(include_str!("../../../prompt/cursor/devtools.md").into()),
         tools: TOOLS
             .iter()
             .map(|tool| pb::McpToolDescriptor {

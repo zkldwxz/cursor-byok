@@ -145,14 +145,13 @@ export function MagpiePage({ catalog, setCatalog, models, busy: pageBusy, testin
         const all = enabled === ids.length;
         const vendorInfo = knownVendors.get(key.toLowerCase());
         const logo = brandIconUrl(vendorInfo?.brand);
-        return <section key={key} className={styles.vendorGroup}>
+        return <Card key={key} className={styles.list}>
           <div className={styles.groupHeader}>
             {logo && <Icon mask={logo} />}
             <strong>{vendorInfo?.name ?? (key || t("其他"))}</strong>
             <span className={styles.groupCount}>{enabled} / {ids.length}</span>
             <button type="button" className={styles.textButton} onClick={() => select(ids, !all)}>{all ? t("全不选") : t("全选")}</button>
           </div>
-          <Card className={styles.list}>
             {group.map(model => {
               const on = !catalog.disabled.includes(model.id);
               const name = model.magpie_label ?? model.display_name ?? model.id;
@@ -173,8 +172,7 @@ export function MagpiePage({ catalog, setCatalog, models, busy: pageBusy, testin
                 </div>}
               />;
             })}
-          </Card>
-        </section>;
+        </Card>;
       })}
     </div>}
   </>;

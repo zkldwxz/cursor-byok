@@ -8,7 +8,6 @@ import { BrowserDevToolsCard } from "./BrowserDevToolsCard";
 import { VisionSettingsCard } from "./VisionSettingsCard";
 import { CommitSettingsCard } from "./CommitSettingsCard";
 import { ExternalApiSettingsCard } from "./ExternalApiSettingsCard";
-import { PricingSettingsCard } from "./PricingSettingsCard";
 import { ProxySettingsCard } from "./ProxySettingsCard";
 import { TabSettingsCard } from "./TabSettingsCard";
 import { Button } from "../../shared/ui/Button";
@@ -235,7 +234,6 @@ export function SettingsPage() {
       <VisionSettingsCard />
       <BrowserDevToolsCard />
       <CommitSettingsCard />
-      <PricingSettingsCard />
       <AppLifecycleSettingsCard />
       <MigrationSettingsCard />
       <LegacyModelImport>{({ busy, previewing, open }) => <TitledCard title={t("导入")}>
