@@ -1,6 +1,6 @@
 //! The Cursor page: takeover, the provider list, and the open provider with its models, editor and settings.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, configuredPluginModels, type Model, type ModelInput } from "../../shared/api";
 import { CursorCaGate, CursorCaProvider } from "./CursorGates";
 import { CursorModelEditor, emptyCursorModelDraft, type CursorModelDraft } from "./CursorModelEditor";
@@ -11,7 +11,6 @@ import { PageContent } from "../../shell/layout/PageContent";
 import { LegacyModelImport } from "./LegacyModelImport";
 import { MagpiePage, magpieSummary, useMagpieCatalog } from "./MagpieProvider";
 import { ProviderList, protocolLabel } from "./ProviderList";
-import { WorkspaceExtensionBanner } from "./WorkspaceExtensionBanner";
 import { ProviderPage } from "./ProviderPage";
 import { ProviderIcon, ProviderTitle } from "./ProviderParts";
 import providerStyles from "./Providers.module.scss";
@@ -44,7 +43,10 @@ export function CursorSettingsPage() {
   const [modelTestResults, setModelTestResults] = useState<Map<string, CursorModelTestState>>(() => new Map());
   const [savingAndTesting, setSavingAndTesting] = useState(false);
   const [batchTesting, setBatchTesting] = useState(false);
-  const [openKey, setOpenKey] = useState<string | null>(null);
+  // The open provider lives in the URL so the plugin page can link straight to
+  // Magpie; keepAlive keeps the page mounted, so this seeds the first render.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [openKey, setOpenKey] = useState<string | null>(() => searchParams.get("open"));
   const [settingsGroup, setSettingsGroup] = useState<ManualProvider | null>(null);
   const [groupNameDraft, setGroupNameDraft] = useState("");
   const [groupBaseUrlDraft, setGroupBaseUrlDraft] = useState("");
@@ -65,13 +67,25 @@ export function CursorSettingsPage() {
   const magpie = useMagpieCatalog();
 
   // A provider whose last model was deleted or renamed away is gone: back to the list.
+  // keepAlive keeps this page mounted, so a link from the plugin page must
+  // still switch the open provider when only the query changes.
   useEffect(() => {
-    if (openKey && !opened) setOpenKey(null);
+    const key = searchParams.get("open");
+    if (key !== openKey) setOpenKey(key);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (openKey && !opened) open(null);
   }, [openKey, opened]);
 
   const open = (key: string | null) => {
     if (key === MAGPIE_PROVIDER) void magpie.reload();
     setOpenKey(key);
+    setSearchParams(params => {
+      if (key === null) params.delete("open");
+      else params.set("open", key);
+      return params;
+    }, { replace: true });
   };
 
   useEffect(() => {
@@ -263,7 +277,7 @@ export function CursorSettingsPage() {
         await api.updateModel(model.model_hash, input);
       }
       await appStore.refresh();
-      setOpenKey(`manual:${modelProviderName({ group_name, base_url: base_url || settingsGroup.models[0].base_url })}`);
+      open(`manual:${modelProviderName({ group_name, base_url: base_url || settingsGroup.models[0].base_url })}`);
       setSettingsGroup(null);
     } catch (cause) {
       message(errorText(cause));
@@ -314,7 +328,6 @@ export function CursorSettingsPage() {
       : null;
   const content = <CursorCaProvider><CursorCaGate busy={cursorBusy} waitingForRefresh={waitingForCaRefresh} onInitialize={() => void initializeCa()} onRefresh={() => void refreshCa()}>
     <div className={styles.page}>
-      <WorkspaceExtensionBanner />
       {providerView ?? <LegacyModelImport>{({ busy: importingLegacyModels, previewing, open: openImport }) => <ProviderList
         providers={providers}
         magpie={magpie.catalog}

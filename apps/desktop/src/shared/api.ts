@@ -209,11 +209,31 @@ export interface CommitSettingsView extends CommitSettings {
   default_prompt: string;
 }
 
-export interface TokenPricingSettings {
+export interface ModelPrice {
   input_per_million: number;
   output_per_million: number;
-  cache_read_per_million: number;
-  cache_write_per_million: number;
+  cache_read_per_million: number | null;
+  cache_write_per_million: number | null;
+  currency: "USD" | "CNY";
+  updated_at_ms: number;
+}
+
+export interface ModelPriceEntry {
+  provider_url: string;
+  model_id: string;
+  channel_name: string;
+  last_call_ms: number | null;
+  price: ModelPrice | null;
+}
+
+export interface ModelPriceInput {
+  provider_url: string;
+  model_id: string;
+  input_per_million: number;
+  output_per_million: number;
+  cache_read_per_million?: number | null;
+  cache_write_per_million?: number | null;
+  currency: "USD" | "CNY";
 }
 
 export type PluginRuntimeState = "uninitialized" | "initializing" | "ready" | "failed" | "unsupported";
@@ -401,22 +421,36 @@ export interface OverviewMetrics {
   cache_read_tokens: number;
   cache_write_tokens: number;
   output_tokens: number;
+  costs: CurrencyCost[];
+  unpriced_calls: number;
+  avg_ttft_ms: number | null;
+  output_tokens_per_second: number | null;
 }
 
-export type TokenUsageGranularity = "minute" | "hour" | "day";
+export interface CurrencyCost {
+  currency: string;
+  amount: number;
+}
 
-export interface OverviewTokenUsageBucket {
+export type OverviewGranularity = "minute" | "hour" | "day";
+
+export interface OverviewBucket {
   bucket_start_ms: number;
   input_tokens: number;
   cache_read_tokens: number;
   cache_write_tokens: number;
   output_tokens: number;
+  calls: number;
+  failed_calls: number;
+  avg_ttft_ms: number | null;
+  output_tokens_per_second: number | null;
+  costs: CurrencyCost[];
 }
 
 export interface Overview {
   metrics: OverviewMetrics;
-  token_usage_granularity: TokenUsageGranularity;
-  token_usage_series: OverviewTokenUsageBucket[];
+  granularity: OverviewGranularity;
+  series: OverviewBucket[];
 }
 
 export interface LlmCall {
@@ -603,6 +637,7 @@ export const api = {
   setVisionSettings: (settings: VisionSettings) => request<VisionSettings>("/settings/vision", { method: "PUT", body: JSON.stringify(settings) }),
   commitSettings: (locale: Locale) => request<CommitSettingsView>("/settings/commit", { headers: { "accept-language": locale } }),
   setCommitSettings: (settings: CommitSettings) => request<CommitSettingsView>("/settings/commit", { method: "PUT", body: JSON.stringify(settings) }),
-  pricingSettings: () => request<TokenPricingSettings>("/settings/pricing"),
-  setPricingSettings: (settings: TokenPricingSettings) => request<TokenPricingSettings>("/settings/pricing", { method: "PUT", body: JSON.stringify(settings) }),
+  modelPrices: () => request<ModelPriceEntry[]>("/model-prices"),
+  setModelPrice: (input: ModelPriceInput) => request<ModelPrice>("/model-prices", { method: "PUT", body: JSON.stringify(input) }),
+  deleteModelPrice: (key: { provider_url: string; model_id: string }) => request<void>("/model-prices", { method: "DELETE", body: JSON.stringify(key) }),
 };

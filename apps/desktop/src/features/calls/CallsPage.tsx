@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { CallList } from "./CallList";
 import { CallTimeline } from "./CallTimeline";
+import { ModelPricesCard } from "./ModelPricesCard";
 import { PageActions } from "../../shell/PageActions";
 import { Select } from "../../shared/ui/Select";
 import { Checkbox } from "../../shared/ui/Checkbox";
@@ -56,6 +57,7 @@ export function CallsPage() {
     <PageContent title={t("调用")} sections={[
       { key: "timeline", estimatedHeight: 400, content: <CallTimeline calls={filtered} dark={dark} /> },
       { key: "calls", estimatedHeight: 1_600, content: <CallList calls={filtered} dark={dark} /> },
+      { key: "prices", estimatedHeight: 220, content: <ModelPricesCard calls={filtered} /> },
     ]} />
   </>;
 }

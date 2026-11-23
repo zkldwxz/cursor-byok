@@ -5,8 +5,21 @@
 .crumb {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
+
+  // In a narrow header the detail goes first, then the name truncates; the way
+  // back to the list never shrinks.
+  > * { flex: none; }
+}
+
+.crumbName {
+  flex: 0 1 auto;
+  // Enough for a short name such as "Magpie"; past this the toolbar's search
+  // field narrows instead.
+  min-width: 4.2em;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .crumbBack {
@@ -28,6 +41,8 @@
 }
 
 .crumbDetail {
+  flex: 0 1000 auto;
+  min-width: 0;
   margin-left: 4px;
   overflow: hidden;
   color: var(--vscode-descriptionForeground);
@@ -244,21 +259,23 @@
 .groups {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
 }
 
-.vendorGroup {
-  display: grid;
-  gap: 6px;
-}
-
+// A vendor's header is the first row of its own card, so each card reads as
+// one provider rather than a label floating above a separate list.
 .groupHeader {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 8px;
+  min-height: 38px;
+  padding: 0 10px 0 14px;
+  background: color-mix(in srgb, var(--vscode-foreground) 3%, transparent);
+  border-bottom: 1px solid var(--provider-divider);
 
   strong { font-size: type.$font-size-xs; }
+
+  + .row { border-top: 0; }
 }
 
 .groupCount {
@@ -322,18 +339,24 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  width: 200px;
-  height: 25px;
+  flex: 0 1 auto;
+  min-width: 64px;
+  max-width: 200px;
+  height: var(--control-height, 25px);
   padding: 0 8px;
   color: var(--vscode-descriptionForeground);
-  background: var(--vscode-input-background);
-  border: 1px solid var(--vscode-input-border, transparent);
+  background: var(--control-background, var(--vscode-input-background));
+  border: 1px solid var(--control-border, var(--vscode-input-border, transparent));
   border-radius: 5px;
 
+  &:hover { background: var(--control-hover-background, var(--control-background, var(--vscode-input-background))); }
   &:focus-within { border-color: var(--vscode-focusBorder); }
 
   input {
     flex: 1 1 auto;
+    // A percentage width keeps the input's natural width as the field's
+    // preferred size while letting a crowded toolbar compress it to nothing.
+    width: 100%;
     min-width: 0;
     color: var(--vscode-input-foreground);
     background: transparent;
@@ -344,6 +367,9 @@
 }
 
 .segmented {
+  // overflow: hidden would otherwise let the toolbar squeeze its buttons away
+  // before the search field gives up any width.
+  flex: none;
   display: flex;
   align-items: center;
   overflow: hidden;
