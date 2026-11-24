@@ -28,6 +28,7 @@ pub struct App {
     harness: CursorHarness,
     magpie: crate::provider::magpie::Magpie,
     remote: crate::remote::RemoteControl,
+    default_prices: crate::pricing::DefaultPrices,
     store: Store,
 }
 
@@ -130,6 +131,7 @@ impl App {
             harness,
             magpie: control.magpie().clone(),
             remote,
+            default_prices: control.default_prices().clone(),
             store,
             config,
         })
@@ -204,6 +206,7 @@ impl App {
 
         tokio::select! {
             () = self.magpie.follow() => unreachable!("catalog follower runs until shutdown"),
+            () = self.default_prices.follow() => unreachable!("price follower runs until shutdown"),
             result = &mut server => {
                 self.remote.disable().await;
                 if let Err(error) = harness.disable().await {

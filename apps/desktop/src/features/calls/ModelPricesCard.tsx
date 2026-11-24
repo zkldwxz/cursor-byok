@@ -1,6 +1,6 @@
 //! Editable per-(provider_url, model_id) price table below the call list on the calls page.
-import { useState } from "react";
-import type { LlmCall, ModelPrice, ModelPriceEntry } from "../../shared/api";
+import { useEffect, useState } from "react";
+import type { LlmCall, ModelPriceEntry } from "../../shared/api";
 import { api } from "../../shared/api";
 import { appStore, useAppStore } from "../../shared/store/appStore";
 import { Card } from "../../shared/ui/Card";
@@ -12,28 +12,27 @@ import { providerIcon, windowCloseIcon } from "../../shared/ui/icons";
 import { modelLogo } from "../../shared/utils/brandIcons";
 import controls from "../../shared/ui/Controls.module.scss";
 import { formatMoney } from "../../shared/utils/numberFormat";
-import { parseRate, periodCost } from "./modelPrices";
+import { draftChanged, draftOf, parseRate, periodCost, type PriceDraft } from "./modelPrices";
 import styles from "./ModelPricesCard.module.scss";
-
-type Draft = { input: string; cacheRead: string; cacheWrite: string; output: string };
-
-function draftOf(price: ModelPrice | null): Draft {
-  return {
-    input: price?.input_per_million != null ? String(price.input_per_million) : "",
-    cacheRead: price?.cache_read_per_million != null ? String(price.cache_read_per_million) : "",
-    cacheWrite: price?.cache_write_per_million != null ? String(price.cache_write_per_million) : "",
-    output: price?.output_per_million != null ? String(price.output_per_million) : "",
-  };
-}
 
 const keyOf = (entry: ModelPriceEntry) => `${entry.provider_url}${entry.model_id}`;
 
 function PriceRow({ entry, calls }: { entry: ModelPriceEntry; calls: LlmCall[] }) {
   const message = useMessage();
-  const [draft, setDraft] = useState<Draft>(() => draftOf(entry.price));
+  const [draft, setDraft] = useState<PriceDraft>(() => draftOf(entry.price));
   const [currency, setCurrency] = useState<"USD" | "CNY">(entry.price?.currency ?? "USD");
 
-  const field = (name: keyof Draft) => ({
+  // A user's price already matches what they typed; one that was filled in or
+  // cleared elsewhere does not.
+  const source = entry.price?.source ?? null;
+  const updatedAt = entry.price?.updated_at_ms ?? null;
+  useEffect(() => {
+    if (entry.price && source === null) return;
+    setDraft(draftOf(entry.price));
+    setCurrency(entry.price?.currency ?? "USD");
+  }, [source, updatedAt]);
+
+  const field = (name: keyof PriceDraft) => ({
     value: draft[name],
     onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
       setDraft((current) => ({ ...current, [name]: event.target.value })),
@@ -43,11 +42,8 @@ function PriceRow({ entry, calls }: { entry: ModelPriceEntry; calls: LlmCall[] }
     },
   });
 
-  const save = async () => {
-    // Nothing to price until at least one rate is filled in.
-    if (!draft.input.trim() && !draft.cacheRead.trim() && !draft.cacheWrite.trim() && !draft.output.trim() && !entry.price) {
-      return;
-    }
+  const save = async (nextCurrency = currency) => {
+    if (!draftChanged(draft, nextCurrency, entry.price)) return;
     const input = parseRate(draft.input);
     const output = parseRate(draft.output);
     const cacheRead = draft.cacheRead.trim() === "" ? null : parseRate(draft.cacheRead);
@@ -68,7 +64,7 @@ function PriceRow({ entry, calls }: { entry: ModelPriceEntry; calls: LlmCall[] }
         output_per_million: output,
         cache_read_per_million: cacheRead,
         cache_write_per_million: cacheWrite,
-        currency,
+        currency: nextCurrency,
       });
       await appStore.refreshModelPrices();
     } catch (error) {
@@ -93,7 +89,12 @@ function PriceRow({ entry, calls }: { entry: ModelPriceEntry; calls: LlmCall[] }
         <Icon className={styles.logo} mask={modelLogo({ model_id: entry.model_id, base_url: entry.provider_url })} icon={providerIcon} size="1.15em" />
         <span className={styles.modelName}>
           <span className={styles.modelId} title={entry.model_id}>{entry.model_id}</span>
-          <span className={styles.channel} title={entry.provider_url}>{entry.channel_name}</span>
+          <span className={styles.channel} title={entry.provider_url}>
+            {entry.channel_name}
+            {source !== null && (
+              <span title={t("来自 models.dev 的公开价格，可直接修改")}> · {t("自动价格：{source}", { source })}</span>
+            )}
+          </span>
         </span>
       </span>
       <TextInput className={styles.rate} inputMode="decimal" aria-label={t("输入价（每百万）")} {...field("input")} />
@@ -105,13 +106,17 @@ function PriceRow({ entry, calls }: { entry: ModelPriceEntry; calls: LlmCall[] }
           value={currency}
           ariaLabel={t("币种")}
           options={[{ value: "USD", label: "USD" }, { value: "CNY", label: "CNY" }]}
-          onChange={(value) => setCurrency(value as "USD" | "CNY")}
+          onChange={(value) => {
+            const next = value as "USD" | "CNY";
+            setCurrency(next);
+            if (entry.price) void save(next);
+          }}
         />
       </span>
       <span className={styles.cost} role="cell" title={cost === null ? t("未定价") : undefined}>{costText}</span>
       <span className={styles.clear} role="cell">
-        {entry.price && (
-          <button type="button" className={controls.iconButton} aria-label={t("清除价格")} title={t("清除价格")} onClick={() => void clear()}>
+        {entry.price && source === null && (
+          <button type="button" className={controls.iconButton} aria-label={t("清除手动价格，有公开价格时恢复自动价格")} title={t("清除手动价格，有公开价格时恢复自动价格")} onClick={() => void clear()}>
             <Icon icon={windowCloseIcon} size="0.9em" />
           </button>
         )}

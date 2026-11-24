@@ -33,6 +33,7 @@ use crate::{
 pub struct ControlService {
     pub(super) magpie: crate::provider::magpie::Magpie,
     remote: crate::remote::RemoteControl,
+    default_prices: crate::pricing::DefaultPrices,
     store: Store,
     cursor_harness: CursorHarness,
     provider: Arc<dyn Provider>,
@@ -163,6 +164,7 @@ impl ControlService {
             )?,
             magpie: crate::provider::magpie::Magpie::managed(store.clone())?,
             remote,
+            default_prices: crate::pricing::DefaultPrices::new(store.clone()),
             store,
             provider,
             plugin_runtime,
@@ -179,6 +181,10 @@ impl ControlService {
 
     pub(crate) fn remote(&self) -> &crate::remote::RemoteControl {
         &self.remote
+    }
+
+    pub(crate) fn default_prices(&self) -> &crate::pricing::DefaultPrices {
+        &self.default_prices
     }
 
     pub fn cursor_harness(&self) -> &CursorHarness {
@@ -405,6 +411,7 @@ impl ControlService {
         model_hashes: Option<&str>,
         bucket_ms: Option<i64>,
     ) -> Result<Overview> {
+        self.default_prices.fill().await?;
         self.store
             .overview(start_ms, end_ms, model_hashes, bucket_ms)
             .await
@@ -874,6 +881,7 @@ impl ControlService {
     }
 
     pub async fn model_price_entries(&self) -> Result<Vec<ModelPriceEntry>> {
+        self.default_prices.fill().await?;
         self.store.model_price_entries().await
     }
 

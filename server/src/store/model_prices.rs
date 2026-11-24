@@ -1,10 +1,10 @@
-//! Prices provider_llm calls per (provider_url, model_id) and lists priced targets.
+//! Prices provider_llm calls per (provider_url, model_id), lists priced targets and fills default prices.
 
 use sqlx::Row;
 use url::Url;
 
 use crate::{
-    model::{ModelPrice, ModelPriceEntry},
+    model::{DefaultPrice, ModelPrice, ModelPriceEntry},
     Error, Result,
 };
 
@@ -25,7 +25,8 @@ impl Store {
                 p.cache_read_per_million,
                 p.cache_write_per_million,
                 p.currency,
-                p.updated_at_ms
+                p.updated_at_ms,
+                p.source
              FROM (
                 SELECT provider_url, model_id,
                        MAX(created_at_ms) AS last_call_ms,
@@ -61,6 +62,7 @@ impl Store {
                     cache_write_per_million: row.try_get("cache_write_per_million").unwrap_or(None),
                     currency,
                     updated_at_ms: row.try_get("updated_at_ms").unwrap_or(0),
+                    source: row.try_get("source").unwrap_or(None),
                 });
                 Ok(ModelPriceEntry {
                     channel_name: channel_name(&group_name, magpie, &provider_url),
@@ -109,7 +111,8 @@ impl Store {
                 cache_read_per_million = excluded.cache_read_per_million,
                 cache_write_per_million = excluded.cache_write_per_million,
                 currency = excluded.currency,
-                updated_at_ms = excluded.updated_at_ms",
+                updated_at_ms = excluded.updated_at_ms,
+                source = NULL",
         )
         .bind(provider_url)
         .bind(model_id)
@@ -128,7 +131,70 @@ impl Store {
             cache_write_per_million,
             currency: currency.into(),
             updated_at_ms,
+            source: None,
         })
+    }
+
+    /// Prices called models the user has not priced; models without a default keep what they have.
+    pub(crate) async fn fill_default_prices(
+        &self,
+        default: impl Fn(&str) -> Option<DefaultPrice>,
+    ) -> Result<()> {
+        let rows = sqlx::query(
+            "SELECT c.provider_url, c.model_id, p.input_per_million, p.output_per_million,
+                    p.cache_read_per_million, p.cache_write_per_million, p.source
+             FROM (SELECT DISTINCT provider_url, model_id FROM llm_calls) c
+             LEFT JOIN model_prices p
+                ON p.provider_url = c.provider_url AND p.model_id = c.model_id
+             WHERE p.provider_url IS NULL OR p.source IS NOT NULL",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        for row in rows {
+            let model_id: String = row.try_get("model_id")?;
+            let Some(price) = default(&model_id) else {
+                continue;
+            };
+            if row.try_get::<Option<String>, _>("source")?.as_ref() == Some(&price.source)
+                && row.try_get::<Option<f64>, _>("input_per_million")?
+                    == Some(price.input_per_million)
+                && row.try_get::<Option<f64>, _>("output_per_million")?
+                    == Some(price.output_per_million)
+                && row.try_get::<Option<f64>, _>("cache_read_per_million")?
+                    == price.cache_read_per_million
+                && row.try_get::<Option<f64>, _>("cache_write_per_million")?
+                    == price.cache_write_per_million
+            {
+                continue;
+            }
+            // The user may save a price after the read above; theirs must win.
+            sqlx::query(
+                "INSERT INTO model_prices(
+                    provider_url, model_id, input_per_million, output_per_million,
+                    cache_read_per_million, cache_write_per_million, currency, updated_at_ms, source)
+                 VALUES (?, ?, ?, ?, ?, ?, 'USD', ?, ?)
+                 ON CONFLICT(provider_url, model_id) DO UPDATE SET
+                    input_per_million = excluded.input_per_million,
+                    output_per_million = excluded.output_per_million,
+                    cache_read_per_million = excluded.cache_read_per_million,
+                    cache_write_per_million = excluded.cache_write_per_million,
+                    currency = excluded.currency,
+                    updated_at_ms = excluded.updated_at_ms,
+                    source = excluded.source
+                 WHERE model_prices.source IS NOT NULL",
+            )
+            .bind(row.try_get::<String, _>("provider_url")?)
+            .bind(model_id)
+            .bind(price.input_per_million)
+            .bind(price.output_per_million)
+            .bind(price.cache_read_per_million)
+            .bind(price.cache_write_per_million)
+            .bind(now_ms())
+            .bind(price.source)
+            .execute(&self.pool)
+            .await?;
+        }
+        Ok(())
     }
 
     pub async fn clear_model_price(&self, provider_url: &str, model_id: &str) -> Result<()> {
@@ -297,6 +363,88 @@ mod tests {
         assert!(store.model_price_entries().await.unwrap()[0]
             .price
             .is_none());
+    }
+
+    const URL: &str = "https://relay.example/v1/chat/completions";
+
+    fn default_price(input: f64) -> DefaultPrice {
+        DefaultPrice {
+            input_per_million: input,
+            output_per_million: 10.0,
+            cache_read_per_million: Some(0.1),
+            cache_write_per_million: None,
+            source: "lab".into(),
+        }
+    }
+
+    async fn price(store: &Store) -> Option<ModelPrice> {
+        store.model_price_entries().await.unwrap()[0].price.clone()
+    }
+
+    #[tokio::test]
+    async fn default_prices_fill_only_known_models_and_follow_published_changes() {
+        let store = store().await;
+        record_call(&store, "a", URL, "known").await;
+        record_call(&store, "b", URL, "unknown").await;
+        let offer = |input: f64| move |id: &str| (id == "known").then(|| default_price(input));
+        for input in [2.0, 3.0] {
+            store.fill_default_prices(offer(input)).await.unwrap();
+            for entry in store.model_price_entries().await.unwrap() {
+                let price = entry.price;
+                if entry.model_id == "unknown" {
+                    assert_eq!(price, None);
+                    continue;
+                }
+                let price = price.unwrap();
+                assert_eq!(price.input_per_million, input);
+                assert_eq!(price.cache_read_per_million, Some(0.1));
+                assert_eq!(price.cache_write_per_million, None);
+                assert_eq!(price.currency, "USD");
+                assert_eq!(price.source.as_deref(), Some("lab"));
+            }
+        }
+        // A model that leaves the catalog keeps its last published price.
+        store.fill_default_prices(|_| None).await.unwrap();
+        assert!(store
+            .model_price_entries()
+            .await
+            .unwrap()
+            .iter()
+            .any(|entry| entry.price.is_some()));
+    }
+
+    #[tokio::test]
+    async fn the_users_price_survives_a_refill_and_clearing_it_restores_the_default() {
+        let store = store().await;
+        record_call(&store, "a", URL, "known").await;
+        let fill = || store.fill_default_prices(|_| Some(default_price(2.0)));
+        fill().await.unwrap();
+        store
+            .set_model_price(URL, "known", 0.0, 0.0, None, None, "CNY")
+            .await
+            .unwrap();
+        fill().await.unwrap();
+        let kept = price(&store).await.unwrap();
+        assert_eq!((kept.input_per_million, kept.source), (0.0, None));
+        assert_eq!(kept.currency, "CNY");
+
+        store.clear_model_price(URL, "known").await.unwrap();
+        fill().await.unwrap();
+        assert_eq!(price(&store).await.unwrap().source.as_deref(), Some("lab"));
+    }
+
+    #[tokio::test]
+    async fn an_unchanged_default_price_is_not_rewritten() {
+        let store = store().await;
+        record_call(&store, "a", URL, "known").await;
+        let fill = || store.fill_default_prices(|_| Some(default_price(2.0)));
+        fill().await.unwrap();
+        sqlx::query("UPDATE model_prices SET updated_at_ms = 7")
+            .execute(&store.pool)
+            .await
+            .unwrap();
+        fill().await.unwrap();
+        assert_eq!(price(&store).await.unwrap().updated_at_ms, 7);
     }
 
     #[tokio::test]

@@ -229,6 +229,8 @@ export interface ModelPrice {
   cache_write_per_million: number | null;
   currency: "USD" | "CNY";
   updated_at_ms: number;
+  /** Provider whose published price was filled in; null when the user set it. */
+  source: string | null;
 }
 
 export interface ModelPriceEntry {

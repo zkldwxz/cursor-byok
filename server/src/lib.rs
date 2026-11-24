@@ -9,6 +9,7 @@ pub mod local_app;
 pub mod model;
 pub mod network;
 pub mod plugin;
+mod pricing;
 pub mod provider;
 pub mod remote;
 pub mod run;
