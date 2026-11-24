@@ -62,7 +62,7 @@ pub(super) async fn start(
         let (name, arguments) = (name.to_string(), arguments.clone());
         let started = runtime::now_ms();
         tokio::spawn(async move {
-            let outcome = browser_bridge::call(name, arguments).await;
+            let outcome = browser_bridge::BRIDGE.call(name, arguments).await;
             send(&sender, &call, started, outcome);
         });
     }

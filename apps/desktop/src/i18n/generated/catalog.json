@@ -2185,18 +2185,6 @@
         }
       ]
     },
-    "44a7180294593ce1": {
-      "source": "把配对码粘贴到 Chrome 扩展，再共享要调试的标签页。重新配对会替换旧连接。",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/settings/BrowserDevToolsCard.tsx",
-          "line": 31,
-          "column": 19
-        }
-      ]
-    },
     "461d6a57900c2ed7": {
       "source": "连通性测试失败：{error}",
       "kind": "template",
@@ -4981,6 +4969,18 @@
           "file": "features/calls/CallList.tsx",
           "line": 34,
           "column": 95
+        }
+      ]
+    },
+    "a49410d803b848b3": {
+      "source": "把配对码粘贴到 Chrome 扩展，配对一次即可。Cursor 能使用蓝色「Cursor」标签组里的任何网站。重新配对会替换旧连接。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/BrowserDevToolsCard.tsx",
+          "line": 31,
+          "column": 19
         }
       ]
     },
