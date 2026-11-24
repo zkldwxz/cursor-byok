@@ -20,7 +20,7 @@ pub fn vsix_asset_name(version: &str) -> String {
     format!("byok-workspace-symbols-{version}.vsix")
 }
 
-/// Base URL of the GitHub release holding the VSIX assets.
+/// Base URL under which GitHub serves the assets of every release tag.
 pub const DEFAULT_RELEASE_URL: &str = "https://github.com/zkldwxz/cursor-byok/releases/download";
 
 /// Where the `cursor` CLI may live when it is not on PATH. Paths were confirmed
@@ -83,7 +83,7 @@ pub struct WorkspaceExtensions {
     /// apps/workspace-symbols, so they never drift here.
     expected_version: String,
     /// Download base URL — the release assets live at
-    /// `<release_url>/<asset>` and `<release_url>/<asset>.sha256`.
+    /// `<release_url>/v<version>/<asset>` and the same path plus `.sha256`.
     release_url: String,
     extensions_dir: PathBuf,
     cli: CursorCli,
@@ -244,10 +244,11 @@ impl WorkspaceExtensions {
     /// the verified temp file path.
     async fn download(&self) -> Result<PathBuf> {
         let name = vsix_asset_name(&self.expected_version);
-        let vsix = self.fetch(&format!("{}/{name}", self.release_url)).await?;
-        let expected = self
-            .fetch(&format!("{}/{name}.sha256", self.release_url))
-            .await?;
+        // release.yml tags every release `v<version>`, and GitHub serves assets
+        // only under that tag.
+        let url = format!("{}/v{}/{name}", self.release_url, self.expected_version);
+        let vsix = self.fetch(&url).await?;
+        let expected = self.fetch(&format!("{url}.sha256")).await?;
         let expected = parse_sha256(&expected).ok_or_else(|| {
             Error::Provider(format!("release checksum for {name} is not a sha256 line"))
         })?;
@@ -373,7 +374,8 @@ mod tests {
         .unwrap();
     }
 
-    /// Tiny HTTP server serving `asset` and `asset.sha256` from `dir`.
+    /// Tiny HTTP server laid out like GitHub: files in `dir` are only reachable
+    /// under the release tag, as `/v1.1.0/<asset>` and `/v1.1.0/<asset>.sha256`.
     struct FakeRelease {
         base_url: String,
         join: Option<std::thread::JoinHandle<()>>,
@@ -393,15 +395,10 @@ mod tests {
                         let n = stream.read(&mut buf).unwrap_or(0);
                         String::from_utf8_lossy(&buf[..n]).to_string()
                     };
-                    let path = request
-                        .split_whitespace()
-                        .nth(1)
-                        .unwrap_or("/")
-                        .trim_start_matches('/')
-                        .to_string();
-                    let file = dir.join(&path);
-                    let (status, body) = if path == asset || path == format!("{asset}.sha256") {
-                        match std::fs::read(&file) {
+                    let path = request.split_whitespace().nth(1).unwrap_or("/").to_string();
+                    let name = path.strip_prefix("/v1.1.0/").unwrap_or_default();
+                    let (status, body) = if name == asset || name == format!("{asset}.sha256") {
+                        match std::fs::read(dir.join(name)) {
                             Ok(bytes) => ("200 OK", bytes),
                             Err(_) => ("404 Not Found", b"missing".to_vec()),
                         }
