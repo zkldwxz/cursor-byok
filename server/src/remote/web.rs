@@ -2,10 +2,7 @@
 use std::{pin::Pin, sync::Arc, time::Duration};
 
 use axum::{
-    extract::{
-        ws::{Message, WebSocket},
-        State, WebSocketUpgrade,
-    },
+    extract::{State, WebSocketUpgrade},
     http::{header, HeaderMap, StatusCode, Uri},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -27,6 +24,7 @@ use super::{
     models::Models,
     sessions::{Overview, Sessions, Verdict},
     transcript::{Row, Transcript},
+    wire::Wire,
 };
 
 /// Often enough for text to flow, seldom enough for a slow connection.
@@ -41,12 +39,13 @@ const HTML: &str = "text/html; charset=utf-8";
 const CSS: &str = "text/css; charset=utf-8";
 const JS: &str = "text/javascript; charset=utf-8";
 const SVG: &str = "image/svg+xml; charset=utf-8";
-const CLIENT: [(&str, &str, &str); 11] = [
+const CLIENT: [(&str, &str, &str); 12] = [
     ("/", HTML, include_str!("client/index.html")),
     ("/style.css", CSS, include_str!("client/style.css")),
     ("/icon.svg", SVG, include_str!("client/icon.svg")),
     ("/app.js", JS, include_str!("client/app.js")),
     ("/link.js", JS, include_str!("client/link.js")),
+    ("/native.js", JS, include_str!("client/native.js")),
     ("/model.js", JS, include_str!("client/model.js")),
     ("/dom.js", JS, include_str!("client/dom.js")),
     ("/copy.js", JS, include_str!("client/copy.js")),
@@ -142,7 +141,7 @@ async fn connect(
     }
     upgrade
         .max_message_size(MAX_MESSAGE_BYTES)
-        .on_upgrade(move |socket| serve(socket, phones))
+        .on_upgrade(move |socket| serve(Wire::Browser(Box::new(socket)), phones))
 }
 
 fn same_origin(headers: &HeaderMap) -> bool {
@@ -153,19 +152,18 @@ fn same_origin(headers: &HeaderMap) -> bool {
     origin.is_some() && origin.as_deref() == text(header::HOST)
 }
 
-/// The token comes as a message, so it never appears in a URL.
-async fn serve(mut socket: WebSocket, phones: Phones) {
+pub(super) async fn serve(mut wire: Wire, phones: Phones) {
     let Ok(Some(session)) =
-        tokio::time::timeout(AUTH_TIMEOUT, authenticate(&mut socket, &phones)).await
+        tokio::time::timeout(AUTH_TIMEOUT, authenticate(&mut wire, &phones)).await
     else {
-        let _ = send(&mut socket, json!({"type": "unpaired"})).await;
+        let _ = wire.send(json!({"type": "unpaired"})).await;
         return;
     };
     tokio::select! {
         () = session.cancelled() => {
-            let _ = send(&mut socket, json!({"type": "unpaired"})).await;
+            let _ = wire.send(json!({"type": "unpaired"})).await;
         }
-        result = Session::new(&mut socket, &phones).run() => {
+        result = Session::new(&mut wire, &phones).run() => {
             if let Err(error) = result {
                 tracing::debug!(%error, "phone session ended");
             }
@@ -173,23 +171,25 @@ async fn serve(mut socket: WebSocket, phones: Phones) {
     }
 }
 
-async fn authenticate(socket: &mut WebSocket, phones: &Phones) -> Option<CancellationToken> {
-    #[derive(Deserialize)]
-    struct Hello {
-        token: String,
-    }
-    let Message::Text(text) = socket.recv().await?.ok()? else {
-        return None;
-    };
-    let hello: Hello = serde_json::from_str(&text).ok()?;
-    phones.access.session(&hello.token)
+/// How a phone says who it is: as a message, so it never appears in a URL.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum Hello {
+    Paired { token: String },
+    New(PairRequest),
 }
 
-async fn send(socket: &mut WebSocket, message: Value) -> Result<()> {
-    socket
-        .send(Message::text(message.to_string()))
-        .await
-        .map_err(|error| Error::Provider(format!("phone connection: {error}")))
+async fn authenticate(wire: &mut Wire, phones: &Phones) -> Option<CancellationToken> {
+    let token = match serde_json::from_str(&wire.receive().await?).ok()? {
+        Hello::Paired { token } => token,
+        Hello::New(request) => {
+            let token = phones.access.pair(&request.code, &request.name)?;
+            let paired = json!({"type": "paired", "token": token});
+            wire.send(paired).await.ok()?;
+            token
+        }
+    };
+    phones.access.session(&token)
 }
 
 #[derive(Deserialize)]
@@ -304,16 +304,16 @@ impl Chat {
 }
 
 struct Session<'a> {
-    socket: &'a mut WebSocket,
+    wire: &'a mut Wire,
     phones: &'a Phones,
     overview: watch::Receiver<Overview>,
     chat: Option<Chat>,
 }
 
 impl<'a> Session<'a> {
-    fn new(socket: &'a mut WebSocket, phones: &'a Phones) -> Self {
+    fn new(wire: &'a mut Wire, phones: &'a Phones) -> Self {
         Self {
-            socket,
+            wire,
             phones,
             overview: phones.overview.subscribe(),
             chat: None,
@@ -328,21 +328,15 @@ impl<'a> Session<'a> {
         self.list().await?;
         loop {
             tokio::select! {
-                message = self.socket.recv() => match message {
-                    Some(Ok(Message::Text(text))) => self.handle(&text).await?,
-                    Some(Ok(Message::Close(_)) | Err(_)) | None => return Ok(()),
-                    Some(Ok(_)) => {}
+                message = self.wire.receive() => match message {
+                    Some(text) => self.handle(&text).await?,
+                    None => return Ok(()),
                 },
                 Ok(()) = self.overview.changed() => self.list().await?,
                 event = heard(&mut self.chat) => self.hear(event).await,
                 _ = publish.tick() => self.publish().await?,
                 _ = reattach.tick() => self.reattach(),
-                _ = ping.tick() => {
-                    let ping = self.socket.send(Message::Ping(Default::default())).await;
-                    if ping.is_err() {
-                        return Ok(());
-                    }
-                }
+                _ = ping.tick() => self.wire.ping().await?,
             }
         }
     }
@@ -372,7 +366,7 @@ impl<'a> Session<'a> {
                 };
                 // A draft that became a session, even if its first message then failed.
                 reply["session"] = json!(self.chat.as_ref().and_then(Chat::session));
-                send(self.socket, reply).await?;
+                self.wire.send(reply).await?;
                 self.relabel().await?;
                 self.publish().await
             }
@@ -529,7 +523,7 @@ impl<'a> Session<'a> {
         let mut message = self.overview.borrow_and_update().view();
         message["type"] = "overview".into();
         self.relabel().await?;
-        send(self.socket, message).await
+        self.wire.send(message).await
     }
 
     /// Sends only the rows that changed, and nothing when nothing did.
@@ -564,7 +558,7 @@ impl<'a> Session<'a> {
         message["rows"] = json!(rows[from..]);
         let rows = rows.to_vec();
         chat.sent = Some((rows, status));
-        send(self.socket, message).await
+        self.wire.send(message).await
     }
 }
 

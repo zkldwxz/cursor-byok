@@ -214,12 +214,23 @@ export interface RemoteStatus {
   cloudflared: boolean;
   cursor: boolean;
   devices: { id: string; name: string; paired_at_ms: number }[];
+  relay: RelaySettings;
   error: string | null;
 }
 
+export interface RelaySettings {
+  address: string;
+  token: string;
+}
+
 export interface PairingLink {
+  app: PairingQr;
+  web: PairingQr | null;
+}
+
+export interface PairingQr {
   link: string;
-  qr_svg: string;
+  svg: string;
 }
 
 export interface ModelPrice {
@@ -633,6 +644,7 @@ export const api = {
   calls: () => request<LlmCall[]>("/llm-calls?limit=500"),
   remote: () => request<RemoteStatus>("/remote"),
   setRemote: (enabled: boolean) => request<RemoteStatus>("/remote", { method: "PUT", body: JSON.stringify({ enabled }) }),
+  setRemoteRelay: (relay: RelaySettings) => request<RemoteStatus>("/remote/relay", { method: "PUT", body: JSON.stringify(relay) }),
   pairRemote: () => request<PairingLink>("/remote/pairing", { method: "POST" }),
   removeRemoteDevice: (id: string) => request<void>(`/remote/devices/${encodeURIComponent(id)}`, { method: "DELETE" }),
   pairBrowserDevTools: () => request<{ token: string }>("/browser-devtools/pair", { method: "POST" }),

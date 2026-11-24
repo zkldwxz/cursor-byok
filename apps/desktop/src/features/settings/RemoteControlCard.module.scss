@@ -32,6 +32,13 @@
   font-size: type.$font-size-xs;
 }
 
+.relay {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: end;
+  gap: 12px;
+}
+
 .pairing {
   display: flex;
   align-items: center;

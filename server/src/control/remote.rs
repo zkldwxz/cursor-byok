@@ -8,6 +8,7 @@ use serde::Deserialize;
 
 use crate::{
     remote::{PairingLink, RemoteStatus},
+    store::RelaySettings,
     Result,
 };
 
@@ -18,8 +19,16 @@ pub struct EnableInput {
     enabled: bool,
 }
 
-pub async fn status(State(service): State<ControlService>) -> Json<RemoteStatus> {
-    Json(service.remote().status().await)
+pub async fn status(State(service): State<ControlService>) -> Result<Json<RemoteStatus>> {
+    Ok(Json(service.remote().status().await?))
+}
+
+pub async fn set_relay(
+    State(service): State<ControlService>,
+    Json(relay): Json<RelaySettings>,
+) -> Result<Json<RemoteStatus>> {
+    service.remote().set_relay(relay).await?;
+    Ok(Json(service.remote().status().await?))
 }
 
 pub async fn set_enabled(
@@ -31,7 +40,7 @@ pub async fn set_enabled(
     } else {
         service.remote().disable().await;
     }
-    Ok(Json(service.remote().status().await))
+    Ok(Json(service.remote().status().await?))
 }
 
 pub async fn pair(State(service): State<ControlService>) -> Result<Json<PairingLink>> {

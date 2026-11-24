@@ -282,6 +282,10 @@ body[data-view="chat"] > #chat { display: flex; }
 .notice strong { font-weight: 600; color: var(--title); }
 .notice p { margin-top: 6px; color: var(--muted); font-size: var(--f-small); line-height: 1.55; }
 
+.pairing { display: grid; gap: 12px; justify-items: center; }
+.pairing form { display: flex; gap: 8px; }
+.pairing input { min-width: 0; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--text); font-size: 16px; }
+
 /* Status dot or spinner */
 .state { flex: none; display: grid; place-items: center; width: 14px; height: 14px; }
 .state::before {

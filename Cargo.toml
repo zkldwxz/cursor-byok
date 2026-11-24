@@ -2,6 +2,8 @@
 members = [
     "server",
     "apps/desktop/src-tauri",
+    "apps/mobile/src-tauri",
+    "crates/remote-link",
     "crates/semble-core",
     "apps/semantic-mcp",
     "support/benchmarks/semble",

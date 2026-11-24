@@ -4,6 +4,7 @@ import { chinese, copy } from "./copy.js";
 import { Composer, drawAsked, drawChips, drawPanel } from "./dock.js";
 import { h, icon, redraw } from "./dom.js";
 import { Link, pair } from "./link.js";
+import { native, scan } from "./native.js";
 import { chatState, delivered, nextTheme, resolveTheme, sendingAfter, shownRows, spliceRows, workspaceOf } from "./model.js";
 import { drawSidebar, notice } from "./sidebar.js";
 
@@ -11,6 +12,8 @@ const $ = (id) => document.getElementById(id);
 const NEAR_END = 80;
 /** Text that stops for this long is no longer being written. */
 const QUIET_MS = 1_000;
+/** Tries to reach the computer before the app offers to pair again. */
+const PATIENCE = 2;
 const THEME_KEY = "cursor-byok-remote-theme";
 const GROUP_KEY = "cursor-byok-remote-group";
 const PINNED_KEY = "cursor-byok-remote-pinned";
@@ -112,12 +115,16 @@ const link = new Link({
     if (state.place) enter();
     draw();
   },
-  closed() {
+  closed(failures) {
     state.online = false;
+    // Once: a retry must not take away what is being typed.
+    if (native && failures === PATIENCE) gate(copy.away, "wifiOff");
     draw();
   },
-  unpaired: () => gate(copy.gate, "link"),
+  unpaired: () => gate(native ? copy.scan : copy.gate, "link"),
+  expired: () => gate(copy.expired, "link"),
   message(message) {
+    if (document.body.dataset.view === "gate") document.body.dataset.view = state.place ? "chat" : "sidebar";
     if (message.type === "overview") {
       state.overview = message;
       const newest = message.workspaces.flatMap((workspace) => workspace.chats)[0];
@@ -356,7 +363,7 @@ scroller.addEventListener("scroll", () => {
 });
 // The keyboard, or an approval, takes room from the transcript.
 new ResizeObserver(() => state.follow && (scroller.scrollTop = scroller.scrollHeight)).observe(scroller);
-addEventListener("popstate", () => show("sidebar"));
+addEventListener("popstate", () => document.body.dataset.view === "gate" || show("sidebar"));
 
 let toastTimer;
 function toast(text) {
@@ -367,7 +374,22 @@ function toast(text) {
 
 function gate(wording, iconName = "link") {
   document.body.dataset.view = "gate";
-  $("gate").replaceChildren(notice(wording, iconName));
+  $("gate").replaceChildren(h("div", {}, notice(wording, iconName), native && wording !== copy.joining ? pairing() : null));
+}
+
+/** The app's two ways to pair: the camera, or the link by hand. */
+function pairing() {
+  const join = (ticket) => (link.pair(ticket) ? gate(copy.joining, "link") : toast(copy.notALink));
+  const look = async () => {
+    const read = await scan().catch(() => toast(copy.noCamera));
+    if (read) join(read);
+  };
+  const typed = h("input", { type: "text", placeholder: copy.pasteLink, "aria-label": copy.pasteLink, autocomplete: "off", autocapitalize: "off", spellcheck: "false" });
+  const submit = (event) => {
+    event.preventDefault();
+    join(typed.value);
+  };
+  return h("div", { class: "pairing" }, h("button", { type: "button", class: "pill", onclick: look }, copy.scanButton), h("form", { onsubmit: submit }, typed, h("button", { type: "submit", class: "pill" }, copy.join)));
 }
 
 for (const [id, name, label] of [
@@ -384,10 +406,10 @@ $("chats").append(icon("down"));
 $("latest").append(icon("down"), copy.latest);
 
 applyTheme();
-gate([copy.pairing], "link");
+gate(copy.joining, "link");
 const paired = await pair();
 if (paired === "paired") {
   document.body.dataset.view = "sidebar";
   draw();
   link.connect();
-} else gate(paired === "expired" ? copy.expired : copy.gate, "link");
+} else gate(paired === "expired" ? copy.expired : native ? copy.scan : copy.gate, "link");

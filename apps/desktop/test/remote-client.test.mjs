@@ -23,6 +23,7 @@ import {
   waitingCount,
   workspaceOf,
 } from '../../../server/src/remote/client/model.js';
+import { codeOf } from '../../../server/src/remote/client/model.js';
 
 const row = (index, over = {}) => ({ key: `k${index}`, index, kind: 'assistant', blocks: [], ...over });
 const keys = (rows) => rows.map((item) => item.key);
@@ -240,4 +241,75 @@ test('every icon referenced in remote client modules is defined in dom.js', () =
   for (const name of referenced) {
     assert.ok(name in ICONS, `referenced icon '${name}' is missing in dom.js`);
   }
+});
+
+const pairingLink = (ticket) => `cursor-byok://pair?d=${Buffer.from(JSON.stringify(ticket)).toString('base64url')}`;
+
+test('only a pairing link holds a code', () => {
+  assert.equal(codeOf(` ${pairingLink({ k: 'key', c: 'once?>~', a: [] })}\n`), 'once?>~');
+  for (const other of [null, '', 'https://example.com', pairingLink({ k: 'key' }), 'cursor-byok://pair?d=%%']) {
+    assert.equal(codeOf(other), null);
+  }
+});
+
+test('the app pairs with the link it was given, then comes back with its token', async () => {
+  const calls = [];
+  const channels = [];
+  let dialled = async () => calls.length;
+  const stored = new Map();
+  Object.assign(globalThis, {
+    WebSocket: { CONNECTING: 0, OPEN: 1, CLOSED: 3 },
+    localStorage: { getItem: (key) => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value), removeItem: (key) => stored.delete(key) },
+    document: { addEventListener() {}, hidden: false },
+    addEventListener() {},
+    __TAURI__: {
+      core: {
+        Channel: class { constructor() { channels.push(this); } },
+        invoke: async (name, args) => (calls.push([name, args]), name === 'dial' ? dialled() : null),
+      },
+    },
+  });
+  const { Link } = await import('../../../server/src/remote/client/link.js');
+  const heard = [];
+  const on = Object.fromEntries(['open', 'closed', 'unpaired', 'expired', 'message'].map((name) => [name, (value) => heard.push([name, value])]));
+  const link = new Link(on);
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 5));
+  const said = () => JSON.parse(calls.findLast(([name]) => name === 'say')[1].text);
+  const says = (message) => channels.at(-1).onmessage({ message: JSON.stringify(message) });
+
+  assert.equal(link.pair('https://example.com'), false);
+  assert.equal(calls.length, 0);
+
+  const ticket = pairingLink({ k: 'key', c: 'once', a: [] });
+  assert.equal(link.pair(ticket), true);
+  await settle();
+  assert.equal(calls[0][1].ticket, ticket);
+  assert.equal(said().code, 'once');
+  says({ type: 'paired', token: 'token' });
+
+  link.connect();
+  await settle();
+  assert.equal(calls.filter(([name]) => name === 'dial').at(-1)[1].ticket, ticket);
+  assert.deepEqual(said(), { token: 'token' });
+
+  // A spent link leaves the pairing there was.
+  link.pair(pairingLink({ k: 'other', c: 'spent', a: [] }));
+  await settle();
+  says({ type: 'unpaired' });
+  assert.equal(heard.at(-1)[0], 'expired');
+  link.connect();
+  await settle();
+  assert.deepEqual(said(), { token: 'token' });
+  says({ type: 'unpaired' });
+  assert.equal(heard.at(-1)[0], 'unpaired');
+  assert.equal(stored.get('cursor-byok-remote-token'), undefined);
+
+  dialled = async () => { throw new Error('no answer'); };
+  link.connect();
+  await settle();
+  assert.deepEqual(heard.at(-1), ['closed', 1]);
+  // Leaves no retry behind.
+  dialled = async () => 99;
+  link.connect();
+  await settle();
 });

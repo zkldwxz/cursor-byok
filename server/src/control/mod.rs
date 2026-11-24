@@ -249,6 +249,10 @@ pub fn api_router(service: ControlService) -> Router {
             "/__byok-api__/api/remote",
             get(remote::status).put(remote::set_enabled),
         )
+        .route(
+            "/__byok-api__/api/remote/relay",
+            axum::routing::put(remote::set_relay),
+        )
         .route("/__byok-api__/api/remote/pairing", post(remote::pair))
         .route(
             "/__byok-api__/api/remote/devices/{id}",

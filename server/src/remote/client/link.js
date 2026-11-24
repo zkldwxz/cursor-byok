@@ -1,7 +1,10 @@
 //! Pairs this device and keeps its live session with the computer.
-import { deviceName } from "./model.js";
+import { codeOf, deviceName } from "./model.js";
+import { AppSocket, native } from "./native.js";
 
 const TOKEN = "cursor-byok-remote-token";
+/** Where the app finds the computer; a browser is already there. */
+const COMPUTER = "cursor-byok-remote-computer";
 const RETRY_MS = 2_000;
 const REPLY_MS = 6_000;
 
@@ -21,13 +24,22 @@ export async function pair() {
   return localStorage.getItem(TOKEN) ? "paired" : "unpaired";
 }
 
+function address() {
+  const url = new URL("ws", location.href);
+  url.protocol = url.protocol.replace("http", "ws");
+  return url;
+}
+
 export class Link {
   #socket = null;
   #waiting = [];
   #probe = null;
   #on;
+  /** The pairing link the app is trying. */
+  #pending = null;
+  #failures = 0;
 
-  /** `on` hears open(), closed(), unpaired(), and message(data). */
+  /** `on` hears open(), closed(failures), unpaired(), expired(), and message(data). */
   constructor(on) {
     this.#on = on;
     // A phone that slept may hold a connection that died unnoticed.
@@ -35,13 +47,23 @@ export class Link {
     addEventListener("online", () => this.#check());
   }
 
+  /** Pairs the app with the computer of this link; returns whether it is one. */
+  pair(ticket) {
+    if (!codeOf(ticket)) return false;
+    this.#pending = ticket;
+    this.#failures = 0;
+    this.connect();
+    return true;
+  }
+
   connect() {
-    const address = new URL("ws", location.href);
-    address.protocol = address.protocol.replace("http", "ws");
-    const socket = new WebSocket(address);
+    const replaced = this.#socket;
+    const socket = native ? new AppSocket(this.#pending ?? localStorage.getItem(COMPUTER)) : new WebSocket(address());
     this.#socket = socket;
+    replaced?.close();
     socket.onopen = () => {
-      socket.send(JSON.stringify({ token: localStorage.getItem(TOKEN) }));
+      if (this.#socket !== socket) return;
+      socket.send(JSON.stringify(this.#pending ? { code: codeOf(this.#pending), name: deviceName(navigator.userAgent) } : { token: localStorage.getItem(TOKEN) }));
       this.#on.open();
     };
     socket.onmessage = (event) => this.#socket === socket && this.#hear(JSON.parse(event.data));
@@ -63,9 +85,20 @@ export class Link {
 
   #hear(message) {
     clearTimeout(this.#probe);
-    if (message.type === "unpaired") {
-      localStorage.removeItem(TOKEN);
+    this.#failures = 0;
+    if (message.type === "paired") {
+      localStorage.setItem(TOKEN, message.token);
+      localStorage.setItem(COMPUTER, this.#pending);
+      this.#pending = null;
+    } else if (message.type === "unpaired") {
       this.#socket = null;
+      // A link that no longer works leaves the pairing there was.
+      if (this.#pending) {
+        this.#pending = null;
+        this.#on.expired();
+        return;
+      }
+      localStorage.removeItem(TOKEN);
       this.#on.unpaired();
     } else if (["done", "refused", "menu"].includes(message.type)) this.#waiting.shift()?.(message);
     else this.#on.message(message);
@@ -75,7 +108,7 @@ export class Link {
     clearTimeout(this.#probe);
     this.#socket = null;
     for (const resolve of this.#waiting.splice(0)) resolve({ type: "refused", code: "offline" });
-    this.#on.closed();
+    this.#on.closed(++this.#failures);
     setTimeout(() => this.#socket ?? this.connect(), RETRY_MS);
   }
 

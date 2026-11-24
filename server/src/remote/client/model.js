@@ -140,6 +140,16 @@ export function toggleOption(chosen = [], id, multiple) {
 /** Android browsers also say Linux, and iPhones also say Mac. */
 const SYSTEMS = ["iPhone", "iPad", "Android", "Macintosh", "Windows", "Linux"];
 
+/** The one-time code in an app's pairing link; null when it is not one. */
+export function codeOf(link) {
+  const data = /^cursor-byok:\/\/pair\?d=([\w-]+)$/.exec(link?.trim() ?? "")?.[1];
+  try {
+    return JSON.parse(atob(data.replaceAll("-", "+").replaceAll("_", "/"))).c || null;
+  } catch {
+    return null;
+  }
+}
+
 export const deviceName = (userAgent) => SYSTEMS.find((name) => userAgent.includes(name))?.replace("Macintosh", "Mac") ?? "Browser";
 
 const humans = (rows) => rows.filter((row) => row.kind === "human").length;

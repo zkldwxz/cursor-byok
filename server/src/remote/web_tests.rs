@@ -8,7 +8,10 @@ use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream,
 };
 
-use super::super::relay::{testing::FakeCursor, Relay};
+use super::super::{
+    app,
+    relay::{testing::FakeCursor, Relay},
+};
 use super::*;
 use crate::{cursor::transport::MessageModes, store::Store};
 
@@ -18,6 +21,7 @@ struct Computer {
     relay: Relay,
     modes: MessageModes,
     access: Arc<Access>,
+    phones: Phones,
     address: String,
     stop: CancellationToken,
 }
@@ -41,11 +45,13 @@ impl Computer {
             let phones = phones.clone();
             async move { phones.follow().await }
         });
-        tokio::spawn(async move { axum::serve(listener, router(phones)).await.unwrap() });
+        let served = router(phones.clone());
+        tokio::spawn(async move { axum::serve(listener, served).await.unwrap() });
         Self {
             relay,
             modes,
             access,
+            phones,
             address,
             stop,
         }
@@ -546,4 +552,70 @@ async fn a_conversation_is_taken_up_again_after_cursor_reconnects() {
     phone
         .hear(|it| it["rows"][0]["blocks"][0]["runs"][0]["text"] == "after")
         .await;
+}
+
+async fn heard_by_app(link: &mut remote_link::Link, kind: &str) -> Value {
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let text = link.receive().await.expect("the computer hung up");
+            let message: Value = serde_json::from_str(&text).unwrap();
+            if message["type"] == kind {
+                return message;
+            }
+        }
+    })
+    .await
+    .expect("the message did not come")
+}
+
+async fn app(computer: &Computer, hello: Value) -> (remote_link::Phone, remote_link::Link) {
+    let host = remote_link::Host::bind(None).await.unwrap();
+    let ticket = host.ticket(String::new());
+    let phones = computer.phones.clone();
+    tokio::spawn(async move { app::listen(&host, &phones).await });
+    let phone = remote_link::Phone::bind(None).await.unwrap();
+    let mut link = phone.dial(&ticket).await.unwrap();
+    link.send(&hello.to_string()).await.unwrap();
+    (phone, link)
+}
+
+#[tokio::test]
+async fn an_app_pairs_once_and_then_follows_like_a_browser() {
+    let computer = Computer::start().await;
+    let _agents = Agents::open(&computer.relay, vec![session("one")]);
+    let code = computer.access.new_pairing_code();
+    let hello = json!({"code": code, "name": "Pixel"});
+    let (_phone, mut link) = app(&computer, hello.clone()).await;
+    let paired = heard_by_app(&mut link, "paired").await;
+    heard_by_app(&mut link, "overview").await;
+    assert_eq!(computer.access.devices()[0].name, "Pixel");
+    let (_phone, mut again) = app(&computer, json!({"token": paired["token"]})).await;
+    heard_by_app(&mut again, "overview").await;
+    let (_phone, mut second) = app(&computer, hello).await;
+    heard_by_app(&mut second, "unpaired").await;
+    assert_eq!(computer.access.devices().len(), 1);
+}
+
+#[tokio::test]
+async fn an_app_that_is_not_paired_hears_nothing_of_the_computer() {
+    let computer = Computer::start().await;
+    for hello in [
+        json!({"token": "guess"}),
+        json!({"code": "", "name": "x"}),
+        json!({}),
+    ] {
+        let (_phone, mut link) = app(&computer, hello).await;
+        let first: Value = serde_json::from_str(&link.receive().await.unwrap()).unwrap();
+        assert_eq!(first, json!({"type": "unpaired"}));
+        assert!(link.receive().await.is_none());
+    }
+}
+
+#[tokio::test]
+async fn removing_a_device_ends_its_app_session() {
+    let computer = Computer::start().await;
+    let (_phone, mut link) = app(&computer, json!({"token": computer.token()})).await;
+    heard_by_app(&mut link, "overview").await;
+    computer.access.remove(&computer.access.devices()[0].id);
+    heard_by_app(&mut link, "unpaired").await;
 }

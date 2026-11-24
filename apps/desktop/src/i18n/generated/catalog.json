@@ -201,6 +201,18 @@
         }
       ]
     },
+    "064d5346ac53f298": {
+      "source": "在 Cursor BYOK App 里扫码。10 分钟内有效，只能配对一台手机；拿到它的人可以操作你的 Cursor，不要转发。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 84,
+          "column": 84
+        }
+      ]
+    },
     "06619f339fa0ab46": {
       "source": "正在准备插件运行时",
       "kind": "text",
@@ -349,7 +361,7 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 53,
+          "line": 60,
           "column": 29
         }
       ]
@@ -380,18 +392,6 @@
           "file": "features/calls/CallDetails.tsx",
           "line": 52,
           "column": 6
-        }
-      ]
-    },
-    "0c17f5ebd66ce2c6": {
-      "source": "隧道已断开，请重新开启。",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/settings/RemoteControlCard.tsx",
-          "line": 63,
-          "column": 59
         }
       ]
     },
@@ -525,12 +525,12 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 57,
+          "line": 64,
           "column": 20
         },
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 60,
+          "line": 67,
           "column": 24
         }
       ]
@@ -1139,7 +1139,7 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 53,
+          "line": 60,
           "column": 170
         }
       ]
@@ -1394,7 +1394,7 @@
         },
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 79,
+          "line": 95,
           "column": 86
         },
         {
@@ -3035,7 +3035,7 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 76,
+          "line": 92,
           "column": 86
         }
       ]
@@ -3133,7 +3133,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 625,
+          "line": 636,
           "column": 43
         }
       ]
@@ -3545,7 +3545,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 620,
+          "line": 631,
           "column": 43
         }
       ]
@@ -3559,6 +3559,18 @@
           "file": "features/home/metrics/HomeMetrics.tsx",
           "line": 115,
           "column": 55
+        }
+      ]
+    },
+    "7b350e685e43e75e": {
+      "source": "浏览器用的隧道没有连上，App 不受影响。要用浏览器请重新开启。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 79,
+          "column": 59
         }
       ]
     },
@@ -3788,6 +3800,18 @@
         }
       ]
     },
+    "804c42e9ddae82be": {
+      "source": "用手机 App 或浏览器查看 Cursor 对话、发消息、批准操作和回答提问。关闭或退出软件后，配对全部失效。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 65,
+          "column": 19
+        }
+      ]
+    },
     "80a57e03f0717f91": {
       "source": "未配置",
       "kind": "text",
@@ -3807,7 +3831,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 558,
+          "line": 569,
           "column": 21
         }
       ]
@@ -4155,7 +4179,7 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 79,
+          "line": 95,
           "column": 109
         }
       ]
@@ -4807,6 +4831,18 @@
         }
       ]
     },
+    "a15d88d5b564acd8": {
+      "source": "中继地址",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 70,
+          "column": 27
+        }
+      ]
+    },
     "a1a42cd9b16e2162": {
       "source": "应用设置",
       "kind": "text",
@@ -4870,6 +4906,11 @@
           "file": "features/settings/ProxySettingsCard.tsx",
           "line": 33,
           "column": 103
+        },
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 76,
+          "column": 71
         },
         {
           "file": "features/settings/SettingsPage.tsx",
@@ -5400,6 +5441,18 @@
         }
       ]
     },
+    "b47e996ce4665762": {
+      "source": "没有找到 cloudflared，只能用 App 连接。要用浏览器请先安装。macOS：brew install cloudflared",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 78,
+          "column": 75
+        }
+      ]
+    },
     "b48b6518293a604e": {
       "source": "导入配置",
       "kind": "text",
@@ -5834,7 +5887,7 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 65,
+          "line": 81,
           "column": 10
         }
       ]
@@ -5889,6 +5942,18 @@
           "file": "features/plugins/PluginResourcePanels.tsx",
           "line": 442,
           "column": 66
+        }
+      ]
+    },
+    "c7060386d549f924": {
+      "source": "中继令牌",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 73,
+          "column": 27
         }
       ]
     },
@@ -6346,7 +6411,7 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 79,
+          "line": 95,
           "column": 45
         }
       ]
@@ -6750,7 +6815,7 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 81,
+          "line": 97,
           "column": 8
         }
       ]
@@ -6860,6 +6925,30 @@
           "file": "features/home/charts/DailyTokenUsageChart.tsx",
           "line": 141,
           "column": 15
+        }
+      ]
+    },
+    "e19c3b9e266c69c9": {
+      "source": "浏览器",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 85,
+          "column": 51
+        }
+      ]
+    },
+    "e21403ecd4b9ea46": {
+      "source": "手机和电脑不在同一网络时，由这台 iroh 中继转发，它读不到内容。留空则 App 只能在同一网络使用。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 70,
+          "column": 44
         }
       ]
     },
@@ -7192,8 +7281,8 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 69,
-          "column": 17
+          "line": 85,
+          "column": 106
         }
       ]
     },
@@ -7230,18 +7319,6 @@
           "file": "features/plugins/PluginManagementPage.tsx",
           "line": 273,
           "column": 20
-        }
-      ]
-    },
-    "ec45a4bb7b24b228": {
-      "source": "没有找到 cloudflared，请先安装。macOS：brew install cloudflared",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/settings/RemoteControlCard.tsx",
-          "line": 62,
-          "column": 75
         }
       ]
     },
@@ -7332,18 +7409,6 @@
           "file": "features/home/metrics/HomeMetrics.tsx",
           "line": 151,
           "column": 15
-        }
-      ]
-    },
-    "f25e41558d733ba5": {
-      "source": "通过临时 Cloudflare 隧道，用手机查看 Cursor 对话、发消息、批准操作和回答提问。关闭或退出软件后，地址和配对全部失效。",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/settings/RemoteControlCard.tsx",
-          "line": 58,
-          "column": 19
         }
       ]
     },
@@ -7728,8 +7793,8 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 68,
-          "column": 84
+          "line": 104,
+          "column": 72
         }
       ]
     },
