@@ -7,6 +7,7 @@ import {
   answersOf,
   buildThreads,
   chatState,
+  codeOf,
   dateBucket,
   delivered,
   deviceName,
@@ -14,8 +15,10 @@ import {
   formatAge,
   groupRows,
   groupThreads,
-  nextTheme,
+  homeWorkspace,
+  homeThreads,
   resolveTheme,
+  shownCount,
   shownRows,
   spliceRows,
   stepKind,
@@ -23,7 +26,6 @@ import {
   waitingCount,
   workspaceOf,
 } from '../../../server/src/remote/client/model.js';
-import { codeOf } from '../../../server/src/remote/client/model.js';
 
 const row = (index, over = {}) => ({ key: `k${index}`, index, kind: 'assistant', blocks: [], ...over });
 const keys = (rows) => rows.map((item) => item.key);
@@ -143,16 +145,11 @@ test('a phone is named by its own system, even where its browser also mentions a
   assert.equal(deviceName('something else'), 'Browser');
 });
 
-test('theme preference cycles auto -> dark -> light -> auto and resolves against OS preference', () => {
-  assert.equal(nextTheme('auto'), 'dark');
-  assert.equal(nextTheme('dark'), 'light');
-  assert.equal(nextTheme('light'), 'auto');
-  assert.equal(nextTheme('unexpected'), 'dark');
-
-  assert.equal(resolveTheme('auto', false), 'dark');
+test('theme preference resolves against OS preference', () => {
   assert.equal(resolveTheme('auto', true), 'light');
-  assert.equal(resolveTheme('dark', true), 'dark');
+  assert.equal(resolveTheme('auto', false), 'dark');
   assert.equal(resolveTheme('light', false), 'light');
+  assert.equal(resolveTheme('dark', true), 'dark');
 });
 
 test('dateBucket and formatAge classify calendar boundaries and relative durations', () => {
@@ -229,18 +226,52 @@ test('conversations group by project, date or status, with pinned ones first and
 test('every icon referenced in remote client modules is defined in dom.js', () => {
   const clientDir = path.resolve(import.meta.dirname, '../../../server/src/remote/client');
   const referenced = new Set();
-  for (const file of ['app.js', 'chat.js', 'dock.js', 'sidebar.js']) {
+  for (const file of ['app.js', 'chat.js', 'dock.js', 'home.js', 'settings.js', 'sidebar.js']) {
     const source = fs.readFileSync(path.join(clientDir, file), 'utf8');
     for (const match of source.matchAll(/icon\(\s*["']([a-zA-Z0-9_-]+)["']\s*\)/g)) {
       referenced.add(match[1]);
     }
   }
-  for (const name of ['sun', 'moon', 'monitor', 'compose', 'sidebar', 'infinity', 'branch', 'plus', 'pin', 'remote', 'status', 'sortGroup', 'file', 'edit', 'terminal', 'search', 'sparkles', 'wrench', 'layers', 'alert', 'clock', 'question', 'diff', 'cpu', 'folder', 'chat', 'link', 'wifiOff', 'copy']) {
+  for (const name of ['sun', 'moon', 'monitor', 'compose', 'sidebar', 'infinity', 'branch', 'plus', 'pin', 'remote', 'status', 'sortGroup', 'file', 'edit', 'terminal', 'search', 'sparkles', 'wrench', 'layers', 'alert', 'clock', 'question', 'diff', 'cpu', 'folder', 'chat', 'link', 'wifiOff', 'copy', 'home', 'gear']) {
     assert.ok(name in ICONS, `missing expected SVG icon '${name}' in dom.js`);
   }
   for (const name of referenced) {
     assert.ok(name in ICONS, `referenced icon '${name}' is missing in dom.js`);
   }
+});
+
+test('a group shows three conversations, then two more, then all of them', () => {
+  assert.deepEqual([0, 1, 2].map((step) => shownCount(19, step)), [3, 5, 19]);
+  assert.deepEqual([0, 1, 2].map((step) => shownCount(4, step)), [3, 4, 4]);
+  assert.equal(shownCount(2, 0), 2);
+  assert.equal(shownCount(0, 0), 0);
+});
+
+const home = [
+  { id: 'a', title: 'A', chats: [{ id: 'a1', label: 'old', state: 'idle', updatedAt: 1 }] },
+  { id: 'b', title: 'B', chats: [{ id: 'b1', label: 'new', state: 'idle', updatedAt: 9 }, { id: 'b2', label: 'asks', state: 'waiting', updatedAt: 2 }] },
+  { id: 'c', title: 'C', chats: [] },
+];
+
+test('a message from home goes to the project last chosen, else the one last worked in', () => {
+  assert.equal(homeWorkspace(home, 'c').id, 'c');
+  assert.equal(homeWorkspace(home, 'gone').id, 'b');
+  assert.equal(homeWorkspace([home[2]], null).id, 'c');
+  assert.equal(homeWorkspace([], 'a'), null);
+});
+
+test('home shows every conversation that waits, and the latest of the others', () => {
+  const { waiting, recent } = homeThreads(buildThreads(home, { now: 600_000 }), 1);
+  assert.deepEqual(waiting.map((item) => item.id), ['b2']);
+  assert.equal(recent.length, 1);
+  const all = homeThreads(buildThreads(home.map((it) => ({ ...it, chats: it.chats.map((chat) => ({ ...chat, updatedAt: chat.updatedAt * 60_000 })) })), { now: 600_000 }), 5);
+  assert.deepEqual(all.recent.map((item) => item.id), ['b1', 'a1']);
+});
+
+test('every file of the page is one the server gives to browsers', () => {
+  const clientDir = path.resolve(import.meta.dirname, '../../../server/src/remote/client');
+  const served = fs.readFileSync(path.resolve(clientDir, '../web.rs'), 'utf8');
+  for (const file of fs.readdirSync(clientDir)) assert.ok(served.includes(`include_str!("client/${file}")`), file);
 });
 
 const pairingLink = (ticket) => `cursor-byok://pair?d=${Buffer.from(JSON.stringify(ticket)).toString('base64url')}`;
@@ -252,7 +283,7 @@ test('only a pairing link holds a code', () => {
   }
 });
 
-test('the app pairs with the link it was given, then comes back with its token', async () => {
+test('the app pairs with the link it was given, then comes back with its token', async (t) => {
   const calls = [];
   const channels = [];
   let dialled = async () => calls.length;
@@ -271,8 +302,10 @@ test('the app pairs with the link it was given, then comes back with its token',
   });
   const { Link } = await import('../../../server/src/remote/client/link.js');
   const heard = [];
-  const on = Object.fromEntries(['open', 'closed', 'unpaired', 'expired', 'message'].map((name) => [name, (value) => heard.push([name, value])]));
-  const link = new Link(on);
+  const on = Object.fromEntries(['open', 'closed', 'away', 'unpaired', 'expired', 'message'].map((name) => [name, (value) => heard.push([name, value])]));
+  const link = new Link(on, { awayMs: 60 });
+  // Otherwise a failure leaves it trying for ever.
+  t.after(() => link.leave());
   const settle = () => new Promise((resolve) => setTimeout(resolve, 5));
   const said = () => JSON.parse(calls.findLast(([name]) => name === 'say')[1].text);
   const says = (message) => channels.at(-1).onmessage({ message: JSON.stringify(message) });
@@ -307,9 +340,22 @@ test('the app pairs with the link it was given, then comes back with its token',
   dialled = async () => { throw new Error('no answer'); };
   link.connect();
   await settle();
-  assert.deepEqual(heard.at(-1), ['closed', 1]);
-  // Leaves no retry behind.
+  assert.equal(heard.at(-1)[0], 'closed');
+  // A network that changes loses a few dials at once: that is not being away.
+  dialled = async () => 98;
+  link.connect();
+  await settle();
+  says({ type: 'overview' });
+  await new Promise((resolve) => setTimeout(resolve, 90));
+  assert.ok(!heard.some(([name]) => name === 'away'));
+  dialled = async () => { throw new Error('no answer'); };
+  link.connect();
+  await new Promise((resolve) => setTimeout(resolve, 90));
+  assert.equal(heard.filter(([name]) => name === 'away').length, 1);
   dialled = async () => 99;
   link.connect();
   await settle();
+  link.leave();
+  assert.equal(stored.size, 0);
+  assert.equal(calls.at(-1)[0], 'hang_up');
 });

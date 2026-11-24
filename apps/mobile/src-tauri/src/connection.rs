@@ -1,7 +1,7 @@
 //! Holds the one connection to the computer, for as long as the page wants it.
 use std::sync::Mutex;
 
-use remote_link::{Link, Phone, Ticket};
+use remote_link::{Link, Phone, Route, Ticket};
 use serde::Serialize;
 use tokio::sync::mpsc;
 
@@ -13,6 +13,7 @@ struct Current {
     id: u32,
     /// Dropping it hangs up.
     outbox: Option<mpsc::UnboundedSender<String>>,
+    route: Option<Route>,
 }
 
 /// What the page hears: a message, or nothing more once the computer is gone.
@@ -37,12 +38,14 @@ impl Connection {
         };
         let phone = Phone::bind(ticket.relay.as_ref()).await?;
         let link = phone.dial(&ticket).await?;
+        let route = link.route();
         let (outbox, outgoing) = mpsc::unbounded_channel();
         {
             let mut current = self.0.lock().unwrap();
             // Dialled again meanwhile: this one ends as soon as it begins.
             if current.id == id {
                 current.outbox = Some(outbox);
+                current.route = Some(route);
             }
         }
         tokio::spawn(async move {
@@ -59,6 +62,13 @@ impl Connection {
             // Gone already: the page hears so by itself.
             let _ = outbox.send(text);
         }
+    }
+
+    /// Whether the computer is reached without the relay; `None` while it is not reached.
+    pub fn direct(&self) -> Option<bool> {
+        let current = self.0.lock().unwrap();
+        let outbox = current.outbox.as_ref()?;
+        (!outbox.is_closed()).then(|| current.route.as_ref().map(Route::direct))?
     }
 
     pub fn hang_up(&self, id: u32) {
@@ -121,6 +131,9 @@ mod tests {
         assert_eq!(computer.receive().await.unwrap(), "hello");
         computer.send("hi").await.unwrap();
         assert_eq!(page.recv().await.unwrap().message.unwrap(), "hi");
+        assert_eq!(connection.direct(), Some(true));
+        connection.hang_up(id);
+        assert_eq!(connection.direct(), None);
     }
 
     #[tokio::test]

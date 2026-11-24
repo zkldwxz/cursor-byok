@@ -23,6 +23,11 @@ fn say(connection: State<'_, Connection>, id: u32, text: String) {
 }
 
 #[tauri::command]
+fn direct(connection: State<'_, Connection>) -> Option<bool> {
+    connection.direct()
+}
+
+#[tauri::command]
 fn hang_up(connection: State<'_, Connection>, id: u32) {
     connection.hang_up(id);
 }
@@ -34,7 +39,7 @@ pub fn run() {
     let builder = builder.plugin(tauri_plugin_barcode_scanner::init());
     builder
         .manage(Connection::default())
-        .invoke_handler(tauri::generate_handler![dial, say, hang_up])
+        .invoke_handler(tauri::generate_handler![dial, say, direct, hang_up])
         .run(tauri::generate_context!())
         .expect("the app did not start");
 }

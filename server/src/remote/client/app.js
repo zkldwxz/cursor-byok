@@ -1,24 +1,25 @@
-//! Holds what is known about the computer and shows it: the sidebar threads, one chat, or why neither.
+//! Holds what is known about the computer and shows it: home, the conversations, one of them, or why none.
 import { Transcript } from "./chat.js";
 import { chinese, copy } from "./copy.js";
 import { Composer, drawAsked, drawChips, drawPanel } from "./dock.js";
 import { h, icon, redraw } from "./dom.js";
+import { drawHome, drawProject } from "./home.js";
 import { Link, pair } from "./link.js";
-import { native, scan } from "./native.js";
-import { chatState, delivered, nextTheme, resolveTheme, sendingAfter, shownRows, spliceRows, workspaceOf } from "./model.js";
-import { drawSidebar, notice } from "./sidebar.js";
+import { buildThreads, chatState, delivered, homeWorkspace, resolveTheme, sendingAfter, shownRows, spliceRows, waitingCount, workspaceOf } from "./model.js";
+import { buzz, native, paintBars, scan } from "./native.js";
+import { Settings } from "./settings.js";
+import { notice, Sidebar } from "./sidebar.js";
+import { Views } from "./views.js";
 
 const $ = (id) => document.getElementById(id);
 const NEAR_END = 80;
 /** Text that stops for this long is no longer being written. */
 const QUIET_MS = 1_000;
-/** Tries to reach the computer before the app offers to pair again. */
-const PATIENCE = 2;
 const THEME_KEY = "cursor-byok-remote-theme";
 const GROUP_KEY = "cursor-byok-remote-group";
 const PINNED_KEY = "cursor-byok-remote-pinned";
 const COLLAPSED_KEY = "cursor-byok-remote-collapsed";
-const THEME_ICONS = { auto: "monitor", dark: "moon", light: "sun" };
+const PROJECT_KEY = "cursor-byok-remote-project";
 const wide = matchMedia("(min-width: 900px)");
 const lightMedia = matchMedia("(prefers-color-scheme: light)");
 const themeColor = $("theme-color");
@@ -75,7 +76,6 @@ const state = {
   sidebarCollapsed: false,
   theme: savedTheme(),
   groupBy: savedGroupBy(),
-  openMenu: null,
   pinned: new Set(readJson(PINNED_KEY, [])),
   collapsed: new Set(readJson(COLLAPSED_KEY, [])),
 };
@@ -94,17 +94,14 @@ function applyTheme() {
   if (state.theme === "auto") delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = state.theme;
   const resolved = resolveTheme(state.theme, lightMedia.matches);
-  themeColor?.setAttribute("content", resolved === "light" ? "#f4f4f5" : "#131315");
-  const button = $("theme");
-  const label = copy.theme[state.theme];
-  button.setAttribute("aria-label", label);
-  button.title = label;
-  redraw(button, state.theme, () => [icon(THEME_ICONS[state.theme])]);
+  const ground = getComputedStyle(document.documentElement).getPropertyValue("--ground").trim();
+  themeColor?.setAttribute("content", ground);
+  paintBars(ground, resolved === "light");
 }
 
-function cycleTheme() {
-  state.theme = nextTheme(state.theme);
-  writeStorage(THEME_KEY, state.theme === "auto" ? null : state.theme);
+function setTheme(theme) {
+  state.theme = theme;
+  writeStorage(THEME_KEY, theme === "auto" ? null : theme);
   applyTheme();
   draw();
 }
@@ -115,20 +112,21 @@ const link = new Link({
     if (state.place) enter();
     draw();
   },
-  closed(failures) {
+  closed() {
     state.online = false;
-    // Once: a retry must not take away what is being typed.
-    if (native && failures === PATIENCE) gate(copy.away, "wifiOff");
     draw();
   },
+  // A browser's page came from the computer, so only its address could be wrong.
+  away: () => native && gate(copy.away, "wifiOff"),
   unpaired: () => gate(native ? copy.scan : copy.gate, "link"),
   expired: () => gate(copy.expired, "link"),
   message(message) {
-    if (document.body.dataset.view === "gate") document.body.dataset.view = state.place ? "chat" : "sidebar";
+    if (views.now === "gate") views.reset("home");
     if (message.type === "overview") {
       state.overview = message;
       const newest = message.workspaces.flatMap((workspace) => workspace.chats)[0];
       if (wide.matches && !state.place && newest) open({ session: newest.id });
+      if (!wide.matches && views.now === "home") ready();
     } else if (message.type === "chat" && shown(message)) {
       hear(message);
     }
@@ -187,34 +185,56 @@ const run = async (command) => {
 const scroller = $("scroll");
 const transcript = new Transcript($("transcript"));
 const composer = new Composer($("composer"), send, () => run({ type: "stop" }));
+// Seen in its conversation from the first moment.
+const homeComposer = new Composer($("home-composer"), (text) => {
+  views.go("chat");
+  return send(text);
+});
 
 function open(place) {
   const known = seen.get(place.session);
-  Object.assign(state, { place, chat: known?.chat ?? null, rows: known?.rows ?? [], sending: null, follow: true, openMenu: null });
+  Object.assign(state, { place, chat: known?.chat ?? null, rows: known?.rows ?? [], sending: null, follow: true });
   transcript.forget();
   enter();
 }
 
-function select({ session }) {
-  if (session !== state.place?.session) open({ session });
-  show("chat");
+function select({ id }) {
+  if (id !== state.place?.session) open({ session: id });
+  views.go("chat");
 }
 
 const here = () => state.place?.draft ?? workspaceOf(state.overview?.workspaces, state.place?.session)?.id;
 
-function begin(workspace = here() ?? state.overview?.workspaces[0]?.id) {
-  if (!workspace) return;
-  open({ draft: workspace });
-  show("chat");
+/** Home always holds a conversation not begun, so its mode and model are there to choose. */
+function ready() {
+  const workspace = homeWorkspace(state.overview?.workspaces, readStorage(PROJECT_KEY, null));
+  if (workspace && state.place?.draft !== workspace.id) open({ draft: workspace.id });
 }
 
-function show(view) {
-  if (view === "chat" && document.body.dataset.view !== "chat") history.pushState({ view }, "");
-  document.body.dataset.view = view;
-  draw();
-  // While hidden the transcript had no height to scroll.
-  if (view === "chat" && state.follow) scroller.scrollTop = scroller.scrollHeight;
+function begin(workspace = here() ?? state.overview?.workspaces[0]?.id) {
+  if (!workspace) return;
+  if (state.place?.draft !== workspace) open({ draft: workspace });
+  views.go("chat");
 }
+
+function chooseProject() {
+  const { workspaces } = state.overview;
+  sheet(copy.project, workspaces.map(({ id, title }) => ({
+    label: title,
+    current: id === here(),
+    pick: () => {
+      writeStorage(PROJECT_KEY, id);
+      ready();
+      draw();
+    },
+  })));
+}
+
+const views = new Views((view) => {
+  if (view === "home" && !wide.matches) ready();
+  if (view === "settings") settings.opened();
+  draw();
+});
 
 function chatNotice(listed) {
   const { overview, place, chat, rows, sending } = state;
@@ -235,30 +255,52 @@ function drawStatusBar(workspace, told) {
   ]);
 }
 
-function draw() {
-  const { overview, online, place, chat, theme, sidebarCollapsed, groupBy, openMenu, pinned, collapsed } = state;
-  document.body.dataset.sidebar = sidebarCollapsed ? "collapsed" : "open";
-  drawSidebar(
-    $("sidebar"),
-    { overview, online, current: place?.session, chat, theme, groupBy, openMenu, pinned, collapsed },
-    {
-      onSelectThread: ({ id }) => select({ session: id }),
-      onNewChat: begin,
-      onTheme: cycleTheme,
-      onToggleMenu: (kind) => {
-        state.openMenu = state.openMenu === kind ? null : kind;
-        draw();
-      },
-      onGroupBy: (mode) => {
+const actions = {
+  onSelectThread: select,
+  onNewChat: begin,
+  onAll: () => views.go("sidebar"),
+  onSettings: () => views.go("settings"),
+  onGrouping: () =>
+    sheet(copy.grouping, Object.entries(copy.groupOption).map(([mode, label]) => ({
+      label,
+      current: mode === state.groupBy,
+      pick: () => {
         state.groupBy = mode;
-        state.openMenu = null;
         writeStorage(GROUP_KEY, mode);
         draw();
       },
-      onToggleCollapse: (group) => toggle(collapsed, group, COLLAPSED_KEY),
-      onTogglePin: (session) => toggle(pinned, session, PINNED_KEY),
-    },
-  );
+    }))),
+  onToggleCollapse: (group) => toggle(state.collapsed, group, COLLAPSED_KEY),
+  onTogglePin: (session) => toggle(state.pinned, session, PINNED_KEY),
+};
+const sidebar = new Sidebar($("sidebar"), actions);
+const settings = new Settings($("settings-body"), {
+  onTheme: setTheme,
+  onPair: look,
+  onLeave: () => {
+    link.leave();
+    Object.assign(state, { overview: null, online: false, place: null, chat: null, rows: [] });
+    seen.clear();
+    gate(native ? copy.scan : copy.gate, "link");
+  },
+});
+
+function draw() {
+  const { overview, online, place, chat, sidebarCollapsed, groupBy, pinned, collapsed } = state;
+  document.body.dataset.sidebar = sidebarCollapsed ? "collapsed" : "open";
+  const waiting = waitingCount(overview?.workspaces);
+  document.title = waiting ? `(${waiting}) Cursor` : "Cursor";
+  const connection = {
+    told: online ? (waiting ? "waiting" : "online") : "offline",
+    status: online ? (waiting ? copy.waitingTitle(waiting) : copy.nothingWaiting) : overview ? copy.offline : copy.connecting,
+  };
+  const threads = buildThreads(overview?.workspaces, { current: place?.session, open: chat, pinned });
+  sidebar.draw({ overview, online, current: place?.session, groupBy, collapsed, threads, ...connection });
+  redraw($("home-state"), JSON.stringify(connection), () => [h("span", { class: "state", "data-state": connection.told }), h("span", { class: "side-status-text" }, connection.status)]);
+  drawHome($("home-lists"), { overview, threads }, actions);
+  $("tabs").style.setProperty("--at", document.body.dataset.tab === "home" ? 0 : 1);
+  for (const tab of $("tabs").children) tab.setAttribute("aria-current", String(tab.dataset.tab === document.body.dataset.tab));
+  if (views.now === "settings") settings.draw(state);
   const workspace = overview?.workspaces.find((item) => item.id === here());
   const listed = workspace?.chats.find((item) => item.id === place?.session);
   const reachable = online && Boolean(overview?.reachable);
@@ -283,9 +325,19 @@ function draw() {
   drawAsked($("asked"), chat, run);
   drawPanel($("panel"), chat);
   drawChips($("chips"), chat, menu);
+  drawHomeComposer(workspace);
   drawStatusBar(workspace, told);
   composer.update(place?.session ?? `draft ${place?.draft}`, Boolean(chat?.running));
   if (following) scroller.scrollTop = scroller.scrollHeight;
+}
+
+function drawHomeComposer(workspace) {
+  const { overview, place, chat } = state;
+  $("home-composer").hidden = !overview?.reachable || !overview.workspaces.length;
+  if (!place?.draft) return;
+  drawProject($("home-project"), workspace, chooseProject);
+  drawChips($("home-chips"), chat, menu);
+  homeComposer.update(`home ${place.draft}`, false);
 }
 
 function toggle(set, key, storage) {
@@ -325,29 +377,17 @@ async function menu(kind) {
   if (!known) show();
 }
 
-$("theme").addEventListener("click", cycleTheme);
 $("toggle-side").addEventListener("click", () => {
   state.sidebarCollapsed = !state.sidebarCollapsed;
   draw();
 });
-document.addEventListener("click", (event) => {
-  if (!state.openMenu || event.target.closest(".popover-wrap")) return;
-  state.openMenu = null;
-  draw();
-});
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && state.openMenu) {
-    state.openMenu = null;
-    draw();
-  }
-});
 lightMedia.addEventListener("change", () => state.theme === "auto" && applyTheme());
 $("chats").addEventListener("click", () => {
   const { title, chats } = state.overview.workspaces.find((item) => item.id === here());
-  sheet(title, chats.map(({ id, label }) => ({ label: label || copy.untitled, current: id === state.place.session, pick: () => select({ session: id }) })));
+  sheet(title, chats.map(({ id, label }) => ({ label: label || copy.untitled, current: id === state.place.session, pick: () => select({ id }) })));
 });
 $("new").addEventListener("click", () => begin());
-$("back").addEventListener("click", () => history.back());
+for (const id of ["back", "settings-back"]) $(id).addEventListener("click", () => views.back());
 $("latest").addEventListener("click", () => {
   state.follow = true;
   scroller.scrollTop = scroller.scrollHeight;
@@ -363,7 +403,6 @@ scroller.addEventListener("scroll", () => {
 });
 // The keyboard, or an approval, takes room from the transcript.
 new ResizeObserver(() => state.follow && (scroller.scrollTop = scroller.scrollHeight)).observe(scroller);
-addEventListener("popstate", () => document.body.dataset.view === "gate" || show("sidebar"));
 
 let toastTimer;
 function toast(text) {
@@ -373,17 +412,22 @@ function toast(text) {
 }
 
 function gate(wording, iconName = "link") {
-  document.body.dataset.view = "gate";
+  views.reset("gate");
   $("gate").replaceChildren(h("div", {}, notice(wording, iconName), native && wording !== copy.joining ? pairing() : null));
+}
+
+function join(ticket) {
+  if (link.pair(ticket)) gate(copy.joining, "link");
+  else toast(copy.notALink);
+}
+
+async function look() {
+  const read = await scan().catch(() => toast(copy.noCamera));
+  if (read) join(read);
 }
 
 /** The app's two ways to pair: the camera, or the link by hand. */
 function pairing() {
-  const join = (ticket) => (link.pair(ticket) ? gate(copy.joining, "link") : toast(copy.notALink));
-  const look = async () => {
-    const read = await scan().catch(() => toast(copy.noCamera));
-    if (read) join(read);
-  };
   const typed = h("input", { type: "text", placeholder: copy.pasteLink, "aria-label": copy.pasteLink, autocomplete: "off", autocapitalize: "off", spellcheck: "false" });
   const submit = (event) => {
     event.preventDefault();
@@ -396,11 +440,18 @@ for (const [id, name, label] of [
   ["back", "back", copy.back],
   ["toggle-side", "sidebar", copy.toggleSidebar],
   ["new", "compose", copy.newChat],
+  ["settings-back", "back", copy.back],
 ]) {
   $(id).append(icon(name));
   $(id).setAttribute("aria-label", label);
   $(id).title = label;
 }
+$("hello").textContent = copy.hello;
+$("settings-title").textContent = copy.settings;
+$("home-actions").append(h("button", { type: "button", class: "plain", "aria-label": copy.settings, title: copy.settings, onclick: actions.onSettings }, icon("gear")));
+$("tabs").append(...[["home", "home", copy.homeTab], ["sidebar", "chat", copy.chatsTab]].map(([view, name, label]) => h("button", { type: "button", "data-tab": view, onclick: () => views.go(view) }, icon(name), h("span", {}, label))));
+// Felt where something is set off, not on every touch.
+document.addEventListener("click", (event) => event.target.closest?.("#tabs button, .segments button, .go, .quiet, button[type=submit]") && buzz());
 $("chats").setAttribute("aria-label", copy.chats);
 $("chats").append(icon("down"));
 $("latest").append(icon("down"), copy.latest);
@@ -409,7 +460,6 @@ applyTheme();
 gate(copy.joining, "link");
 const paired = await pair();
 if (paired === "paired") {
-  document.body.dataset.view = "sidebar";
-  draw();
+  views.reset("home");
   link.connect();
 } else gate(paired === "expired" ? copy.expired : native ? copy.scan : copy.gate, "link");

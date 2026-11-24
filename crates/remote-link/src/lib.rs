@@ -197,9 +197,19 @@ impl Link {
         self.send.write_all(message.as_bytes()).await.map_err(lost)
     }
 
-    /// Whether messages go straight to the other side rather than through the relay.
+    pub fn route(&self) -> Route {
+        Route(self.connection.clone())
+    }
+}
+
+/// The way a link's messages go, which may change while it lasts.
+#[derive(Clone)]
+pub struct Route(Connection);
+
+impl Route {
+    /// Whether straight to the other side, rather than through the relay.
     pub fn direct(&self) -> bool {
-        self.connection
+        self.0
             .paths()
             .into_iter()
             .any(|path| path.is_selected() && path.is_ip())
@@ -254,7 +264,7 @@ mod tests {
         assert_eq!(computer.receive().await.unwrap(), "one");
         assert_eq!(computer.receive().await.unwrap(), "two");
         assert_eq!(phone.receive().await.unwrap(), long);
-        assert!(phone.direct());
+        assert!(phone.route().direct());
     }
 
     #[tokio::test]

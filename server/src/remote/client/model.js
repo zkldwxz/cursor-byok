@@ -3,6 +3,19 @@ const everyChat = (workspaces) => (workspaces ?? []).flatMap((workspace) => work
 
 export const waitingCount = (workspaces) => everyChat(workspaces).filter((chat) => chat.state === "waiting").length;
 
+/** Where a message from home goes: the project last chosen, else the one last worked in. */
+export function homeWorkspace(workspaces, chosen) {
+  const latest = (workspace) => workspace.chats.reduce((latest, chat) => Math.max(latest, chat.updatedAt), 0);
+  const all = workspaces ?? [];
+  return all.find(({ id }) => id === chosen) ?? all.toSorted((a, b) => latest(b) - latest(a))[0] ?? null;
+}
+
+/** Everything that waits, and the latest of the others. */
+export const homeThreads = (threads, count) => ({
+  waiting: threads.filter(({ state }) => state === "waiting"),
+  recent: threads.filter(({ state }) => state !== "waiting").toSorted((a, b) => a.ageMinutes - b.ageMinutes).slice(0, count),
+});
+
 export const workspaceOf = (workspaces, session) =>
   (workspaces ?? []).find((workspace) => workspace.chats.some((chat) => chat.id === session)) ?? null;
 
@@ -67,6 +80,11 @@ export function groupThreads(workspaces, threads, mode = "project", now = Date.n
   return groups;
 }
 
+const SHOWN = [3, 5];
+
+/** How many of a group's conversations show after "more" was asked for `step` times. */
+export const shownCount = (total, step) => Math.min(total, SHOWN[step] ?? total);
+
 /** A message carries the rows from where they differ from what was sent before. */
 export const spliceRows = (rows, { from, rows: changed }) => [...rows.slice(0, from), ...changed];
 
@@ -101,11 +119,6 @@ function tallyOf(rows) {
   return tally;
 }
 
-const THEMES = ["auto", "dark", "light"];
-export const nextTheme = (current) => {
-  const index = THEMES.indexOf(current);
-  return THEMES[((index < 0 ? 0 : index) + 1) % THEMES.length];
-};
 export const resolveTheme = (pref, prefersLight) =>
   pref === "light" ? "light" : pref === "dark" ? "dark" : prefersLight ? "light" : "dark";
 

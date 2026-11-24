@@ -4,6 +4,20 @@ const tauri = globalThis.__TAURI__;
 /** Whether this page is the app's, rather than one a browser loaded from the computer. */
 export const native = Boolean(tauri);
 
+/** How the computer is reached now: "direct", "relay", or null. */
+export async function route() {
+  const direct = await tauri.core.invoke("direct").catch(() => null);
+  return direct === null ? null : direct ? "direct" : "relay";
+}
+
+export const version = () => tauri.app.getVersion();
+
+/** A tap that is felt as well as seen. */
+export const buzz = () => native && navigator.vibrate?.(8);
+
+/** The phone's own bars take the page's color. */
+export const paintBars = (color, light) => globalThis.Bars?.paint(color, light);
+
 /** Resolves to what the QR code says; null when the person went back. Fails without a camera. */
 export async function scan() {
   const { scan, cancel, checkPermissions, requestPermissions, Format } = tauri.barcodeScanner;

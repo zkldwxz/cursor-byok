@@ -7,6 +7,8 @@ const TOKEN = "cursor-byok-remote-token";
 const COMPUTER = "cursor-byok-remote-computer";
 const RETRY_MS = 2_000;
 const REPLY_MS = 6_000;
+/** A phone that changes networks is back sooner than this. */
+const AWAY_MS = 15_000;
 
 /** Exchanges the code in the link, if any; returns whether this device may connect. */
 export async function pair() {
@@ -37,11 +39,14 @@ export class Link {
   #on;
   /** The pairing link the app is trying. */
   #pending = null;
-  #failures = 0;
+  #retry = null;
+  #away = null;
+  #awayMs;
 
-  /** `on` hears open(), closed(failures), unpaired(), expired(), and message(data). */
-  constructor(on) {
+  /** `on` hears open(), closed(), away(), unpaired(), expired(), and message(data). */
+  constructor(on, { awayMs = AWAY_MS } = {}) {
     this.#on = on;
+    this.#awayMs = awayMs;
     // A phone that slept may hold a connection that died unnoticed.
     document.addEventListener("visibilitychange", () => document.hidden || this.#check());
     addEventListener("online", () => this.#check());
@@ -51,12 +56,13 @@ export class Link {
   pair(ticket) {
     if (!codeOf(ticket)) return false;
     this.#pending = ticket;
-    this.#failures = 0;
+    this.#found();
     this.connect();
     return true;
   }
 
   connect() {
+    clearTimeout(this.#retry);
     const replaced = this.#socket;
     const socket = native ? new AppSocket(this.#pending ?? localStorage.getItem(COMPUTER)) : new WebSocket(address());
     this.#socket = socket;
@@ -85,7 +91,7 @@ export class Link {
 
   #hear(message) {
     clearTimeout(this.#probe);
-    this.#failures = 0;
+    this.#found();
     if (message.type === "paired") {
       localStorage.setItem(TOKEN, message.token);
       localStorage.setItem(COMPUTER, this.#pending);
@@ -104,12 +110,31 @@ export class Link {
     else this.#on.message(message);
   }
 
+  #found() {
+    clearTimeout(this.#away);
+    this.#away = null;
+  }
+
+  /** Forgets the computer. */
+  leave() {
+    const socket = this.#socket;
+    this.#socket = null;
+    this.#pending = null;
+    clearTimeout(this.#retry);
+    clearTimeout(this.#probe);
+    this.#found();
+    localStorage.removeItem(TOKEN);
+    localStorage.removeItem(COMPUTER);
+    socket?.close();
+  }
+
   #drop() {
     clearTimeout(this.#probe);
     this.#socket = null;
     for (const resolve of this.#waiting.splice(0)) resolve({ type: "refused", code: "offline" });
-    this.#on.closed(++this.#failures);
-    setTimeout(() => this.#socket ?? this.connect(), RETRY_MS);
+    this.#on.closed();
+    this.#away ??= setTimeout(() => this.#on.away(), this.#awayMs);
+    this.#retry = setTimeout(() => this.#socket ?? this.connect(), RETRY_MS);
   }
 
   #check() {
