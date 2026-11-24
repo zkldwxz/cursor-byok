@@ -27,6 +27,7 @@ pub struct App {
     registry: TransportRegistry,
     harness: CursorHarness,
     magpie: crate::provider::magpie::Magpie,
+    default_prices: crate::pricing::DefaultPrices,
     store: Store,
 }
 
@@ -122,6 +123,7 @@ impl App {
             registry,
             harness,
             magpie: control.magpie().clone(),
+            default_prices: control.default_prices().clone(),
             store,
             config,
         })
@@ -196,6 +198,7 @@ impl App {
 
         tokio::select! {
             () = self.magpie.follow() => unreachable!("catalog follower runs until shutdown"),
+            () = self.default_prices.follow() => unreachable!("price follower runs until shutdown"),
             result = &mut server => {
                 if let Err(error) = harness.disable().await {
                     tracing::warn!(%error, "failed to disable Cursor harness after server stop");

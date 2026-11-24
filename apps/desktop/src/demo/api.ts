@@ -51,14 +51,16 @@ let magpie: MagpieCatalog | null = null;
 let workspaceExtension: WorkspaceExtensionStatus = { state: "missing", installed_version: null, expected_version: "1.1.0", cursor_cli: true };
 const modelPriceMap = new Map<string, ModelPrice>();
 const priceKey = (providerUrl: string, modelId: string) => `${providerUrl}${modelId}`;
-// Two priced models (one per currency) so the price table and the overview
-// estimate both show priced and unpriced calls.
-modelPriceMap.set(priceKey("https://api.openai.com/v1/responses", "gpt-5.2"), {
-  input_per_million: 1.25, output_per_million: 10, cache_read_per_million: 0.125, cache_write_per_million: null, currency: "USD", updated_at_ms: FIXED_NOW,
+// A default and a user price (one per currency) so the price table and the
+// overview estimate show both kinds beside unpriced calls.
+const defaultPriceMap = new Map<string, ModelPrice>();
+defaultPriceMap.set(priceKey("https://api.openai.com/v1/responses", "gpt-5.2"), {
+  input_per_million: 1.25, output_per_million: 10, cache_read_per_million: 0.125, cache_write_per_million: null, currency: "USD", updated_at_ms: FIXED_NOW, source: "openai",
 });
 modelPriceMap.set(priceKey("https://api.deepseek.com/v1/chat/completions", "deepseek-chat"), {
-  input_per_million: 2, output_per_million: 8, cache_read_per_million: null, cache_write_per_million: null, currency: "CNY", updated_at_ms: FIXED_NOW,
+  input_per_million: 2, output_per_million: 8, cache_read_per_million: null, cache_write_per_million: null, currency: "CNY", updated_at_ms: FIXED_NOW, source: null,
 });
+for (const [key, price] of defaultPriceMap) modelPriceMap.set(key, price);
 
 function magpieCursorModels(): Model[] {
   if (!magpie) return [];
@@ -215,12 +217,18 @@ export function installDemoApi() {
         cache_write_per_million: input.cache_write_per_million ?? null,
         currency: input.currency === "CNY" ? "CNY" : "USD",
         updated_at_ms: Date.now(),
+        source: null,
       });
       return json({ ok: true });
     }
     if (path === "/model-prices" && method === "DELETE") {
       const key = body as { provider_url?: string; model_id?: string } | null;
-      if (key?.provider_url && key?.model_id) modelPriceMap.delete(`${key.provider_url}${key.model_id}`);
+      if (key?.provider_url && key?.model_id) {
+        const entry = priceKey(key.provider_url, key.model_id);
+        const defaultPrice = defaultPriceMap.get(entry);
+        if (defaultPrice) modelPriceMap.set(entry, defaultPrice);
+        else modelPriceMap.delete(entry);
+      }
       return empty();
     }
     if (path === "/settings/commit") {

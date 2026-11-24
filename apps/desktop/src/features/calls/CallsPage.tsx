@@ -18,6 +18,9 @@ export function CallsPage() {
   const [agent, setAgent] = useState("");
   const [failures, setFailures] = useState(false);
 
+  // Default prices are filled in after startup, and new models appear as they are called.
+  useEffect(() => void appStore.refreshModelPrices(), []);
+
   useEffect(() => {
     let disposed = false;
     const refreshCalls = () => {

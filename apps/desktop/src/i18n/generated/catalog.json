@@ -19,7 +19,7 @@
       "refs": [
         {
           "file": "features/calls/CallsPage.tsx",
-          "line": 52,
+          "line": 55,
           "column": 101
         }
       ]
@@ -424,7 +424,7 @@
       "refs": [
         {
           "file": "features/calls/CallsPage.tsx",
-          "line": 53,
+          "line": 56,
           "column": 47
         }
       ]
@@ -453,6 +453,20 @@
         }
       ]
     },
+    "0e45c051705487fd": {
+      "source": "自动价格：{source}",
+      "kind": "template",
+      "placeholders": [
+        "source"
+      ],
+      "refs": [
+        {
+          "file": "features/calls/ModelPricesCard.tsx",
+          "line": 95,
+          "column": 64
+        }
+      ]
+    },
     "0e67021ebf0a3580": {
       "source": "导入完成：新增 {imported} 个模型，跳过 {skipped} 个已存在模型",
       "kind": "template",
@@ -475,7 +489,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 56,
+          "line": 52,
           "column": 15
         }
       ]
@@ -709,7 +723,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 130,
+          "line": 133,
           "column": 62
         }
       ]
@@ -772,7 +786,7 @@
       "refs": [
         {
           "file": "features/calls/CallsPage.tsx",
-          "line": 53,
+          "line": 56,
           "column": 115
         }
       ]
@@ -874,7 +888,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 60,
+          "line": 56,
           "column": 15
         }
       ]
@@ -963,7 +977,7 @@
         },
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 134,
+          "line": 137,
           "column": 38
         },
         {
@@ -1034,7 +1048,7 @@
         },
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 133,
+          "line": 136,
           "column": 38
         }
       ]
@@ -1561,7 +1575,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 104,
+          "line": 103,
           "column": 74
         }
       ]
@@ -2170,7 +2184,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 102,
+          "line": 101,
           "column": 123
         }
       ]
@@ -2305,7 +2319,7 @@
       "refs": [
         {
           "file": "features/calls/CallsPage.tsx",
-          "line": 45,
+          "line": 48,
           "column": 43
         },
         {
@@ -2907,7 +2921,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 135,
+          "line": 138,
           "column": 38
         },
         {
@@ -3049,7 +3063,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 610,
+          "line": 612,
           "column": 43
         }
       ]
@@ -3092,7 +3106,7 @@
       "refs": [
         {
           "file": "features/calls/CallsPage.tsx",
-          "line": 57,
+          "line": 60,
           "column": 25
         }
       ]
@@ -3360,7 +3374,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 138,
+          "line": 141,
           "column": 44
         }
       ]
@@ -3437,7 +3451,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 132,
+          "line": 135,
           "column": 38
         }
       ]
@@ -3461,7 +3475,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 605,
+          "line": 607,
           "column": 43
         }
       ]
@@ -3509,7 +3523,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 138,
+          "line": 141,
           "column": 62
         }
       ]
@@ -3723,7 +3737,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 543,
+          "line": 545,
           "column": 21
         }
       ]
@@ -3960,7 +3974,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 101,
+          "line": 100,
           "column": 74
         }
       ]
@@ -4037,6 +4051,18 @@
           "file": "features/settings/SettingsPage.tsx",
           "line": 242,
           "column": 22
+        }
+      ]
+    },
+    "8cf6eaa2a602d494": {
+      "source": "来自 models.dev 的公开价格，可直接修改",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/ModelPricesCard.tsx",
+          "line": 95,
+          "column": 28
         }
       ]
     },
@@ -4304,12 +4330,12 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 108,
+          "line": 107,
           "column": 22
         },
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 137,
+          "line": 140,
           "column": 38
         }
       ]
@@ -4397,7 +4423,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 103,
+          "line": 102,
           "column": 123
         }
       ]
@@ -4995,7 +5021,7 @@
       "refs": [
         {
           "file": "features/calls/CallsPage.tsx",
-          "line": 54,
+          "line": 57,
           "column": 40
         }
       ]
@@ -5113,7 +5139,7 @@
       "refs": [
         {
           "file": "features/calls/CallsPage.tsx",
-          "line": 44,
+          "line": 47,
           "column": 117
         },
         {
@@ -5323,7 +5349,7 @@
       "refs": [
         {
           "file": "features/calls/CallsPage.tsx",
-          "line": 54,
+          "line": 57,
           "column": 101
         }
       ]
@@ -5416,7 +5442,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 113,
+          "line": 116,
           "column": 72
         }
       ]
@@ -5655,7 +5681,7 @@
       "refs": [
         {
           "file": "features/calls/CallsPage.tsx",
-          "line": 45,
+          "line": 48,
           "column": 32
         },
         {
@@ -5740,6 +5766,23 @@
           "file": "features/plugins/PluginManagementPage.tsx",
           "line": 113,
           "column": 11
+        }
+      ]
+    },
+    "c6409c748ae57ee0": {
+      "source": "清除手动价格，有公开价格时恢复自动价格",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/calls/ModelPricesCard.tsx",
+          "line": 119,
+          "column": 77
+        },
+        {
+          "file": "features/calls/ModelPricesCard.tsx",
+          "line": 119,
+          "column": 110
         }
       ]
     },
@@ -6355,7 +6398,7 @@
       "refs": [
         {
           "file": "features/calls/CallsPage.tsx",
-          "line": 52,
+          "line": 55,
           "column": 40
         }
       ]
@@ -6841,12 +6884,12 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 102,
+          "line": 101,
           "column": 89
         },
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 103,
+          "line": 102,
           "column": 89
         }
       ]
@@ -6894,7 +6937,7 @@
       "refs": [
         {
           "file": "features/calls/CallsPage.tsx",
-          "line": 55,
+          "line": 58,
           "column": 66
         }
       ]
@@ -7412,7 +7455,7 @@
         },
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 136,
+          "line": 139,
           "column": 38
         },
         {
@@ -7562,23 +7605,6 @@
           "file": "shared/ui/ModelSelect.tsx",
           "line": 196,
           "column": 49
-        }
-      ]
-    },
-    "fe136230152c57dc": {
-      "source": "清除价格",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/calls/ModelPricesCard.tsx",
-          "line": 116,
-          "column": 77
-        },
-        {
-          "file": "features/calls/ModelPricesCard.tsx",
-          "line": 116,
-          "column": 95
         }
       ]
     },

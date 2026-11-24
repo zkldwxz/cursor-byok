@@ -237,6 +237,18 @@ mod model_price {
         pub cache_write_per_million: Option<f64>,
         pub currency: String,
         pub updated_at_ms: i64,
+        /// Provider whose published price was filled in; None when the user set it.
+        pub source: Option<String>,
+    }
+
+    /// Published rates offered for a model the user has not priced, in USD.
+    #[derive(Clone, Debug, PartialEq)]
+    pub struct DefaultPrice {
+        pub input_per_million: f64,
+        pub output_per_million: f64,
+        pub cache_read_per_million: Option<f64>,
+        pub cache_write_per_million: Option<f64>,
+        pub source: String,
     }
 
     /// One priced target: a (provider_url, model_id) seen in llm_calls.

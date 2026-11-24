@@ -49,3 +49,26 @@ export function parseRate(value: string): number | null {
   const parsed = Number(trimmed);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
+
+export type PriceDraft = { input: string; cacheRead: string; cacheWrite: string; output: string };
+
+const rateText = (rate: number | null | undefined) => rate == null ? "" : String(rate);
+
+export function draftOf(price: ModelPrice | null): PriceDraft {
+  return {
+    input: rateText(price?.input_per_million),
+    cacheRead: rateText(price?.cache_read_per_million),
+    cacheWrite: rateText(price?.cache_write_per_million),
+    output: rateText(price?.output_per_million),
+  };
+}
+
+/** Saving an unedited draft would turn a default price into the user's own. */
+export function draftChanged(draft: PriceDraft, currency: ModelPrice["currency"], price: ModelPrice | null): boolean {
+  const saved = draftOf(price);
+  const rateChanged = (Object.keys(saved) as (keyof PriceDraft)[]).some((name) => {
+    const [text, savedText] = [draft[name].trim(), saved[name]];
+    return text !== savedText && (text === "" || savedText === "" || parseRate(text) !== Number(savedText));
+  });
+  return rateChanged || (price !== null && currency !== price.currency);
+}

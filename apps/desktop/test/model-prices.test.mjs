@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { callCost, freshInput, parseRate, periodCost } from '../src/features/calls/modelPrices.ts';
+import { callCost, draftChanged, draftOf, freshInput, parseRate, periodCost } from '../src/features/calls/modelPrices.ts';
 
 const price = (over = {}) => ({
   input_per_million: 2,
@@ -9,6 +9,7 @@ const price = (over = {}) => ({
   cache_write_per_million: null,
   currency: 'USD',
   updated_at_ms: 0,
+  source: null,
   ...over,
 });
 
@@ -48,3 +49,23 @@ test('parseRate accepts non-negative numbers and rejects junk', () => {
   assert.equal(parseRate('abc'), null);
 });
 
+test('leaving a price field untouched is not an edit, so a default price stays a default', () => {
+  const priced = price({ cache_read_per_million: 0, source: 'openai' });
+  assert.equal(draftChanged(draftOf(priced), 'USD', priced), false);
+  // The same number written differently is still the same price.
+  assert.equal(draftChanged({ ...draftOf(priced), input: ' 2.0 ' }, 'USD', priced), false);
+  assert.equal(draftChanged(draftOf(null), 'USD', null), false);
+});
+
+test('any different rate or currency is an edit', () => {
+  const priced = price({ cache_read_per_million: 0 });
+  for (const over of [{ input: '3' }, { output: '' }, { cacheRead: '' }, { cacheWrite: '0' }, { cacheWrite: 'x' }]) {
+    assert.equal(draftChanged({ ...draftOf(priced), ...over }, 'USD', priced), true, JSON.stringify(over));
+  }
+  assert.equal(draftChanged(draftOf(priced), 'CNY', priced), true);
+  assert.equal(draftChanged({ ...draftOf(null), input: '1' }, 'USD', null), true);
+});
+
+test('choosing a currency alone does not price an unpriced model', () => {
+  assert.equal(draftChanged(draftOf(null), 'CNY', null), false);
+});
