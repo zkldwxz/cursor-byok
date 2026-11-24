@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" id="theme-color" content="#f4f4f5">
+    <title>Cursor</title>
+    <link rel="icon" type="image/svg+xml" href="icon.svg">
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body data-view="gate">
+    <div id="gate"></div>
+    <aside id="sidebar"></aside>
+    <section id="chat">
+      <header class="chat-head">
+        <div class="chat-lead">
+          <button id="back" class="plain" type="button"></button>
+          <button id="toggle-side" class="plain" type="button"></button>
+          <button id="chats" class="plain" type="button">
+            <span id="state" class="state" role="status"></span>
+            <span class="chat-names"><span id="name"></span><span id="title"></span></span>
+          </button>
+        </div>
+        <div class="chat-actions">
+          <button id="theme" class="plain" type="button"></button>
+          <button id="new" class="plain" type="button"></button>
+        </div>
+      </header>
+      <main id="scroll">
+        <div class="column">
+          <div id="transcript"></div>
+          <div id="notice" hidden></div>
+        </div>
+      </main>
+      <footer id="dock" hidden>
+        <button id="latest" class="pill" type="button" hidden></button>
+        <div class="column">
+          <section id="asked" aria-live="polite" hidden></section>
+          <div id="panel" hidden></div>
+          <form id="composer">
+            <div class="field">
+              <textarea rows="1" enterkeyhint="enter"></textarea>
+              <button type="submit"></button>
+            </div>
+            <div id="chips"></div>
+          </form>
+        </div>
+      </footer>
+      <div id="statusbar" hidden>
+        <div id="status-left"></div>
+        <div id="status-right"></div>
+      </div>
+    </section>
+    <dialog id="sheet"></dialog>
+    <p id="toast" role="alert"></p>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

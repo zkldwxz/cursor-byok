@@ -27,6 +27,7 @@ pub struct App {
     registry: TransportRegistry,
     harness: CursorHarness,
     magpie: crate::provider::magpie::Magpie,
+    remote: crate::remote::RemoteControl,
     store: Store,
 }
 
@@ -94,16 +95,22 @@ impl App {
             plugins.clone(),
             crate::config::managed_data_dir()?.join("rules"),
         );
+        let remote = crate::remote::RemoteControl::new(
+            store.clone(),
+            plugins.clone(),
+            registry.message_modes().clone(),
+        );
         let control = control::ControlService::new(
             store.clone(),
             provider,
             plugin_runtime,
             plugins,
             clients.clone(),
+            remote.clone(),
             config.app_version.clone(),
         )?;
         let harness = control.cursor_harness().clone();
-        let mut router = api::router(registry.clone(), clients)?.nest(
+        let mut router = api::router(registry.clone(), clients, &remote)?.nest(
             "/byok",
             axum::Router::new().fallback(|| async { axum::http::StatusCode::NOT_FOUND }),
         );
@@ -122,6 +129,7 @@ impl App {
             registry,
             harness,
             magpie: control.magpie().clone(),
+            remote,
             store,
             config,
         })
@@ -197,12 +205,14 @@ impl App {
         tokio::select! {
             () = self.magpie.follow() => unreachable!("catalog follower runs until shutdown"),
             result = &mut server => {
+                self.remote.disable().await;
                 if let Err(error) = harness.disable().await {
                     tracing::warn!(%error, "failed to disable Cursor harness after server stop");
                 }
                 result?;
             },
             () = shutdown.cancelled() => {
+                self.remote.disable().await;
                 if let Err(error) = harness.disable().await {
                     tracing::warn!(%error, "failed to disable Cursor harness during shutdown");
                 }

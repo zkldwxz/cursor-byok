@@ -5,6 +5,7 @@ import { LegacyModelImport } from "../models/LegacyModelImport";
 import { MigrationSettingsCard } from "./MigrationSettingsCard";
 import { AppLifecycleSettingsCard } from "./AppLifecycleSettingsCard";
 import { BrowserDevToolsCard } from "./BrowserDevToolsCard";
+import { RemoteControlCard } from "./RemoteControlCard";
 import { VisionSettingsCard } from "./VisionSettingsCard";
 import { CommitSettingsCard } from "./CommitSettingsCard";
 import { ExternalApiSettingsCard } from "./ExternalApiSettingsCard";
@@ -233,6 +234,7 @@ export function SettingsPage() {
       <TabSettingsCard settings={tabSettings} draft={tabDraft} editing={editingTab} saving={savingTab} onDraftChange={setTabDraft} onEdit={editTab} onCancel={cancelTabEdit} onSave={() => void saveTab()} />
       <VisionSettingsCard />
       <BrowserDevToolsCard />
+      <RemoteControlCard />
       <CommitSettingsCard />
       <AppLifecycleSettingsCard />
       <MigrationSettingsCard />

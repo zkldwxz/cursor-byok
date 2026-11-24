@@ -73,6 +73,7 @@ async fn setup() -> (
         runtime,
         plugins.clone(),
         NetworkClients::new(store.clone()),
+        fixtures::remote(&store),
         "0.1.0".into(),
     )
     .unwrap();

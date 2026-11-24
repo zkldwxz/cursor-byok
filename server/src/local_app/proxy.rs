@@ -12,7 +12,10 @@ use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use parking_lot::RwLock;
 
 use crate::{
-    api::cursor::proxy::UPSTREAM_URL_HEADER, cursor::services::tab::is_tab_path, store::TabMode,
+    api::cursor::proxy::UPSTREAM_URL_HEADER,
+    cursor::services::tab::is_tab_path,
+    remote::{presence, RemoteSwitch},
+    store::TabMode,
     Error, Result,
 };
 
@@ -47,6 +50,7 @@ impl ProxyRuntime {
         ca: LoadedCa,
         requested_port: u16,
         tab_mode: Arc<RwLock<TabMode>>,
+        remote: RemoteSwitch,
     ) -> Result<(String, u16)> {
         if let Some(url) = self.url() {
             return Ok((url, self.port.unwrap_or_default()));
@@ -59,7 +63,11 @@ impl ProxyRuntime {
             .with_listener(listener)
             .with_ca(authority)
             .with_rustls_connector(aws_lc_rs::default_provider())
-            .with_http_handler(CursorRelay { backend, tab_mode })
+            .with_http_handler(CursorRelay {
+                backend,
+                tab_mode,
+                remote,
+            })
             .with_graceful_shutdown(async move {
                 let _ = done.await;
             })
@@ -104,6 +112,7 @@ async fn bind_proxy_listener(requested_port: u16) -> Result<TcpListener> {
 struct CursorRelay {
     backend: SocketAddr,
     tab_mode: Arc<RwLock<TabMode>>,
+    remote: RemoteSwitch,
 }
 
 impl HttpHandler for CursorRelay {
@@ -113,7 +122,8 @@ impl HttpHandler for CursorRelay {
         mut request: Request<Body>,
     ) -> RequestOrResponse {
         let original = request.uri().clone();
-        let locally_routed = should_route_locally(original.path(), *self.tab_mode.read());
+        let locally_routed =
+            should_route_locally(original.path(), *self.tab_mode.read(), self.remote.is_on());
         if is_cursor_host(original.host().unwrap_or_default()) && locally_routed {
             if let Ok(value) = original.to_string().parse() {
                 request.headers_mut().insert(UPSTREAM_URL_HEADER, value);
@@ -191,13 +201,114 @@ fn is_local_path(path: &str) -> bool {
     )
 }
 
-fn should_route_locally(path: &str, tab_mode: TabMode) -> bool {
-    is_local_path(path) || (is_tab_path(path) && tab_mode != TabMode::Direct)
+fn should_route_locally(path: &str, tab_mode: TabMode, remote_on: bool) -> bool {
+    is_local_path(path)
+        || (is_tab_path(path) && tab_mode != TabMode::Direct)
+        || (remote_on && path.starts_with(presence::PATH))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cursor_remote_control_stays_with_cursor_unless_turned_on_here() {
+        let path = "/aiserver.v1.RemoteAgentHostPresenceService/ConnectTarget";
+        assert!(!should_route_locally(path, TabMode::Direct, false));
+        assert!(should_route_locally(path, TabMode::Direct, true));
+    }
+
+    /// Cursor answers over the body it opened the connection with, long after the response began.
+    #[tokio::test]
+    async fn a_remote_control_connection_carries_both_ways_at_once_over_http2() {
+        use axum::{routing::post, Router};
+        use bytes::Bytes;
+        use futures_util::StreamExt;
+        use hudsucker::{
+            hyper::{client::conn::http2, Method, StatusCode},
+            hyper_util::rt::{TokioExecutor, TokioIo},
+            rustls::{pki_types::ServerName, ClientConfig, RootCertStore},
+        };
+        use rcgen::{BasicConstraints, CertificateParams, IsCa, Issuer, KeyPair};
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let backend = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = backend.local_addr().unwrap();
+        let path = format!("{}ConnectTarget", presence::PATH);
+        let echo = post(|request: axum::extract::Request| async {
+            axum::body::Body::from_stream(request.into_body().into_data_stream())
+        });
+        let router = Router::new().route(&path, echo);
+        tokio::spawn(async move { axum::serve(backend, router).await.unwrap() });
+
+        let key = KeyPair::generate().unwrap();
+        let mut params = CertificateParams::new(Vec::new()).unwrap();
+        params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
+        let certificate = params.self_signed(&key).unwrap();
+        let mut roots = RootCertStore::empty();
+        roots.add(certificate.der().clone()).unwrap();
+        let ca = LoadedCa {
+            issuer: Issuer::new(params, key),
+        };
+        let remote = RemoteSwitch::default();
+        remote.turn(true);
+        let mut proxy = ProxyRuntime::default();
+        let mode = Arc::new(RwLock::new(TabMode::Direct));
+        let (_, port) = proxy.start(address, ca, 0, mode, remote).await.unwrap();
+
+        let mut tunnel = tokio::net::TcpStream::connect(("127.0.0.1", port))
+            .await
+            .unwrap();
+        tunnel
+            .write_all(b"CONNECT api2.cursor.sh:443 HTTP/1.1\r\nhost: api2.cursor.sh:443\r\n\r\n")
+            .await
+            .unwrap();
+        let mut greeting = Vec::new();
+        while !greeting.ends_with(b"\r\n\r\n") {
+            greeting.push(tunnel.read_u8().await.unwrap());
+        }
+        assert!(greeting.starts_with(b"HTTP/1.1 200"));
+        let provider = Arc::new(aws_lc_rs::default_provider());
+        let mut tls = ClientConfig::builder_with_provider(provider)
+            .with_safe_default_protocol_versions()
+            .unwrap()
+            .with_root_certificates(roots)
+            .with_no_client_auth();
+        tls.alpn_protocols = vec![b"h2".to_vec()];
+        let tls = tokio_rustls::TlsConnector::from(Arc::new(tls))
+            .connect(ServerName::try_from("api2.cursor.sh").unwrap(), tunnel)
+            .await
+            .unwrap();
+        assert_eq!(tls.get_ref().1.alpn_protocol(), Some(b"h2".as_slice()));
+        let (mut client, connection) = http2::handshake(TokioExecutor::new(), TokioIo::new(tls))
+            .await
+            .unwrap();
+        tokio::spawn(connection);
+
+        let (say, said) = tokio::sync::mpsc::unbounded_channel::<Result<Bytes>>();
+        let said = tokio_stream::wrappers::UnboundedReceiverStream::new(said);
+        let request = Request::builder()
+            .method(Method::POST)
+            .uri(format!("https://api2.cursor.sh{path}"))
+            .body(axum::body::Body::from_stream(said))
+            .unwrap();
+        let wait = std::time::Duration::from_secs(5);
+        let response = tokio::time::timeout(wait, client.send_request(request))
+            .await
+            .expect("the response waited for the whole request")
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let mut heard = axum::body::Body::new(response.into_body()).into_data_stream();
+        for word in ["first", "second"] {
+            say.send(Ok(word.into())).unwrap();
+            let chunk = tokio::time::timeout(wait, heard.next()).await;
+            assert_eq!(chunk.expect("held back").unwrap().unwrap(), word);
+        }
+        drop(say);
+        let end = tokio::time::timeout(wait, heard.next()).await;
+        assert!(end.unwrap().is_none_or(|rest| rest.unwrap().is_empty()));
+        proxy.stop().await;
+    }
 
     #[test]
     fn cursor_cli_transport_and_model_metadata_routes_stay_local() {

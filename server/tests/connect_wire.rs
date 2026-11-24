@@ -190,8 +190,9 @@ async fn binary_bidi_run_and_heartbeat_reach_the_local_transport() {
     let provider = fake_provider::FakeProvider::default();
     provider.push_pending();
     let clients = NetworkClients::new(store.clone());
+    let remote = fixtures::remote(&store);
     let registry = TransportRegistry::new(store, Arc::new(provider), PromptCompiler::new(assets));
-    let router = cursor::router(registry.clone(), clients).unwrap();
+    let router = cursor::router(registry.clone(), clients, &remote).unwrap();
     let run = pb::AgentClientMessage {
         message: Some(pb::agent_client_message::Message::RunRequest(
             pb::AgentRunRequest {
@@ -266,6 +267,7 @@ async fn bidi_append_gzip_body_is_decompressed_before_protobuf_decode() {
     )
     .unwrap();
     let clients = NetworkClients::new(store.clone());
+    let remote = fixtures::remote(&store);
     let registry = TransportRegistry::new(
         store,
         Arc::new(fake_provider::FakeProvider::default()),
@@ -282,7 +284,7 @@ async fn bidi_append_gzip_body_is_decompressed_before_protobuf_decode() {
     encoder.write_all(&wire).unwrap();
     let compressed = encoder.finish().unwrap();
 
-    let response = cursor::router(registry, clients)
+    let response = cursor::router(registry, clients, &remote)
         .unwrap()
         .oneshot(
             Request::post("/aiserver.v1.BidiService/BidiAppend")

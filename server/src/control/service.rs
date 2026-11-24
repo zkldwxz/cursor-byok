@@ -32,6 +32,7 @@ use crate::{
 #[derive(Clone)]
 pub struct ControlService {
     pub(super) magpie: crate::provider::magpie::Magpie,
+    remote: crate::remote::RemoteControl,
     store: Store,
     cursor_harness: CursorHarness,
     provider: Arc<dyn Provider>,
@@ -151,11 +152,17 @@ impl ControlService {
         plugin_runtime: PluginRuntime,
         plugins: PluginRegistry,
         clients: crate::network::NetworkClients,
+        remote: crate::remote::RemoteControl,
         app_version: String,
     ) -> Result<Self> {
         Ok(Self {
-            cursor_harness: CursorHarness::new(store.clone(), app_version.clone())?,
+            cursor_harness: CursorHarness::new(
+                store.clone(),
+                app_version.clone(),
+                remote.switch(),
+            )?,
             magpie: crate::provider::magpie::Magpie::managed(store.clone())?,
+            remote,
             store,
             provider,
             plugin_runtime,
@@ -168,6 +175,10 @@ impl ControlService {
 
     pub(crate) fn magpie(&self) -> &crate::provider::magpie::Magpie {
         &self.magpie
+    }
+
+    pub(crate) fn remote(&self) -> &crate::remote::RemoteControl {
+        &self.remote
     }
 
     pub fn cursor_harness(&self) -> &CursorHarness {

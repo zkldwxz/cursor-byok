@@ -3,11 +3,13 @@
 mod handle;
 mod inbox;
 mod lifecycle;
+mod message_modes;
 mod output;
 mod registry;
 
 pub use handle::*;
 pub use inbox::*;
 pub(crate) use lifecycle::*;
+pub use message_modes::MessageModes;
 pub use output::*;
 pub use registry::*;

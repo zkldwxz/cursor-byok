@@ -147,7 +147,7 @@
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 186,
+          "line": 187,
           "column": 82
         },
         {
@@ -342,6 +342,18 @@
         }
       ]
     },
+    "09a25f2b0f91bd8e": {
+      "source": "手机遥控",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 53,
+          "column": 29
+        }
+      ]
+    },
     "0bbb2c0ce279d6d5": {
       "source": "尚未同步模型",
       "kind": "text",
@@ -368,6 +380,18 @@
           "file": "features/calls/CallDetails.tsx",
           "line": 52,
           "column": 6
+        }
+      ]
+    },
+    "0c17f5ebd66ce2c6": {
+      "source": "隧道已断开，请重新开启。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 63,
+          "column": 59
         }
       ]
     },
@@ -400,7 +424,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 103,
+          "line": 104,
           "column": 38
         }
       ]
@@ -448,7 +472,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 284,
+          "line": 286,
           "column": 26
         }
       ]
@@ -477,6 +501,23 @@
           "file": "features/calls/ModelPricesCard.tsx",
           "line": 56,
           "column": 15
+        }
+      ]
+    },
+    "0e69b9774b0e5f77": {
+      "source": "开启手机遥控",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 57,
+          "column": 20
+        },
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 60,
+          "column": 24
         }
       ]
     },
@@ -709,7 +750,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 130,
+          "line": 128,
           "column": 62
         }
       ]
@@ -862,7 +903,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 288,
+          "line": 290,
           "column": 131
         }
       ]
@@ -900,17 +941,17 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 73,
+          "line": 74,
           "column": 42
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 191,
+          "line": 192,
           "column": 22
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 218,
+          "line": 219,
           "column": 58
         }
       ]
@@ -963,7 +1004,7 @@
         },
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 134,
+          "line": 132,
           "column": 38
         },
         {
@@ -1034,7 +1075,7 @@
         },
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 133,
+          "line": 131,
           "column": 38
         }
       ]
@@ -1060,7 +1101,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 261,
+          "line": 263,
           "column": 43
         }
       ]
@@ -1077,6 +1118,18 @@
         }
       ]
     },
+    "22bd81a0f7a133d4": {
+      "source": "配对手机",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 53,
+          "column": 170
+        }
+      ]
+    },
     "22c6b4eb4caee6ae": {
       "source": "代理设置已保存",
       "kind": "text",
@@ -1084,7 +1137,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 128,
+          "line": 129,
           "column": 15
         }
       ]
@@ -1096,7 +1149,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 311,
+          "line": 313,
           "column": 24
         }
       ]
@@ -1326,13 +1379,18 @@
           "column": 66
         },
         {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 79,
+          "column": 86
+        },
+        {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 182,
+          "line": 183,
           "column": 81
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 303,
+          "line": 305,
           "column": 22
         },
         {
@@ -1445,7 +1503,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 152,
+          "line": 153,
           "column": 15
         }
       ]
@@ -1561,7 +1619,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 104,
+          "line": 102,
           "column": 74
         }
       ]
@@ -1655,7 +1713,7 @@
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 246,
+          "line": 248,
           "column": 27
         }
       ]
@@ -1732,7 +1790,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 313,
+          "line": 315,
           "column": 42
         }
       ]
@@ -1821,7 +1879,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 295,
+          "line": 297,
           "column": 14
         }
       ]
@@ -1855,7 +1913,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 246,
+          "line": 248,
           "column": 39
         }
       ]
@@ -1932,12 +1990,12 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 253,
+          "line": 255,
           "column": 22
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 259,
+          "line": 261,
           "column": 26
         }
       ]
@@ -2038,7 +2096,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 159,
+          "line": 160,
           "column": 66
         }
       ]
@@ -2050,7 +2108,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 279,
+          "line": 281,
           "column": 52
         }
       ]
@@ -2170,7 +2228,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 102,
+          "line": 100,
           "column": 123
         }
       ]
@@ -2542,7 +2600,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 180,
+          "line": 181,
           "column": 26
         }
       ]
@@ -2663,7 +2721,7 @@
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 239,
+          "line": 241,
           "column": 78
         }
       ]
@@ -2723,7 +2781,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 243,
+          "line": 245,
           "column": 21
         }
       ]
@@ -2907,7 +2965,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 135,
+          "line": 133,
           "column": 38
         },
         {
@@ -2953,6 +3011,18 @@
           "file": "features/settings/MigrationSettingsCard.tsx",
           "line": 28,
           "column": 13
+        }
+      ]
+    },
+    "6135d4159e892541": {
+      "source": "移除",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 76,
+          "column": 86
         }
       ]
     },
@@ -3049,7 +3119,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 610,
+          "line": 623,
           "column": 43
         }
       ]
@@ -3145,7 +3215,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 103,
+          "line": 104,
           "column": 55
         }
       ]
@@ -3348,7 +3418,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 170,
+          "line": 171,
           "column": 16
         }
       ]
@@ -3360,7 +3430,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 138,
+          "line": 136,
           "column": 44
         }
       ]
@@ -3425,7 +3495,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 271,
+          "line": 273,
           "column": 26
         }
       ]
@@ -3437,7 +3507,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 132,
+          "line": 130,
           "column": 38
         }
       ]
@@ -3461,7 +3531,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 605,
+          "line": 618,
           "column": 43
         }
       ]
@@ -3485,7 +3555,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 304,
+          "line": 306,
           "column": 23
         }
       ]
@@ -3509,7 +3579,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 138,
+          "line": 136,
           "column": 62
         }
       ]
@@ -3612,7 +3682,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 146,
+          "line": 147,
           "column": 83
         }
       ]
@@ -3723,7 +3793,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 543,
+          "line": 556,
           "column": 21
         }
       ]
@@ -3960,7 +4030,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 101,
+          "line": 99,
           "column": 74
         }
       ]
@@ -4035,7 +4105,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 242,
+          "line": 244,
           "column": 22
         }
       ]
@@ -4049,6 +4119,18 @@
           "file": "features/models/MagpieProvider.tsx",
           "line": 120,
           "column": 52
+        }
+      ]
+    },
+    "8da97ddda990e7c4": {
+      "source": "开启",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 79,
+          "column": 109
         }
       ]
     },
@@ -4162,7 +4244,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 162,
+          "line": 163,
           "column": 7
         }
       ]
@@ -4304,12 +4386,12 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 108,
+          "line": 106,
           "column": 22
         },
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 137,
+          "line": 135,
           "column": 38
         }
       ]
@@ -4397,7 +4479,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 103,
+          "line": 101,
           "column": 123
         }
       ]
@@ -4606,7 +4688,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 250,
+          "line": 252,
           "column": 26
         }
       ]
@@ -4668,7 +4750,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 65,
+          "line": 66,
           "column": 34
         }
       ]
@@ -4765,7 +4847,7 @@
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 183,
+          "line": 184,
           "column": 133
         },
         {
@@ -5390,7 +5472,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 159,
+          "line": 160,
           "column": 45
         }
       ]
@@ -5416,7 +5498,7 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 113,
+          "line": 111,
           "column": 72
         }
       ]
@@ -5428,7 +5510,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 287,
+          "line": 289,
           "column": 22
         }
       ]
@@ -5583,7 +5665,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 288,
+          "line": 290,
           "column": 31
         }
       ]
@@ -5595,7 +5677,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 279,
+          "line": 281,
           "column": 40
         }
       ]
@@ -5716,6 +5798,18 @@
           "file": "features/settings/MigrationSettingsCard.tsx",
           "line": 104,
           "column": 18
+        }
+      ]
+    },
+    "c4234d5423d35969": {
+      "source": "还没有连上 Cursor。在 Cursor 里打开 Agents Window，可以最小化，不要关闭。首次开启后要重启两次 Cursor。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 65,
+          "column": 10
         }
       ]
     },
@@ -5924,12 +6018,12 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 168,
+          "line": 169,
           "column": 22
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 174,
+          "line": 175,
           "column": 20
         }
       ]
@@ -5941,7 +6035,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 205,
+          "line": 206,
           "column": 21
         }
       ]
@@ -6009,7 +6103,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 161,
+          "line": 162,
           "column": 7
         }
       ]
@@ -6199,6 +6293,18 @@
           "file": "features/models/CursorModelEditor.tsx",
           "line": 172,
           "column": 122
+        }
+      ]
+    },
+    "d63e37a39886fa56": {
+      "source": "要开启手机遥控吗？",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 79,
+          "column": 45
         }
       ]
     },
@@ -6572,7 +6678,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 323,
+          "line": 325,
           "column": 30
         },
         {
@@ -6591,6 +6697,18 @@
           "file": "features/calls/CallDetails.tsx",
           "line": 98,
           "column": 33
+        }
+      ]
+    },
+    "dfa5826fa1f76b7d": {
+      "source": "配对的手机可以让 Cursor 在这台电脑上运行命令。开启期间，Cursor 自带的远程控制由 Cursor BYOK 代为应答。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 81,
+          "column": 8
         }
       ]
     },
@@ -6841,12 +6959,12 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 102,
+          "line": 100,
           "column": 89
         },
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 103,
+          "line": 101,
           "column": 89
         }
       ]
@@ -6858,7 +6976,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 79,
+          "line": 80,
           "column": 17
         }
       ]
@@ -7024,6 +7142,18 @@
         }
       ]
     },
+    "e9f55d147c08906a": {
+      "source": "用手机相机扫码。10 分钟内有效，只能配对一台手机；拿到它的人可以操作你的 Cursor，不要转发。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 69,
+          "column": 17
+        }
+      ]
+    },
     "ea26b760e930a7ca": {
       "source": "调用观测",
       "kind": "text",
@@ -7031,7 +7161,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 165,
+          "line": 166,
           "column": 26
         }
       ]
@@ -7057,6 +7187,18 @@
           "file": "features/plugins/PluginManagementPage.tsx",
           "line": 273,
           "column": 20
+        }
+      ]
+    },
+    "ec45a4bb7b24b228": {
+      "source": "没有找到 cloudflared，请先安装。macOS：brew install cloudflared",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 62,
+          "column": 75
         }
       ]
     },
@@ -7103,7 +7245,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 224,
+          "line": 225,
           "column": 16
         }
       ]
@@ -7147,6 +7289,18 @@
           "file": "features/home/metrics/HomeMetrics.tsx",
           "line": 151,
           "column": 15
+        }
+      ]
+    },
+    "f25e41558d733ba5": {
+      "source": "通过临时 Cloudflare 隧道，用手机查看 Cursor 对话、发消息、批准操作和回答提问。关闭或退出软件后，地址和配对全部失效。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 58,
+          "column": 19
         }
       ]
     },
@@ -7275,7 +7429,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 254,
+          "line": 256,
           "column": 21
         }
       ]
@@ -7366,7 +7520,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 192,
+          "line": 193,
           "column": 21
         }
       ]
@@ -7412,7 +7566,7 @@
         },
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 136,
+          "line": 134,
           "column": 38
         },
         {
@@ -7524,6 +7678,18 @@
         }
       ]
     },
+    "fcda50a2f6fb5174": {
+      "source": "配对二维码",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 68,
+          "column": 84
+        }
+      ]
+    },
     "fd313ae7f4c257b9": {
       "source": "上下文增长",
       "kind": "text",
@@ -7572,12 +7738,12 @@
       "refs": [
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 116,
+          "line": 114,
           "column": 77
         },
         {
           "file": "features/calls/ModelPricesCard.tsx",
-          "line": 116,
+          "line": 114,
           "column": 95
         }
       ]
@@ -7613,7 +7779,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 314,
+          "line": 316,
           "column": 38
         }
       ]
@@ -7640,7 +7806,7 @@
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 183,
+          "line": 184,
           "column": 121
         },
         {
@@ -7669,17 +7835,17 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 74,
+          "line": 75,
           "column": 46
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 204,
+          "line": 205,
           "column": 22
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 219,
+          "line": 220,
           "column": 58
         }
       ]

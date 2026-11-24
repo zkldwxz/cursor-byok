@@ -8,6 +8,7 @@ mod model_prices;
 mod models;
 mod overview;
 mod plugins;
+mod remote;
 mod service;
 mod settings;
 
@@ -243,6 +244,15 @@ pub fn api_router(service: ControlService) -> Router {
             get(model_prices::list)
                 .put(model_prices::upsert)
                 .delete(model_prices::clear),
+        )
+        .route(
+            "/__byok-api__/api/remote",
+            get(remote::status).put(remote::set_enabled),
+        )
+        .route("/__byok-api__/api/remote/pairing", post(remote::pair))
+        .route(
+            "/__byok-api__/api/remote/devices/{id}",
+            axum::routing::delete(remote::remove_device),
         )
         .route(
             "/__byok-api__/api/harness/cursor/status",

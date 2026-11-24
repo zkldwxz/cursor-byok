@@ -25,22 +25,28 @@ use crate::{
         },
         transport::{TransportParent, TransportRegistry},
     },
+    remote::{RemoteControl, RemoteSwitch},
     Result,
 };
 
 pub fn router(
     registry: TransportRegistry,
     clients: crate::network::NetworkClients,
+    remote: &RemoteControl,
 ) -> Result<Router> {
     let proxy = CursorProxy::cursor(clients);
     let knowledge = knowledge::KnowledgeService::managed()?;
-    Ok(router_with_proxy(registry, proxy, knowledge))
+    Ok(
+        router_with_proxy(registry, proxy, knowledge, remote.switch())
+            .merge(remote.presence_router()),
+    )
 }
 
 fn router_with_proxy(
     registry: TransportRegistry,
     proxy: CursorProxy,
     knowledge_service: knowledge::KnowledgeService,
+    remote: RemoteSwitch,
 ) -> Router {
     let web_cache = registry.web_cache().router();
     let free_entitlements = FreeEntitlementCache::default();
@@ -161,6 +167,7 @@ fn router_with_proxy(
         .fallback(proxy::forward)
         .method_not_allowed_fallback(proxy::forward)
         .layer(Extension(proxy))
+        .layer(Extension(remote))
         .layer(Extension(knowledge_service))
         .layer(Extension(free_entitlements))
         .with_state(registry)
@@ -243,7 +250,8 @@ async fn bidi_handler(
 ) -> Result<Response<Body>> {
     let (parts, body) = buffered(request).await?;
     let request: ai::BidiAppendRequest = connect::decode_unary(&body)?;
-    let decoded = bidi::decode(&request)?;
+    let mut decoded = bidi::decode(&request)?;
+    registry.message_modes().fill(&mut decoded.message);
     let first_model = decoded.model_id().map(str::to_owned);
     let conversation_id = decoded.conversation_id().map(str::to_owned);
     let trace_metadata = decoded.trace_metadata();
@@ -471,6 +479,7 @@ mod routing_tests {
             registry,
             proxy,
             knowledge::KnowledgeService::with_root(temp.path().join("rules")).unwrap(),
+            RemoteSwitch::default(),
         );
         let frame = agent::BidiRequestId {
             request_id: "first-append-did-not-arrive".into(),
@@ -525,7 +534,7 @@ mod routing_tests {
             format!("http://{addr}"),
         );
         let knowledge = knowledge::KnowledgeService::with_root(temp.path().join("rules")).unwrap();
-        let router = router_with_proxy(registry, proxy, knowledge);
+        let router = router_with_proxy(registry, proxy, knowledge, RemoteSwitch::default());
         for (idx, model) in [
             "000000abcdeffabc",
             "byok-ff8d2b90-0156-41ec-a2e3-06741280209a",

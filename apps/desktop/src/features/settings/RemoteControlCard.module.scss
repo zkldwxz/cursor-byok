@@ -1,0 +1,53 @@
+@use "../../styles/typography" as type;
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+
+  small {
+    color: var(--vscode-descriptionForeground);
+    font-size: type.$font-size-xs;
+  }
+}
+
+.notice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: type.$font-size-xs;
+}
+
+.pairing {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+
+  img {
+    width: 200px;
+    height: 200px;
+    flex-shrink: 0;
+    // Scanners need the quiet zone to stay light in either theme.
+    background: white;
+    border-radius: 8px;
+  }
+
+  small {
+    color: var(--vscode-descriptionForeground);
+    font-size: type.$font-size-xs;
+  }
+}
