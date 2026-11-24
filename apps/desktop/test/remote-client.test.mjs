@@ -15,8 +15,8 @@ import {
   formatAge,
   groupRows,
   groupThreads,
+  groupOpen,
   homeWorkspace,
-  homeThreads,
   resolveTheme,
   shownCount,
   shownRows,
@@ -226,7 +226,7 @@ test('conversations group by project, date or status, with pinned ones first and
 test('every icon referenced in remote client modules is defined in dom.js', () => {
   const clientDir = path.resolve(import.meta.dirname, '../../../server/src/remote/client');
   const referenced = new Set();
-  for (const file of ['app.js', 'chat.js', 'dock.js', 'home.js', 'settings.js', 'sidebar.js']) {
+  for (const file of ['app.js', 'chat.js', 'dock.js', 'conversations.js', 'home.js', 'settings.js', 'sidebar.js']) {
     const source = fs.readFileSync(path.join(clientDir, file), 'utf8');
     for (const match of source.matchAll(/icon\(\s*["']([a-zA-Z0-9_-]+)["']\s*\)/g)) {
       referenced.add(match[1]);
@@ -260,12 +260,20 @@ test('a message from home goes to the project last chosen, else the one last wor
   assert.equal(homeWorkspace([], 'a'), null);
 });
 
-test('home shows every conversation that waits, and the latest of the others', () => {
-  const { waiting, recent } = homeThreads(buildThreads(home, { now: 600_000 }), 1);
-  assert.deepEqual(waiting.map((item) => item.id), ['b2']);
-  assert.equal(recent.length, 1);
-  const all = homeThreads(buildThreads(home.map((it) => ({ ...it, chats: it.chats.map((chat) => ({ ...chat, updatedAt: chat.updatedAt * 60_000 })) })), { now: 600_000 }), 5);
-  assert.deepEqual(all.recent.map((item) => item.id), ['b1', 'a1']);
+test('projects come in the order they were last worked in, and empty ones last', () => {
+  const groups = groupThreads(home, buildThreads(home, { now: 600_000 }), 'project');
+  assert.deepEqual(groups.map((group) => group.title), ['B', 'A', 'C']);
+});
+
+test('of the projects only the latest is open until one is opened or folded', () => {
+  const projects = groupThreads(home, buildThreads(home, { now: 600_000 }), 'project');
+  const open = (chosen) => projects.map((group) => groupOpen(projects, group, chosen));
+  assert.deepEqual(open(new Map()), [true, false, false]);
+  assert.deepEqual(open(new Map([['project:b', false], ['project:a', true]])), [false, true, false]);
+  const pinned = groupThreads(home, buildThreads(home, { now: 600_000, pinned: new Set(['a1']) }), 'project');
+  assert.deepEqual(pinned.map((group) => groupOpen(pinned, group, new Map())), [true, true, false, false]);
+  const states = groupThreads(home, buildThreads(home, { now: 600_000 }), 'status');
+  assert.ok(states.length > 1 && states.every((group) => groupOpen(states, group, new Map())));
 });
 
 test('every file of the page is one the server gives to browsers', () => {

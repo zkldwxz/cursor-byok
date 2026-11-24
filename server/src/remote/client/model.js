@@ -3,18 +3,14 @@ const everyChat = (workspaces) => (workspaces ?? []).flatMap((workspace) => work
 
 export const waitingCount = (workspaces) => everyChat(workspaces).filter((chat) => chat.state === "waiting").length;
 
-/** Where a message from home goes: the project last chosen, else the one last worked in. */
-export function homeWorkspace(workspaces, chosen) {
-  const latest = (workspace) => workspace.chats.reduce((latest, chat) => Math.max(latest, chat.updatedAt), 0);
-  const all = workspaces ?? [];
-  return all.find(({ id }) => id === chosen) ?? all.toSorted((a, b) => latest(b) - latest(a))[0] ?? null;
-}
+const latest = (workspace) => workspace.chats.reduce((time, chat) => Math.max(time, chat.updatedAt), 0);
+const byUse = (workspaces) => (workspaces ?? []).toSorted((a, b) => latest(b) - latest(a));
 
-/** Everything that waits, and the latest of the others. */
-export const homeThreads = (threads, count) => ({
-  waiting: threads.filter(({ state }) => state === "waiting"),
-  recent: threads.filter(({ state }) => state !== "waiting").toSorted((a, b) => a.ageMinutes - b.ageMinutes).slice(0, count),
-});
+/** Where a message from home goes: the project last chosen, else the one last worked in. */
+export const homeWorkspace = (workspaces, chosen) => (workspaces ?? []).find(({ id }) => id === chosen) ?? byUse(workspaces)[0] ?? null;
+
+/** Of the projects only the latest, and every other kind of group; unless `chosen` says otherwise. */
+export const groupOpen = (groups, group, chosen) => chosen.get(group.id) ?? (group.kind !== "project" || groups.find(({ kind }) => kind === "project")?.id === group.id);
 
 export const workspaceOf = (workspaces, session) =>
   (workspaces ?? []).find((workspace) => workspace.chats.some((chat) => chat.id === session)) ?? null;
@@ -76,7 +72,7 @@ export function groupThreads(workspaces, threads, mode = "project", now = Date.n
     bucketed(["today", "yesterday", "week", "earlier"], (item) => dateBucket(item.ageMinutes, now));
   } else if (mode === "status") bucketed(["waiting", "running", "idle"], (item) => item.state);
   // A project without conversations is still where one can begin.
-  else for (const { id, title } of workspaces ?? []) groups.push({ id: `project:${id}`, kind: "project", workspace: id, title, items: rest.filter((item) => item.workspace === id) });
+  else for (const { id, title } of byUse(workspaces)) groups.push({ id: `project:${id}`, kind: "project", workspace: id, title, items: rest.filter((item) => item.workspace === id) });
   return groups;
 }
 

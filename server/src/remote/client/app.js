@@ -1,14 +1,15 @@
 //! Holds what is known about the computer and shows it: home, the conversations, one of them, or why none.
 import { Transcript } from "./chat.js";
+import { Conversations, notice } from "./conversations.js";
 import { chinese, copy } from "./copy.js";
 import { Composer, drawAsked, drawChips, drawPanel } from "./dock.js";
 import { h, icon, redraw } from "./dom.js";
-import { drawHome, drawProject } from "./home.js";
+import { drawProject, drawWaiting } from "./home.js";
 import { Link, pair } from "./link.js";
 import { buildThreads, chatState, delivered, homeWorkspace, resolveTheme, sendingAfter, shownRows, spliceRows, waitingCount, workspaceOf } from "./model.js";
 import { buzz, native, paintBars, scan } from "./native.js";
 import { Settings } from "./settings.js";
-import { notice, Sidebar } from "./sidebar.js";
+import { Sidebar } from "./sidebar.js";
 import { Views } from "./views.js";
 
 const $ = (id) => document.getElementById(id);
@@ -18,7 +19,7 @@ const QUIET_MS = 1_000;
 const THEME_KEY = "cursor-byok-remote-theme";
 const GROUP_KEY = "cursor-byok-remote-group";
 const PINNED_KEY = "cursor-byok-remote-pinned";
-const COLLAPSED_KEY = "cursor-byok-remote-collapsed";
+const FOLDERS_KEY = "cursor-byok-remote-folders";
 const PROJECT_KEY = "cursor-byok-remote-project";
 const wide = matchMedia("(min-width: 900px)");
 const lightMedia = matchMedia("(prefers-color-scheme: light)");
@@ -77,7 +78,8 @@ const state = {
   theme: savedTheme(),
   groupBy: savedGroupBy(),
   pinned: new Set(readJson(PINNED_KEY, [])),
-  collapsed: new Set(readJson(COLLAPSED_KEY, [])),
+  /** Folders opened or folded by hand. */
+  folders: new Map(readJson(FOLDERS_KEY, [])),
 };
 
 document.documentElement.lang = chinese ? "zh-CN" : "en";
@@ -258,7 +260,6 @@ function drawStatusBar(workspace, told) {
 const actions = {
   onSelectThread: select,
   onNewChat: begin,
-  onAll: () => views.go("sidebar"),
   onSettings: () => views.go("settings"),
   onGrouping: () =>
     sheet(copy.grouping, Object.entries(copy.groupOption).map(([mode, label]) => ({
@@ -270,10 +271,26 @@ const actions = {
         draw();
       },
     }))),
-  onToggleCollapse: (group) => toggle(state.collapsed, group, COLLAPSED_KEY),
-  onTogglePin: (session) => toggle(state.pinned, session, PINNED_KEY),
+  onFold: (folder, open) => {
+    state.folders.set(folder, open);
+    writeStorage(FOLDERS_KEY, JSON.stringify([...state.folders]));
+    draw();
+  },
+  onTogglePin: (session) => {
+    if (!state.pinned.delete(session)) state.pinned.add(session);
+    writeStorage(PINNED_KEY, JSON.stringify([...state.pinned]));
+    draw();
+  },
+  onThreadMenu: ({ id, label, pinned }) => {
+    buzz();
+    sheet(label || copy.untitled, [{ label: pinned ? copy.unpin : copy.pin, pick: () => actions.onTogglePin(id) }]);
+  },
 };
 const sidebar = new Sidebar($("sidebar"), actions);
+const conversations = new Conversations(actions);
+const host = () => (wide.matches ? sidebar.body : $("home-lists")).append(conversations.root);
+wide.addEventListener("change", host);
+host();
 const settings = new Settings($("settings-body"), {
   onTheme: setTheme,
   onPair: look,
@@ -286,7 +303,7 @@ const settings = new Settings($("settings-body"), {
 });
 
 function draw() {
-  const { overview, online, place, chat, sidebarCollapsed, groupBy, pinned, collapsed } = state;
+  const { overview, online, place, chat, sidebarCollapsed, groupBy, pinned, folders } = state;
   document.body.dataset.sidebar = sidebarCollapsed ? "collapsed" : "open";
   const waiting = waitingCount(overview?.workspaces);
   document.title = waiting ? `(${waiting}) Cursor` : "Cursor";
@@ -295,9 +312,12 @@ function draw() {
     status: online ? (waiting ? copy.waitingTitle(waiting) : copy.nothingWaiting) : overview ? copy.offline : copy.connecting,
   };
   const threads = buildThreads(overview?.workspaces, { current: place?.session, open: chat, pinned });
-  sidebar.draw({ overview, online, current: place?.session, groupBy, collapsed, threads, ...connection });
+  sidebar.draw({ overview, online, ...connection });
+  conversations.draw({ overview, current: place?.session, groupBy, folders, threads });
   redraw($("home-state"), JSON.stringify(connection), () => [h("span", { class: "state", "data-state": connection.told }), h("span", { class: "side-status-text" }, connection.status)]);
-  drawHome($("home-lists"), { overview, threads }, actions);
+  drawWaiting($("home-waiting"), threads, actions);
+  $("home-title").hidden = !overview?.workspaces.length;
+  $("home-by").textContent = copy.groupTitle[groupBy];
   $("tabs").style.setProperty("--at", document.body.dataset.tab === "home" ? 0 : 1);
   for (const tab of $("tabs").children) tab.setAttribute("aria-current", String(tab.dataset.tab === document.body.dataset.tab));
   if (views.now === "settings") settings.draw(state);
@@ -338,12 +358,6 @@ function drawHomeComposer(workspace) {
   drawProject($("home-project"), workspace, chooseProject);
   drawChips($("home-chips"), chat, menu);
   homeComposer.update(`home ${place.draft}`, false);
-}
-
-function toggle(set, key, storage) {
-  if (!set.delete(key)) set.add(key);
-  writeStorage(storage, JSON.stringify([...set]));
-  draw();
 }
 
 // ---- sheets
@@ -448,14 +462,15 @@ for (const [id, name, label] of [
 }
 $("hello").textContent = copy.hello;
 $("settings-title").textContent = copy.settings;
-$("home-actions").append(h("button", { type: "button", class: "plain", "aria-label": copy.settings, title: copy.settings, onclick: actions.onSettings }, icon("gear")));
-$("tabs").append(...[["home", "home", copy.homeTab], ["sidebar", "chat", copy.chatsTab]].map(([view, name, label]) => h("button", { type: "button", "data-tab": view, onclick: () => views.go(view) }, icon(name), h("span", {}, label))));
+$("home-title").append(h("button", { type: "button", class: "plain", "aria-label": copy.grouping, title: copy.grouping, onclick: actions.onGrouping }, icon("sortGroup")));
+$("tabs").append(...[["home", "home", copy.homeTab], ["settings", "gear", copy.settings]].map(([view, name, label]) => h("button", { type: "button", "data-tab": view, onclick: () => views.go(view) }, icon(name), h("span", {}, label))));
 // Felt where something is set off, not on every touch.
 document.addEventListener("click", (event) => event.target.closest?.("#tabs button, .segments button, .go, .quiet, button[type=submit]") && buzz());
 $("chats").setAttribute("aria-label", copy.chats);
 $("chats").append(icon("down"));
 $("latest").append(icon("down"), copy.latest);
 
+setInterval(() => document.hidden || draw(), 60_000);
 applyTheme();
 gate(copy.joining, "link");
 const paired = await pair();

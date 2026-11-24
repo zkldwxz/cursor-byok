@@ -1,5 +1,5 @@
 //! Which view is on screen, and how the phone's back leads from one to another.
-const TABS = ["home", "sidebar"];
+const TABS = ["home", "settings"];
 
 export class Views {
   #changed;
@@ -18,7 +18,7 @@ export class Views {
   /** Home is where back ends; every other view is one step further. */
   go(view) {
     if (view === this.now) return;
-    if (view === "home" && this.now === "sidebar") return history.back();
+    if (view === "home" && this.now === "settings") return history.back();
     history.pushState({ view }, "");
     this.#show(view);
   }
