@@ -96,6 +96,9 @@ export const ICONS = {
     ["path", { d: "M10 6.5v4" }],
     ["circle", { cx: "10", cy: "13.3", r: "0.75", fill: "currentColor", stroke: "none" }],
   ],
+  context: [
+    ["path", { d: "M6.5 4H4.8A.8.8 0 0 0 4 4.8v10.4a.8.8 0 0 0 .8.8h1.7M13.5 4h1.7a.8.8 0 0 1 .8.8v10.4a.8.8 0 0 1-.8.8h-1.7M7.5 8h5M7.5 12h3" }],
+  ],
   clock: [
     ["circle", { cx: "10", cy: "10", r: "7" }],
     ["path", { d: "M10 6v4.2l2.6 1.6" }],

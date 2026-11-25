@@ -78,7 +78,7 @@ const TOUCHES = [
   [".composer button[type=submit]", "send"],
   [".go", "confirm"],
   [".quiet, .danger", "warn"],
-  [".segments button, [role=switch], #tabs button, .folder-toggle, .option, .thread-pin, summary", "toggle"],
+  [".segments button, .pills button, [role=switch], #tabs button, .folder-toggle, .option, .thread-pin, summary", "toggle"],
   ["button", "tap"],
 ];
 

@@ -850,6 +850,7 @@ async fn context_and_effort_are_shown_and_go_with_the_next_message() {
                 "display_name": "Mine",
                 "type": "openai",
                 "base_url": "https://example.com/v1",
+                "api_key": "key",
                 "openai_endpoint": crate::model::OPENAI_CHAT_ENDPOINT,
                 "tooltip_data": "Mine",
                 "model_id": "maker-1",

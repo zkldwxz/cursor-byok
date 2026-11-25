@@ -9,6 +9,16 @@ const byUse = (workspaces) => (workspaces ?? []).toSorted((a, b) => latest(b) - 
 /** Where a conversation can begin: not on an SSH host, which can only be read. */
 export const projectsOf = (workspaces) => byUse(workspaces).filter(({ host }) => !host);
 
+/** The SSH hosts there are conversations of. */
+export const hostsOf = (workspaces) => [...new Set((workspaces ?? []).map(({ host }) => host).filter(Boolean))];
+
+/** Only `"local"` projects, or those of one host; all of them when that host has none any more. */
+export function scoped(workspaces, scope) {
+  const all = workspaces ?? [];
+  if (scope === "local") return all.filter(({ host }) => !host);
+  return hostsOf(all).includes(scope) ? all.filter(({ host }) => host === scope) : all;
+}
+
 export const placeName = ({ title, host }) => (host ? `${title} (${host})` : title);
 
 /** Of the projects only the latest, and every other kind of group; unless `chosen` says otherwise. */
@@ -150,16 +160,6 @@ export function toggleOption(chosen = [], id, multiple) {
 
 /** Android browsers also say Linux, and iPhones also say Mac. */
 const SYSTEMS = ["iPhone", "iPad", "Android", "Macintosh", "Windows", "Linux"];
-
-/** The one-time code in an app's pairing link; null when it is not one. */
-export function codeOf(link) {
-  const data = /^cursor-byok:\/\/pair\?d=([\w-]+)$/.exec(link?.trim() ?? "")?.[1];
-  try {
-    return JSON.parse(atob(data.replaceAll("-", "+").replaceAll("_", "/"))).c || null;
-  } catch {
-    return null;
-  }
-}
 
 export const deviceName = (userAgent) => SYSTEMS.find((name) => userAgent.includes(name))?.replace("Macintosh", "Mac") ?? "Browser";
 

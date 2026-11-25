@@ -4,12 +4,12 @@ import path from 'node:path';
 import test from 'node:test';
 import { brandOf, LOGOS } from '../../../server/src/remote/client/brands.js';
 import { leadOf } from '../../../server/src/remote/client/chat.js';
+import { Computers, ticketOf } from '../../../server/src/remote/client/computers.js';
 import { ICONS } from '../../../server/src/remote/client/dom.js';
 import {
   answersOf,
   buildThreads,
   chatState,
-  codeOf,
   dateBucket,
   delivered,
   deviceName,
@@ -18,10 +18,12 @@ import {
   groupRows,
   groupThreads,
   groupOpen,
+  hostsOf,
   lineOf,
   placeName,
   projectsOf,
   resolveTheme,
+  scoped,
   shownCount,
   shownRows,
   spliceRows,
@@ -230,13 +232,13 @@ test('conversations group by project, date or status, with pinned ones first and
 test('every icon referenced in remote client modules is defined in dom.js', () => {
   const clientDir = path.resolve(import.meta.dirname, '../../../server/src/remote/client');
   const referenced = new Set();
-  for (const file of ['app.js', 'chat.js', 'dock.js', 'conversations.js', 'waiting.js', 'settings.js', 'sidebar.js']) {
+  for (const file of ['app.js', 'chat.js', 'dock.js', 'conversations.js', 'waiting.js', 'tune.js', 'settings.js', 'sidebar.js']) {
     const source = fs.readFileSync(path.join(clientDir, file), 'utf8');
     for (const match of source.matchAll(/icon\(\s*["']([a-zA-Z0-9_-]+)["']\s*\)/g)) {
       referenced.add(match[1]);
     }
   }
-  for (const name of ['sun', 'moon', 'monitor', 'compose', 'sidebar', 'infinity', 'branch', 'plus', 'pin', 'remote', 'status', 'sortGroup', 'file', 'edit', 'terminal', 'search', 'wrench', 'layers', 'alert', 'clock', 'question', 'diff', 'cpu', 'folder', 'chat', 'link', 'wifiOff', 'copy', 'home', 'gear']) {
+  for (const name of ['sun', 'moon', 'monitor', 'compose', 'sidebar', 'infinity', 'branch', 'plus', 'pin', 'remote', 'status', 'sortGroup', 'file', 'edit', 'terminal', 'search', 'wrench', 'layers', 'alert', 'clock', 'question', 'diff', 'cpu', 'folder', 'chat', 'link', 'wifiOff', 'copy', 'home', 'gear', 'context']) {
     assert.ok(name in ICONS, `missing expected SVG icon '${name}' in dom.js`);
   }
   for (const name of referenced) {
@@ -365,11 +367,51 @@ test('every file of the page is one the server gives to browsers', () => {
 
 const pairingLink = (ticket) => `cursor-byok://pair?d=${Buffer.from(JSON.stringify(ticket)).toString('base64url')}`;
 
-test('only a pairing link holds a code', () => {
-  assert.equal(codeOf(` ${pairingLink({ k: 'key', c: 'once?>~', a: [] })}\n`), 'once?>~');
-  for (const other of [null, '', 'https://example.com', pairingLink({ k: 'key' }), 'cursor-byok://pair?d=%%']) {
-    assert.equal(codeOf(other), null);
+test('only a pairing link says which computer, and holds its code', () => {
+  assert.deepEqual(ticketOf(` ${pairingLink({ k: 'key', c: 'once?>~', a: [] })}\n`), { key: 'key', code: 'once?>~', relay: false });
+  assert.deepEqual(ticketOf(pairingLink({ k: 'key', c: '', a: [], r: { u: 'https://relay' } })), { key: 'key', code: null, relay: true });
+  for (const other of [null, '', 'https://example.com', pairingLink({ c: 'code' }), 'cursor-byok://pair?d=%%']) {
+    assert.equal(ticketOf(other), null);
   }
+});
+
+const memory = () => {
+  const stored = new Map();
+  return { stored, getItem: (key) => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value) };
+};
+
+test('computers stay known, each with its own token, and one of them is on screen', () => {
+  const storage = memory();
+  const computers = new Computers(storage);
+  assert.equal(computers.current, null);
+  computers.add({ id: 'home', link: 'l1', token: 't1' });
+  computers.told({ name: 'Home Mac', link: 'l2' });
+  computers.add({ id: 'work', link: 'l3', token: 't3' });
+  assert.equal(computers.current.id, 'work');
+  computers.choose('home');
+  const later = new Computers(storage);
+  assert.deepEqual(later.current, { id: 'home', name: 'Home Mac', link: 'l2', token: 't1' });
+  // A browser's computer tells no link.
+  later.told({ name: 'Mac', link: null });
+  assert.equal(later.current.link, 'l2');
+  later.add({ id: 'home', link: 'l4', token: 't4' });
+  assert.deepEqual(later.list.map(({ id, name, token }) => [id, name, token]), [['work', null, 't3'], ['home', 'Mac', 't4']]);
+  later.forget('home');
+  assert.equal(later.current.id, 'work');
+  later.forget('work');
+  assert.equal(new Computers(storage).current, null);
+});
+
+test('only the conversations of this computer, or of one SSH host, are shown when asked for', () => {
+  const other = { id: 'ssh://linux/srv', title: 'srv', host: 'linux', chats: [] };
+  const all = [...home, far, other];
+  assert.deepEqual(hostsOf(all), ['box', 'linux']);
+  const ids = (scope) => scoped(all, scope).map(({ id }) => id);
+  assert.deepEqual(ids('local'), ['a', 'b', 'c']);
+  assert.deepEqual(ids('linux'), ['ssh://linux/srv']);
+  assert.equal(ids('all').length, 5);
+  assert.equal(ids('gone').length, 5);
+  assert.deepEqual(scoped(null, 'local'), []);
 });
 
 test('the app pairs with the link it was given, then comes back with its token', async (t) => {
@@ -392,7 +434,8 @@ test('the app pairs with the link it was given, then comes back with its token',
   const { Link } = await import('../../../server/src/remote/client/link.js');
   const heard = [];
   const on = Object.fromEntries(['open', 'closed', 'away', 'unpaired', 'expired', 'slow', 'message'].map((name) => [name, (value) => heard.push([name, value])]));
-  const link = new Link(on, { awayMs: 60 });
+  const computers = new Computers(globalThis.localStorage);
+  const link = new Link(computers, on, { awayMs: 60 });
   // Otherwise a failure leaves it trying for ever.
   t.after(() => link.leave());
   const settle = () => new Promise((resolve) => setTimeout(resolve, 5));
@@ -403,6 +446,7 @@ test('the app pairs with the link it was given, then comes back with its token',
   assert.equal(calls.length, 0);
 
   const ticket = pairingLink({ k: 'key', c: 'once', a: [] });
+  const moved = pairingLink({ k: 'key', c: '', a: ['10.0.0.9:1'] });
   assert.equal(link.pair(ticket), true);
   await settle();
   assert.equal(calls[0][1].ticket, ticket);
@@ -411,7 +455,11 @@ test('the app pairs with the link it was given, then comes back with its token',
 
   link.connect();
   await settle();
-  assert.equal(calls.filter(([name]) => name === 'dial').at(-1)[1].ticket, ticket);
+  says({ type: 'computer', name: 'Mac', link: moved });
+  link.connect();
+  await settle();
+  // It is dialled where it said it is.
+  assert.equal(calls.filter(([name]) => name === 'dial').at(-1)[1].ticket, moved);
   assert.deepEqual(said(), { token: 'token' });
 
   // A spent link leaves the pairing there was.
@@ -424,7 +472,8 @@ test('the app pairs with the link it was given, then comes back with its token',
   assert.deepEqual(said(), { token: 'token' });
   says({ type: 'unpaired' });
   assert.equal(heard.at(-1)[0], 'unpaired');
-  assert.equal(stored.get('cursor-byok-remote-token'), undefined);
+  assert.equal(computers.current, null);
+  computers.add({ id: 'key', link: ticket, token: 'token' });
 
   dialled = async () => { throw new Error('no answer'); };
   link.connect();
@@ -445,6 +494,6 @@ test('the app pairs with the link it was given, then comes back with its token',
   link.connect();
   await settle();
   link.leave();
-  assert.equal(stored.size, 0);
+  assert.deepEqual(computers.list, []);
   assert.equal(calls.at(-1)[0], 'hang_up');
 });

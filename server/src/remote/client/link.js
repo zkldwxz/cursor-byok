@@ -1,10 +1,8 @@
 //! Pairs this device and keeps its live session with the computer.
-import { codeOf, deviceName } from "./model.js";
+import { ticketOf } from "./computers.js";
+import { deviceName } from "./model.js";
 import { AppSocket, native } from "./native.js";
 
-const TOKEN = "cursor-byok-remote-token";
-/** Where the app finds the computer; a browser is already there. */
-const COMPUTER = "cursor-byok-remote-computer";
 const RETRY_MS = 2_000;
 /** A computer that reads a long conversation answers late; one that is gone, never. */
 const REPLY_MS = 12_000;
@@ -15,7 +13,7 @@ const QUIET_MS = 10_000;
 const AWAY_MS = 15_000;
 
 /** Exchanges the code in the link, if any; returns whether this device may connect. */
-export async function pair() {
+export async function pair(computers) {
   const code = location.hash.slice(1);
   if (code) {
     history.replaceState(null, "", location.pathname + location.search);
@@ -24,10 +22,10 @@ export async function pair() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ code, name: deviceName(navigator.userAgent) }),
     }).catch(() => null);
-    if (reply?.ok) localStorage.setItem(TOKEN, (await reply.json()).token);
-    else if (!localStorage.getItem(TOKEN)) return "expired";
+    if (reply?.ok) computers.add({ id: location.host, link: null, token: (await reply.json()).token });
+    else if (!computers.current) return "expired";
   }
-  return localStorage.getItem(TOKEN) ? "paired" : "unpaired";
+  return computers.current ? "paired" : "unpaired";
 }
 
 function address() {
@@ -44,6 +42,7 @@ export class Link {
   #quiet = null;
   #slow = false;
   #on;
+  #computers;
   /** The pairing link the app is trying. */
   #pending = null;
   #retry = null;
@@ -51,7 +50,8 @@ export class Link {
   #awayMs;
 
   /** `on` hears open(), closed(), away(), unpaired(), expired(), slow(whether), and message(data). */
-  constructor(on, { awayMs = AWAY_MS } = {}) {
+  constructor(computers, on, { awayMs = AWAY_MS } = {}) {
+    this.#computers = computers;
     this.#on = on;
     this.#awayMs = awayMs;
     // A phone that slept may hold a connection that died unnoticed.
@@ -61,7 +61,7 @@ export class Link {
 
   /** Pairs the app with the computer of this link; returns whether it is one. */
   pair(ticket) {
-    if (!codeOf(ticket)) return false;
+    if (!ticketOf(ticket)?.code) return false;
     this.#pending = ticket;
     this.#found();
     this.connect();
@@ -70,13 +70,15 @@ export class Link {
 
   connect() {
     clearTimeout(this.#retry);
+    this.#still();
+    this.#refuse();
     const replaced = this.#socket;
-    const socket = native ? new AppSocket(this.#pending ?? localStorage.getItem(COMPUTER)) : new WebSocket(address());
+    const socket = native ? new AppSocket(this.#pending ?? this.#computers.current.link) : new WebSocket(address());
     this.#socket = socket;
     replaced?.close();
     socket.onopen = () => {
       if (this.#socket !== socket) return;
-      socket.send(JSON.stringify(this.#pending ? { code: codeOf(this.#pending), name: deviceName(navigator.userAgent) } : { token: localStorage.getItem(TOKEN) }));
+      socket.send(JSON.stringify(this.#pending ? { code: ticketOf(this.#pending).code, name: deviceName(navigator.userAgent) } : { token: this.#computers.current.token }));
       this.#heard();
       this.#on.open();
     };
@@ -101,9 +103,11 @@ export class Link {
     this.#heard();
     this.#found();
     if (message.type === "paired") {
-      localStorage.setItem(TOKEN, message.token);
-      localStorage.setItem(COMPUTER, this.#pending);
+      this.#computers.add({ id: ticketOf(this.#pending).key, link: this.#pending, token: message.token });
       this.#pending = null;
+    } else if (message.type === "computer") {
+      this.#computers.told(message);
+      this.#on.message(message);
     } else if (message.type === "unpaired") {
       this.#socket = null;
       this.#still();
@@ -113,7 +117,7 @@ export class Link {
         this.#on.expired();
         return;
       }
-      localStorage.removeItem(TOKEN);
+      this.#computers.forget(this.#computers.current?.id);
       this.#on.unpaired();
     } else if (["done", "refused", "menu"].includes(message.type)) this.#waiting.shift()?.(message);
     else this.#on.message(message);
@@ -124,7 +128,16 @@ export class Link {
     this.#away = null;
   }
 
-  /** Forgets the computer. */
+  /** Turns to another of the computers. */
+  choose(id) {
+    this.#computers.choose(id);
+    this.#pending = null;
+    this.#slow = false;
+    this.#found();
+    this.connect();
+  }
+
+  /** Forgets the computer on screen. */
   leave() {
     const socket = this.#socket;
     this.#socket = null;
@@ -132,9 +145,13 @@ export class Link {
     clearTimeout(this.#retry);
     this.#still();
     this.#found();
-    localStorage.removeItem(TOKEN);
-    localStorage.removeItem(COMPUTER);
+    this.#computers.forget(this.#computers.current?.id);
     socket?.close();
+  }
+
+  /** What was asked of a connection that is gone. */
+  #refuse() {
+    for (const resolve of this.#waiting.splice(0)) resolve({ type: "refused", code: "offline" });
   }
 
   #still() {
@@ -152,7 +169,7 @@ export class Link {
     this.#still();
     this.#slow = false;
     this.#socket = null;
-    for (const resolve of this.#waiting.splice(0)) resolve({ type: "refused", code: "offline" });
+    this.#refuse();
     this.#on.closed();
     this.#away ??= setTimeout(() => this.#on.away(), this.#awayMs);
     this.#retry = setTimeout(() => this.#socket ?? this.connect(), RETRY_MS);

@@ -17,12 +17,13 @@ export function drawLine(button, line) {
 const MARKS = { ok: "online", idle: "online", lost: "offline", slow: "waiting", connecting: "waiting", retrying: "waiting", unknown: "unknown" };
 
 /** Each stretch of the way, and what to do about the one that is broken. */
-export function drawStretches(root, line) {
-  redraw(root, JSON.stringify(line), () => [
+export function drawStretches(root, line, relayed) {
+  redraw(root, JSON.stringify([line, relayed]), () => [
     h("div", { class: "card" }, ["phone", "cursor", "model"].map((name) => {
       const state = line[name];
       return h("div", { class: "card-row" }, h("span", {}, copy.line[name].name), h("span", { class: "card-value" }, h("span", { class: "state", "data-state": MARKS[state] }), said(copy.line[name][state], line.attempt)));
     })),
+    relayed ? null : h("p", { class: "line-hint" }, copy.line.noRelay),
     copy.line.hint[line.now] ? h("p", { class: "line-hint" }, copy.line.hint[line.now]) : null,
   ]);
 }
