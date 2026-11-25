@@ -19,6 +19,7 @@ jobs:
     outputs:
       should_publish: ${{ steps.release.outputs.should_publish }}
       version: ${{ steps.version.outputs.version }}
+      notes: ${{ steps.notes.outputs.notes }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -56,6 +57,12 @@ jobs:
             exit 1
           fi
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Read the release notes
+        id: notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: node .github/scripts/release-notes.mjs "${VERSION}"
 
       - name: Check whether this version is already published
         id: release
@@ -138,7 +145,7 @@ jobs:
           projectPath: apps/desktop
           tagName: v__VERSION__
           releaseName: Cursor BYOK v__VERSION__
-          releaseBody: ${{ contains(needs.prepare.outputs.version, '-') && 'Beta release. Download the installer for your platform from the assets below.' || 'Download the installer for your platform from the assets below.' }}
+          releaseBody: ${{ needs.prepare.outputs.notes }}
           releaseDraft: true
           prerelease: false
           uploadUpdaterJson: true
@@ -226,13 +233,14 @@ jobs:
       - name: Generate legacy update manifest
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
+          NOTES: ${{ needs.prepare.outputs.notes }}
         run: |
           node .github/scripts/generate-legacy-update.mjs \
             --version "${VERSION}" \
             --repository "${GITHUB_REPOSITORY}" \
             --assets-dir legacy-update \
             --output legacy-update/update.json \
-            --notes "Cursor BYOK v${VERSION}"
+            --notes "${NOTES}"
 
       - name: Generate signed Windows portable update manifest
         env:
@@ -294,4 +302,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.prepare.outputs.version }}
-        run: gh release edit "v${VERSION}" --draft=false --latest
+        # tauri-action keeps the body of a draft left by an earlier attempt, so
+        # the notes are written again here.
+        run: |
+          node .github/scripts/release-notes.mjs "${VERSION}" release-notes.md
+          gh release edit "v${VERSION}" --draft=false --latest --notes-file release-notes.md

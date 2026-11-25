@@ -60,6 +60,7 @@ The two listed Proto files are required build inputs and must be committed. Keep
 3. Confirm the updater public key in `tauri.conf.json` matches `.tauri/cursor-byok.key.pub` without exposing the private key.
 4. Confirm `TAURI_SIGNING_PRIVATE_KEY` exists in GitHub Actions. `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` must be absent when the local key has no password.
 5. Confirm neither the intended tag nor Release already exists.
+   Write the main changes of the version as bullets in `docs/releases/v<version>.md`. The workflow publishes that file as the Release body and refuses to release a version without it.
 6. From `apps/desktop`, run:
 
    ```bash
