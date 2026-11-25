@@ -1,37 +1,28 @@
-import { useState } from "react";
+//! Shows whether a browser is connected; the extension connects by itself.
+import { useEffect, useState } from "react";
 import { api } from "../../shared/api";
-import { TextInput } from "../../shared/ui/FormControls";
 import { TitledCard } from "../../shared/ui/TitledCard";
-import { useMessage } from "../../shared/ui/message";
 import styles from "./CommitSettingsCard.module.scss";
 
+const REFRESH_INTERVAL_MS = 3_000;
+
 export function BrowserDevToolsCard() {
-  const [code, setCode] = useState("");
-  const [busy, setBusy] = useState(false);
-  const message = useMessage();
-  const pair = async () => {
-    setBusy(true);
-    try {
-      const { token } = await api.pairBrowserDevTools();
-      const next = `${window.location.origin} ${token}`;
-      setCode(next);
-      await api.copyCursorText(next);
-      message(t("已复制 Chrome 扩展配对码"));
-    } catch (error) {
-      message(error instanceof Error ? error.message : String(error));
-    } finally {
-      setBusy(false);
-    }
-  };
-  return <TitledCard title={t("浏览器 DevTools")} action={<button className={styles.textButton} disabled={busy} onClick={() => void pair()}>{t("生成配对码")}</button>}>
+  const [connected, setConnected] = useState<boolean | null>(null);
+  useEffect(() => {
+    const refresh = () => void api.browserDevTools().then((status) => setConnected(status.connected), () => setConnected(null));
+    refresh();
+    const timer = window.setInterval(refresh, REFRESH_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, []);
+  return <TitledCard title={t("浏览器 DevTools")}>
     <div className={styles.content}>
       <div className={styles.row}>
         <div className={styles.details}>
-          <strong>{t("配对 Chrome 扩展")}</strong>
-          <small>{t("把配对码粘贴到 Chrome 扩展，配对一次即可。Cursor 能使用蓝色「Cursor」标签组里的任何网站。重新配对会替换旧连接。")}</small>
+          <strong>{t("Chrome 扩展")}</strong>
+          <small>{t("装好扩展就会自动连接，不用配对。Cursor 会自己打开网页，或把你已打开的网页放进蓝色「Cursor」标签组；拖出标签组就收回了。")}</small>
         </div>
+        <span className={styles.value}>{connected === null ? t("加载中…") : connected ? t("已连接") : t("未连接")}</span>
       </div>
-      {code && <TextInput type="password" value={code} readOnly aria-label={t("Chrome 扩展配对码")} onFocus={(event) => event.currentTarget.select()} />}
     </div>
   </TitledCard>;
 }

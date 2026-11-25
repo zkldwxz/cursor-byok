@@ -12,6 +12,9 @@ mod update;
 static GLOBAL_ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 pub fn run() -> std::process::ExitCode {
+    if let Some(exit_code) = cursor_server::local_app::browser_host::run_if_requested() {
+        return exit_code;
+    }
     if let Some(exit_code) = update::run_replacement_if_requested() {
         return exit_code;
     }

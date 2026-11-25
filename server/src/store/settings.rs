@@ -16,7 +16,6 @@ const RELAY_SETTINGS_KEY: &str = "remote_relay";
 const REMOTE_ENABLED_KEY: &str = "remote_enabled";
 const REMOTE_IDENTITY_KEY: &str = "remote_identity";
 const REMOTE_DEVICES_KEY: &str = "remote_devices";
-const BROWSER_PAIRING_KEY: &str = "browser_pairing";
 
 /// Embedded default system prompts for commit message generation.
 pub const DEFAULT_COMMIT_PROMPT_ZH_CN: &str = include_str!("../../prompt/cursor/commit/zh-CN.md");
@@ -320,31 +319,6 @@ impl Store {
         let _write = self.writes.lock().await;
         sqlx::query("INSERT INTO service_settings(setting_key, value_json, updated_at_ms) VALUES (?, ?, ?) ON CONFLICT(setting_key) DO UPDATE SET value_json = excluded.value_json, updated_at_ms = excluded.updated_at_ms")
             .bind(key)
-            .bind(value_json)
-            .bind(now_ms())
-            .execute(&self.pool)
-            .await?;
-        Ok(())
-    }
-
-    /// The hash of the paired browser extension's token.
-    pub(crate) async fn browser_pairing(&self) -> Result<Option<String>> {
-        let value = sqlx::query_scalar::<_, String>(
-            "SELECT value_json FROM service_settings WHERE setting_key = ?",
-        )
-        .bind(BROWSER_PAIRING_KEY)
-        .fetch_optional(&self.pool)
-        .await?;
-        Ok(value
-            .map(|value| serde_json::from_str(&value))
-            .transpose()?)
-    }
-
-    pub(crate) async fn set_browser_pairing(&self, token_hash: &str) -> Result<()> {
-        let value_json = serde_json::to_string(token_hash)?;
-        let _write = self.writes.lock().await;
-        sqlx::query("INSERT INTO service_settings(setting_key, value_json, updated_at_ms) VALUES (?, ?, ?) ON CONFLICT(setting_key) DO UPDATE SET value_json = excluded.value_json, updated_at_ms = excluded.updated_at_ms")
-            .bind(BROWSER_PAIRING_KEY)
             .bind(value_json)
             .bind(now_ms())
             .execute(&self.pool)

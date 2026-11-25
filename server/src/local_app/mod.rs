@@ -1,5 +1,6 @@
 //! Exposes the local desktop application integration.
 pub(crate) mod account;
+pub mod browser_host;
 mod ca;
 mod proxy;
 mod settings;

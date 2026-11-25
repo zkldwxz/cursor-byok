@@ -2035,6 +2035,11 @@
           "file": "features/plugins/MagpieEntry.tsx",
           "line": 34,
           "column": 46
+        },
+        {
+          "file": "features/settings/BrowserDevToolsCard.tsx",
+          "line": 24,
+          "column": 97
         }
       ]
     },
@@ -2292,6 +2297,11 @@
       "kind": "text",
       "placeholders": [],
       "refs": [
+        {
+          "file": "features/settings/BrowserDevToolsCard.tsx",
+          "line": 24,
+          "column": 62
+        },
         {
           "file": "features/settings/CommitSettingsCard.tsx",
           "line": 166,
@@ -2852,6 +2862,11 @@
           "file": "features/plugins/MagpieEntry.tsx",
           "line": 35,
           "column": 72
+        },
+        {
+          "file": "features/settings/BrowserDevToolsCard.tsx",
+          "line": 24,
+          "column": 86
         }
       ]
     },
@@ -3836,6 +3851,18 @@
         }
       ]
     },
+    "835393b2b33bb979": {
+      "source": "装好扩展就会自动连接，不用配对。Cursor 会自己打开网页，或把你已打开的网页放进蓝色「Cursor」标签组；拖出标签组就收回了。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/BrowserDevToolsCard.tsx",
+          "line": 22,
+          "column": 19
+        }
+      ]
+    },
     "83c4efccd9a6bf69": {
       "source": "连通性测试已取消：成功 {successful}，失败 {failed}",
       "kind": "template",
@@ -4215,18 +4242,6 @@
         }
       ]
     },
-    "90d2e06881e1accb": {
-      "source": "已复制 Chrome 扩展配对码",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/settings/BrowserDevToolsCard.tsx",
-          "line": 19,
-          "column": 15
-        }
-      ]
-    },
     "919cb0ce0c8db4e7": {
       "source": "留空表示保留当前密码",
       "kind": "text",
@@ -4599,7 +4614,7 @@
       "refs": [
         {
           "file": "features/settings/BrowserDevToolsCard.tsx",
-          "line": 26,
+          "line": 17,
           "column": 29
         }
       ]
@@ -4716,18 +4731,6 @@
           "file": "features/settings/SettingsPage.tsx",
           "line": 252,
           "column": 26
-        }
-      ]
-    },
-    "9f75c59d45e2a160": {
-      "source": "配对 Chrome 扩展",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/settings/BrowserDevToolsCard.tsx",
-          "line": 30,
-          "column": 20
         }
       ]
     },
@@ -4957,18 +4960,6 @@
           "file": "features/calls/CallList.tsx",
           "line": 34,
           "column": 95
-        }
-      ]
-    },
-    "a49410d803b848b3": {
-      "source": "把配对码粘贴到 Chrome 扩展，配对一次即可。Cursor 能使用蓝色「Cursor」标签组里的任何网站。重新配对会替换旧连接。",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/settings/BrowserDevToolsCard.tsx",
-          "line": 31,
-          "column": 19
         }
       ]
     },
@@ -5990,18 +5981,6 @@
           "file": "features/models/CursorSettingsPage.tsx",
           "line": 411,
           "column": 62
-        }
-      ]
-    },
-    "c85ef7328f09e129": {
-      "source": "生成配对码",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/settings/BrowserDevToolsCard.tsx",
-          "line": 26,
-          "column": 139
         }
       ]
     },
@@ -7262,18 +7241,6 @@
         }
       ]
     },
-    "e91c1c39c2519de4": {
-      "source": "Chrome 扩展配对码",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/settings/BrowserDevToolsCard.tsx",
-          "line": 34,
-          "column": 77
-        }
-      ]
-    },
     "e9d8d890d33584e8": {
       "source": "没有可用的重置卡。",
       "kind": "text",
@@ -7396,6 +7363,18 @@
         {
           "file": "features/calls/CallDetails.tsx",
           "line": 49,
+          "column": 20
+        }
+      ]
+    },
+    "f0eeb536feff2cfa": {
+      "source": "Chrome 扩展",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/BrowserDevToolsCard.tsx",
+          "line": 21,
           "column": 20
         }
       ]

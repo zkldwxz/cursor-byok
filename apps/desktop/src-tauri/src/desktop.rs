@@ -22,7 +22,7 @@ use tokio_util::sync::CancellationToken;
 
 #[cfg(dev)]
 use cursor_server::config::ConsoleSource;
-use cursor_server::{App, Config, Result};
+use cursor_server::{local_app::browser_host, App, Config, Result};
 
 #[cfg(not(dev))]
 use crate::frontend;
@@ -290,6 +290,10 @@ pub fn run() -> ExitCode {
                 // A broken integration must not prevent opening Settings to repair it.
                 tracing::error!(%error, "failed to restore the local Cursor proxy");
             }
+            if let Err(error) = browser_host::open(address) {
+                // Everything but the browser tools works without it.
+                tracing::error!(%error, "failed to let the browser extension in");
+            }
             let desktop_settings =
                 tauri::async_runtime::block_on(server.store().desktop_settings())
                     .unwrap_or_default();
@@ -357,6 +361,9 @@ pub fn run() -> ExitCode {
                                 }
                                 Err(_) => tracing::warn!("desktop server shutdown timed out"),
                             }
+                        }
+                        if let Err(error) = browser_host::close() {
+                            tracing::warn!(%error, "the browser extension still looks for this run");
                         }
                         app.exit(0);
                     });

@@ -100,9 +100,6 @@ impl App {
             crate::config::managed_data_dir()?.join("rules"),
             config.app_version.clone(),
         );
-        crate::cursor::tools::browser_bridge::BRIDGE
-            .restore(&store)
-            .await?;
         let remote = crate::remote::RemoteControl::new(
             store.clone(),
             plugins.clone(),

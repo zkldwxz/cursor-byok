@@ -794,12 +794,6 @@ impl ControlService {
         self.store.port_settings().await
     }
 
-    pub(super) async fn pair_browser(&self) -> Result<String> {
-        crate::cursor::tools::browser_bridge::BRIDGE
-            .pair(&self.store)
-            .await
-    }
-
     pub async fn external_api_settings(&self) -> Result<ExternalApiSettings> {
         self.store.external_api_settings().await
     }

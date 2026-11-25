@@ -155,9 +155,7 @@ pub fn api_router(service: ControlService) -> Router {
             post(models::test).delete(models::cancel),
         )
         .route("/__byok-api__/api/llm-calls", get(calls::list))
-        .route("/__byok-api__/api/browser-devtools/pair", post(browser_devtools::pair))
-        .route("/__byok-api__/api/browser-devtools/next", get(browser_devtools::next))
-        .route("/__byok-api__/api/browser-devtools/reply", post(browser_devtools::reply).layer(axum::extract::DefaultBodyLimit::max(8 * 1024 * 1024)))
+        .route("/__byok-api__/api/browser-devtools", get(browser_devtools::status))
         .route("/__byok-api__/api/llm-calls/{call_id}", get(calls::detail))
         .route("/__byok-api__/api/plugins", get(plugins::list))
         .route(
@@ -284,6 +282,7 @@ pub fn api_router(service: ControlService) -> Router {
             post(harness::save_workspace_extension_vsix),
         )
         .layer(middleware::from_fn(same_origin))
+        .merge(browser_devtools::extension_router())
         .with_state(service)
 }
 
