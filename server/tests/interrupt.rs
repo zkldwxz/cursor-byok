@@ -1227,7 +1227,7 @@ async fn injected_user_context_interrupts_automatic_compaction() {
         requests[1]
             .prompt
             .instructions
-            .starts_with("Summarize the conversation for the next model turn."),
+            .contains("summarize this conversation for the next model turn"),
         "second request was not compaction: instructions={:?}, history={:?}",
         requests[1].prompt.instructions,
         requests[1].history

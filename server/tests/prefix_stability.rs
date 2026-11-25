@@ -283,12 +283,6 @@ fn every_prompt_mode_loads_the_captured_tool_set() {
         ],
         "9a4579aa3ffc358b99f3fd161e3bd247524beeb1e989caba3c16d659ff3b7744",
     );
-    assert_mode(
-        &assets,
-        Mode::Compaction,
-        &[],
-        "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-    );
     assert_eq!(
         schema_digest(&assets.mode(Mode::Agent).tools),
         "b97e1418401bb1550f01f365326d98f818fb0e73fe9d0532d1534d3a5bf691df"
@@ -327,7 +321,6 @@ fn every_prompt_mode_loads_the_captured_tool_set() {
         Mode::Debug,
         Mode::Multitask,
         Mode::Subagent,
-        Mode::Compaction,
     ] {
         assert!(!assets
             .mode(mode)

@@ -170,11 +170,7 @@ async fn summarize_replaces_model_history_and_preserves_cursor_history() {
         .starts_with(&compacted_state.root_prompt_messages_json));
     let requests = provider.requests();
     assert_eq!(requests.len(), 3);
-    assert!(requests[1].prompt.tools.is_empty());
-    assert!(requests[1]
-        .prompt
-        .instructions
-        .contains("compacting conversation history"));
+    assert_shares_prefix(&requests[0], &requests[1]);
     assert_eq!(requests[1].history.len(), 4);
     assert!(requests[1].history[0]
         .message_id
@@ -318,6 +314,183 @@ async fn automatic_compaction_preflights_provider_input_and_records_rebuilt_toke
             ProjectedContent::Assistant { text, .. } => text.len() != 400_000,
             _ => true,
         }));
+}
+
+/// The provider cache is keyed by tools, system, model settings and history in
+/// that order, so a later request reads it back only when all of them repeat.
+fn assert_shares_prefix(
+    earlier: &cursor_server::model::ModelRequest,
+    later: &cursor_server::model::ModelRequest,
+) {
+    assert!(!earlier.prompt.tools.is_empty());
+    assert_eq!(later.prompt.instructions, earlier.prompt.instructions);
+    assert_eq!(later.prompt.tools, earlier.prompt.tools);
+    assert_eq!(later.model.reasoning, earlier.model.reasoning);
+    assert_eq!(
+        later.history[..earlier.history.len()],
+        earlier.history[..],
+        "the earlier request must stay an exact prefix"
+    );
+}
+
+fn tool_call_response() -> Vec<ModelEvent> {
+    vec![
+        ModelEvent::Start {
+            model_call_id: "tool-call".into(),
+        },
+        ModelEvent::ToolCallStart {
+            index: 0,
+            call_id: "call-1".into(),
+            name: "Read".into(),
+        },
+        ModelEvent::ToolCallArgumentsDelta {
+            index: 0,
+            delta: "{\"path\":\"/tmp/a\"}".into(),
+        },
+        ModelEvent::ToolCallEnd { index: 0 },
+        ModelEvent::Done(FinishReason::ToolUse),
+    ]
+}
+
+/// A locally answered tool round whose usage leaves the prompt over the 90%
+/// budget of a 200K window yet inside the window itself.
+fn over_budget_tool_round() -> Vec<ModelEvent> {
+    vec![
+        ModelEvent::Start {
+            model_call_id: "todo-call".into(),
+        },
+        ModelEvent::ToolCallStart {
+            index: 0,
+            call_id: "todo-1".into(),
+            name: "TodoWrite".into(),
+        },
+        ModelEvent::ToolCallArgumentsDelta {
+            index: 0,
+            delta: r#"{"merge":false,"todos":[{"id":"1","content":"step","status":"pending"}]}"#
+                .into(),
+        },
+        ModelEvent::ToolCallEnd { index: 0 },
+        ModelEvent::Usage(Usage {
+            input_tokens: Some(184_000),
+            context_input_tokens: Some(184_000),
+            output_tokens: Some(100),
+            total_tokens: Some(184_100),
+            ..Default::default()
+        }),
+        ModelEvent::Done(FinishReason::ToolUse),
+    ]
+}
+
+/// Runs a short turn, then one that crosses the budget between two model calls.
+async fn run_over_budget(
+    provider: &fake_provider::FakeProvider,
+    conversation: &str,
+) -> (Output, Vec<cursor_server::model::ModelRequest>) {
+    let (_directory, store) = fixtures::temp_store().await;
+    let mut input = windowed_model("shared-prefix-model", Some(200_000));
+    input.reasoning_effort = Some("high".into());
+    let model = store.create_model(&input).await.unwrap();
+    let assets = PromptAssets::load(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("prompt/cursor")
+            .as_path(),
+    )
+    .unwrap();
+    let registry = TransportRegistry::new(
+        store,
+        Arc::new(provider.clone()),
+        PromptCompiler::new(assets),
+    );
+    let first = run(
+        &registry,
+        "shared-first",
+        user_request(conversation, "user-1", "start", &model.model_hash, None),
+    )
+    .await;
+    let second = run(
+        &registry,
+        "shared-second",
+        user_request(
+            conversation,
+            "user-2",
+            "continue",
+            &model.model_hash,
+            first.checkpoints.last().cloned(),
+        ),
+    )
+    .await;
+    (second, provider.requests())
+}
+
+#[tokio::test]
+async fn automatic_compaction_keeps_the_previous_request_as_an_exact_prefix() {
+    let provider = fake_provider::FakeProvider::default();
+    provider.push(text_response("first answer", 4_000, 12));
+    provider.push(over_budget_tool_round());
+    provider.push(text_response("durable summary", 186_000, 20));
+    provider.push(text_response("answer after compaction", 20_000, 20));
+
+    let (second, requests) = run_over_budget(&provider, "shared-conversation").await;
+
+    assert_eq!(second.summary_completed, 1);
+    assert_eq!(requests.len(), 4);
+    assert_shares_prefix(&requests[1], &requests[2]);
+    let tail = requests[2].history.last().unwrap();
+    assert_eq!(tail.message_id, "compaction:instruction");
+    assert_eq!(tail.role, Role::User);
+    assert!(requests[3]
+        .history
+        .iter()
+        .any(|message| matches!(&message.content, ProjectedContent::Parts(parts)
+            if matches!(parts.as_slice(), [ContentPart::Text { text }] if text.contains("durable summary")))));
+}
+
+#[tokio::test]
+async fn a_compaction_that_calls_tools_is_asked_again_without_them() {
+    let provider = fake_provider::FakeProvider::default();
+    provider.push(text_response("first answer", 4_000, 12));
+    provider.push(over_budget_tool_round());
+    provider.push(tool_call_response());
+    provider.push(text_response("durable summary", 186_000, 20));
+    provider.push(text_response("answer after compaction", 20_000, 20));
+
+    let (second, requests) = run_over_budget(&provider, "tool-conversation").await;
+
+    assert_eq!(second.summary_completed, 1);
+    assert_eq!(requests.len(), 5);
+    assert_shares_prefix(&requests[1], &requests[2]);
+    assert!(requests[3].prompt.tools.is_empty());
+    assert!(requests[4]
+        .history
+        .iter()
+        .any(|message| matches!(&message.content, ProjectedContent::Parts(parts)
+            if matches!(parts.as_slice(), [ContentPart::Text { text }] if text.contains("durable summary")))));
+}
+
+#[tokio::test]
+async fn a_refused_shared_prefix_compaction_is_trimmed_instead_of_losing_the_history() {
+    let provider = fake_provider::FakeProvider::default();
+    provider.push(text_response("first answer", 4_000, 12));
+    provider.push(over_budget_tool_round());
+    provider.push_error(cursor_server::Error::Provider(
+        "Anthropic 400 Bad Request: input length and `max_tokens` exceed context limit: \
+         186000 + 32000 > 200000"
+            .into(),
+    ));
+    provider.push(text_response("durable summary", 3_000, 20));
+    provider.push(text_response("answer after compaction", 20_000, 20));
+
+    let (second, requests) = run_over_budget(&provider, "refused-conversation").await;
+
+    assert_eq!(second.summary_completed, 1);
+    assert_eq!(requests.len(), 5);
+    assert_shares_prefix(&requests[1], &requests[2]);
+    assert!(requests[3].prompt.tools.is_empty());
+    assert!(requests[4]
+        .history
+        .iter()
+        .any(|message| matches!(&message.content, ProjectedContent::Parts(parts)
+            if matches!(parts.as_slice(), [ContentPart::Text { text }] if text.contains("durable summary")))));
 }
 
 #[tokio::test]

@@ -175,11 +175,9 @@ pub(crate) async fn prepare(
     if subagents_disabled {
         checkpoint_prompt.tools.retain(|tool| tool.name != "Task");
     }
-    let prompt = if compacting {
-        compiler.prompt_spec(Mode::Compaction, &model, &[], false)?
-    } else {
-        checkpoint_prompt.clone()
-    };
+    // Compaction repeats the conversation's own prompt so its cached prefix is
+    // read back instead of written again.
+    let prompt = checkpoint_prompt.clone();
     let proposed_base_checkpoint_id = match base_messages.as_mut() {
         Some(messages) if !messages.is_empty() => {
             validate_prompt_root(messages)?;

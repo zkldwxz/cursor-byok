@@ -36,6 +36,7 @@ Do not solve prefix instability independently in each provider adapter. Produce 
 - Give every appended context update a unique event identity. Compare the latest context by content, not only by identifier, so `A → B → A` appends the final `A` again while retries of the same event remain idempotent.
 - Preserve `request-context:*` wire identity through checkpoint encoding and hydration. Deduplication must still work after process restart or conversation resume.
 - Automatic compaction is an explicit prefix reset. Compact obsolete history, retain exactly the latest request-context message, then place the summary and current initial messages in deterministic order. Manual compaction may reproject current context on the next user turn.
+- The compaction request itself extends the previous request: same instructions, tools, reasoning settings and history, with only the summarize instruction appended. Send the trimmed, tool-free request only when the prompt no longer fits the window or the shared request returned no usable summary.
 - Background completions and injected runtime events must not manufacture duplicate request context unless they actually start a user turn whose context changed.
 
 ## Change workflow

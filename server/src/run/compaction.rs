@@ -4,8 +4,8 @@ use std::collections::HashSet;
 
 use crate::{
     model::{
-        estimate_context_tokens, estimate_projected_messages_tokens, CanonicalMessage, PreparedRun,
-        ProjectedContent, ProjectedMessage, Role,
+        estimate_context_tokens, estimate_projected_messages_tokens, CanonicalMessage, ContentPart,
+        ModelRequest, PreparedRun, ProjectedContent, ProjectedMessage, PromptSpec, Role,
     },
     store::ContextUsageAnchor,
 };
@@ -22,8 +22,9 @@ const FALLBACK_CHARS: usize = 12_000;
 /// there was room. A proportional reserve absorbs that drift and scales with
 /// the model: a 200K window keeps 20K free and a 1M window keeps 100K.
 const CONTEXT_RESERVE_DIVISOR: u64 = 10;
-pub(super) const OUTPUT_TOKENS: u64 = 4_096;
-pub(super) const INSTRUCTIONS: &str = "Summarize the conversation for the next model turn. Preserve goals, constraints, decisions, files, commands, errors, results, and unfinished work. Do not call tools. Return only the concise durable summary.";
+const OUTPUT_TOKENS: u64 = 4_096;
+const INSTRUCTION_ID: &str = "compaction:instruction";
+const INSTRUCTIONS: &str = "Stop working on the task and summarize this conversation for the next model turn. Preserve durable context: user goals, constraints, facts, decisions, files, commands, errors, tool outcomes, and unfinished work. Prefer concrete paths, commands, values, and short sentences. Do not call tools: a tool call is discarded and wastes this turn. Do not address the user, and do not mention summarization or token limits. Return only the concise plain-text summary.";
 
 /// Usable prompt budget: the window minus the proportional reserve.
 pub(super) fn context_budget(context_window: u64) -> u64 {
@@ -45,10 +46,73 @@ pub(super) fn is_context_overflow(message: &str) -> bool {
         || lowered.contains("context window exceeded")
         || lowered.contains("model_context_window_exceeded")
         || lowered.contains("context_length_exceeded")
+        || lowered.contains("exceed context limit")
         || (lowered.contains("maximum context length") && lowered.contains("token"))
 }
 
-/// Builds the history for a compaction call.
+/// How one automatic compaction call is built.
+#[derive(Clone, Copy, Debug)]
+pub(super) enum CompactionAttempt {
+    /// Repeats the turn it interrupts, so the provider reads its cache back.
+    SharedPrefix,
+    /// Trimmed to the window and sent without tools, at full input price.
+    Isolated,
+}
+
+/// Whether a prompt still fits next to the instruction and the summary.
+pub(super) fn fits_window(estimated_tokens: u64, context_window: Option<u64>) -> bool {
+    context_window.is_none_or(|window| estimated_tokens.saturating_add(OUTPUT_TOKENS) <= window)
+}
+
+/// Repeats the turn's own request and only appends the summarize instruction.
+///
+/// Provider caches key on tools, system, thinking settings and history in that
+/// order. Compaction used to swap all four, so a 900k token conversation that
+/// was fully cached a moment earlier was written again at the 2x one hour rate,
+/// for a prefix no later call ever reads.
+pub(super) fn shared_prefix_request(
+    prepared: &PreparedRun,
+    history: Vec<ProjectedMessage>,
+) -> ModelRequest {
+    ModelRequest {
+        prompt: prepared.prompt.clone(),
+        model: prepared.model.clone(),
+        history: shared_prefix_history(history),
+    }
+}
+
+pub(super) fn shared_prefix_history(mut history: Vec<ProjectedMessage>) -> Vec<ProjectedMessage> {
+    history.push(ProjectedMessage {
+        message_id: INSTRUCTION_ID.into(),
+        role: Role::User,
+        content: ProjectedContent::Parts(vec![ContentPart::Text {
+            text: INSTRUCTIONS.into(),
+        }]),
+    });
+    history
+}
+
+/// Summarizes without tools, for prompts that no longer fit the window and for
+/// models that answered the shared request with a tool call.
+pub(super) fn isolated_request(
+    prepared: &PreparedRun,
+    history: Vec<ProjectedMessage>,
+) -> ModelRequest {
+    let mut model = prepared.model.clone();
+    model.max_output_tokens = Some(OUTPUT_TOKENS);
+    model.reasoning.enabled = false;
+    model.reasoning.effort = None;
+    ModelRequest {
+        prompt: PromptSpec {
+            instructions: INSTRUCTIONS.into(),
+            tools: Vec::new(),
+        },
+        history: compaction_history(history, model.context_window_tokens),
+        model,
+    }
+}
+
+/// Builds the history for an isolated compaction call.
 ///
 /// Two properties matter, and replaying the raw history guarantees neither:
 ///
@@ -66,13 +130,13 @@ pub(super) fn is_context_overflow(message: &str) -> bool {
 ///
 /// Trimming keeps the most recent turns and only ever cuts at a user-message
 /// boundary, so an assistant tool call is never separated from its results.
-pub(super) fn compaction_history(
+fn compaction_history(
     history: Vec<ProjectedMessage>,
     context_window: Option<u64>,
 ) -> Vec<ProjectedMessage> {
     super::history::user_terminated(
         trim_to_context(history, context_window),
-        "compaction:instruction",
+        INSTRUCTION_ID,
         INSTRUCTIONS,
     )
 }
@@ -301,6 +365,9 @@ mod tests {
         ));
         assert!(is_context_overflow("model_context_window_exceeded"));
         assert!(is_context_overflow("context_length_exceeded"));
+        assert!(is_context_overflow(
+            "input length and `max_tokens` exceed context limit: 186000 + 32000 > 200000"
+        ));
         assert!(is_context_overflow(
             "This model's maximum context length is 128000 tokens"
         ));
