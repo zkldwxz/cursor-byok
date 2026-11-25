@@ -20,10 +20,9 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    time::Duration,
 };
 
-use remote_link::{Host, Ticket};
+use remote_link::{Host, Identity, Ticket};
 use serde::Serialize;
 use tokio::{net::TcpListener, sync::Mutex};
 use tokio_util::sync::CancellationToken;
@@ -32,7 +31,7 @@ use crate::{
     cursor::{conversation::UpstreamRetries, transport::MessageModes},
     local_app::account,
     plugin::PluginRegistry,
-    store::{RelaySettings, Store},
+    store::{RelaySettings, RemoteIdentity, Store},
     Error, Result,
 };
 
@@ -43,9 +42,6 @@ use relay::Relay;
 use sessions::Sessions;
 use ssh::SshChats;
 use tunnel::Tunnel;
-
-/// Long enough for phones to hear that they are no longer paired.
-const FAREWELL: Duration = Duration::from_secs(1);
 
 /// Whether this server, rather than Cursor's own, answers Cursor's remote control.
 #[derive(Clone, Default)]
@@ -177,16 +173,13 @@ impl RemoteControl {
     pub async fn status(&self) -> Result<RemoteStatus> {
         let relay = self.inner.store.relay_settings().await?;
         let cursor = self.inner.relay.connected().borrow().is_some();
+        let devices = self.inner.store.remote_devices().await?;
         let state = self.inner.state.lock().await;
         Ok(RemoteStatus {
             enabled: state.active.is_some(),
             cloudflared: (self.inner.cloudflared)().is_some(),
             cursor,
-            devices: state
-                .active
-                .as_ref()
-                .map(|active| active.access.devices())
-                .unwrap_or_default(),
+            devices: devices.into_iter().map(Into::into).collect(),
             relay,
             error: state.error.clone(),
         })
@@ -201,6 +194,14 @@ impl RemoteControl {
         self.inner.store.set_relay_settings(&settings).await
     }
 
+    /// Lets phones in again if they were when the app last ran.
+    pub async fn restore(&self) -> Result<()> {
+        match self.inner.store.remote_enabled().await? {
+            true => self.enable().await,
+            false => Ok(()),
+        }
+    }
+
     pub async fn enable(&self) -> Result<()> {
         let mut state = self.inner.state.lock().await;
         if state.active.is_some() {
@@ -208,9 +209,11 @@ impl RemoteControl {
         }
         state.error = None;
         let relay = relay_of(&self.inner.store.relay_settings().await?);
-        let host = Arc::new(Host::bind(relay).await.map_err(remote_error)?);
         let stop = CancellationToken::new();
-        let access = Arc::new(Access::new(stop.clone()));
+        let access = Access::open(self.inner.store.clone(), stop.clone()).await?;
+        let access = Arc::new(access);
+        let host = Arc::new(self.inner.host(relay).await?);
+        self.inner.store.set_remote_enabled(true).await?;
         let phones = web::Phones::new(
             access.clone(),
             self.inner.sessions.clone(),
@@ -228,7 +231,7 @@ impl RemoteControl {
             let (phones, stop) = (phones.clone(), stop.clone());
             async move {
                 tokio::select! {
-                    () = stop.cancelled() => tokio::time::sleep(FAREWELL).await,
+                    () = stop.cancelled() => {}
                     () = app::listen(&host, &phones) => {}
                     () = phones.follow() => {}
                 }
@@ -256,7 +259,14 @@ impl RemoteControl {
         Ok(())
     }
 
-    pub async fn disable(&self) {
+    /// Phones stay paired, and come back once it is on again.
+    pub async fn disable(&self) -> Result<()> {
+        self.close().await;
+        self.inner.store.set_remote_enabled(false).await
+    }
+
+    /// Until the app runs again.
+    pub async fn close(&self) {
         let mut state = self.inner.state.lock().await;
         state.error = None;
         if let Some(active) = state.active.take() {
@@ -283,18 +293,39 @@ impl RemoteControl {
 
     pub async fn remove_device(&self, id: &str) -> Result<()> {
         let state = self.inner.state.lock().await;
-        if state
-            .active
-            .as_ref()
-            .is_some_and(|active| active.access.remove(id))
-        {
-            return Ok(());
+        let removed = match &state.active {
+            Some(active) => active.access.remove(id).await?,
+            None => {
+                let stop = CancellationToken::new();
+                let access = Access::open(self.inner.store.clone(), stop).await?;
+                access.remove(id).await?
+            }
+        };
+        match removed {
+            true => Ok(()),
+            false => Err(Error::Config(format!("paired device not found: {id}"))),
         }
-        Err(Error::Config(format!("paired device not found: {id}")))
     }
 }
 
 impl Inner {
+    /// The same computer each time, to the phones that know it.
+    async fn host(&self, relay: Option<remote_link::Relay>) -> Result<Host> {
+        let known = self.store.remote_identity().await?;
+        let mut identity = match known {
+            Some(RemoteIdentity { key, port }) => Identity { key, port },
+            None => Identity::generate(),
+        };
+        let host = Host::bind(relay, &identity).await.map_err(remote_error)?;
+        if identity.port == 0 {
+            identity.port = host.port().unwrap_or(0);
+            let Identity { key, port } = identity;
+            let identity = RemoteIdentity { key, port };
+            self.store.set_remote_identity(&identity).await?;
+        }
+        Ok(host)
+    }
+
     /// Until told to stop, or until the tunnel is lost.
     async fn admit_browsers(
         &self,
@@ -347,7 +378,7 @@ fn remote_error(error: remote_link::Error) -> Error {
 
 #[cfg(all(test, unix))]
 mod tests {
-    use std::os::unix::fs::PermissionsExt;
+    use std::{os::unix::fs::PermissionsExt, time::Duration};
 
     use super::*;
 
@@ -392,7 +423,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn remote_control_is_off_until_turned_on_and_forgets_devices_when_turned_off() {
+    async fn remote_control_is_off_until_turned_on_and_keeps_its_devices_when_turned_off() {
         let remote = remote(lasting).await;
         assert!(!remote.status().await.unwrap().enabled);
         assert!(remote.pairing_link().await.is_err());
@@ -403,13 +434,36 @@ mod tests {
         let code = web.link.split('#').nth(1).unwrap().to_string();
         {
             let state = remote.inner.state.lock().await;
-            state.active.as_ref().unwrap().access.pair(&code, "phone");
+            let access = &state.active.as_ref().unwrap().access;
+            access.pair(&code, "phone").await.unwrap().unwrap();
         }
         assert_eq!(remote.status().await.unwrap().devices.len(), 1);
-        remote.disable().await;
-        remote.enable().await.unwrap();
+        remote.disable().await.unwrap();
+        let devices = remote.status().await.unwrap().devices;
+        assert_eq!(devices.len(), 1);
+        remote.remove_device(&devices[0].id).await.unwrap();
         assert!(remote.status().await.unwrap().devices.is_empty());
-        remote.disable().await;
+        assert!(remote.remove_device(&devices[0].id).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn a_phone_that_paired_once_finds_the_computer_after_it_restarted() {
+        let before = remote(|| None).await;
+        before.enable().await.unwrap();
+        let first = before.pairing_link().await.unwrap().app.link;
+        let first = remote_link::Ticket::parse(&first).unwrap();
+        before.close().await;
+        let sessions = before.inner.sessions.clone();
+        let store = before.inner.store.clone();
+        let after = RemoteControl::build(store, None, Relay::default(), sessions, || None);
+        after.restore().await.unwrap();
+        assert!(after.status().await.unwrap().enabled);
+        let second = after.pairing_link().await.unwrap().app.link;
+        let second = remote_link::Ticket::parse(&second).unwrap();
+        assert_eq!(first.key, second.key);
+        after.disable().await.unwrap();
+        after.restore().await.unwrap();
+        assert!(!after.status().await.unwrap().enabled);
     }
 
     #[tokio::test]
@@ -425,7 +479,7 @@ mod tests {
         let hello = serde_json::json!({"code": ticket.code, "name": "phone"});
         link.send(&hello.to_string()).await.unwrap();
         assert!(link.receive().await.unwrap().contains("paired"));
-        remote.disable().await;
+        remote.disable().await.unwrap();
         let ended = tokio::time::timeout(Duration::from_secs(10), async {
             while link.receive().await.is_some() {}
         });
@@ -481,7 +535,7 @@ mod tests {
         assert_eq!(ask().await, axum::http::StatusCode::OK);
         let _cursor = relay::testing::FakeCursor::connect(&remote.inner.relay);
         assert!(remote.status().await.unwrap().cursor);
-        remote.disable().await;
+        remote.disable().await.unwrap();
         assert!(!remote.switch().is_on());
         assert!(!remote.status().await.unwrap().cursor);
     }
@@ -509,7 +563,7 @@ mod tests {
         let remote = remote(short_lived).await;
         remote.enable().await.unwrap();
         web_link(&remote).await;
-        remote.disable().await;
+        remote.disable().await.unwrap();
         remote.enable().await.unwrap();
         assert_eq!(remote.status().await.unwrap().error, None);
         web_link(&remote).await;

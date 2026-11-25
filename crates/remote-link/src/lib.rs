@@ -1,7 +1,10 @@
 //! Carries text messages between a computer and a phone, encrypted end to end.
 mod ticket;
 
-use std::time::Duration;
+use std::{
+    net::{Ipv4Addr, SocketAddr},
+    time::Duration,
+};
 
 use iroh::{
     endpoint::{presets, Connection, Incoming, RecvStream, SendStream},
@@ -36,6 +39,23 @@ fn lost(error: impl std::fmt::Display) -> Error {
     Error::Connection(error.to_string())
 }
 
+/// What makes a computer the one a phone paired with, whenever it comes back.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Identity {
+    pub key: [u8; 32],
+    /// Where it was found before; zero for anywhere.
+    pub port: u16,
+}
+
+impl Identity {
+    pub fn generate() -> Self {
+        Self {
+            key: SecretKey::generate().to_bytes(),
+            port: 0,
+        }
+    }
+}
+
 /// The computer's end; phones reach it by its key.
 pub struct Host {
     endpoint: Endpoint,
@@ -43,8 +63,16 @@ pub struct Host {
 }
 
 impl Host {
-    pub async fn bind(relay: Option<Relay>) -> Result<Self> {
-        let endpoint = endpoint(relay.as_ref()).await?;
+    pub async fn bind(relay: Option<Relay>, identity: &Identity) -> Result<Self> {
+        let key = SecretKey::from_bytes(&identity.key);
+        let endpoint = match endpoint(relay.as_ref(), key.clone(), identity.port).await {
+            Err(error) if identity.port != 0 => {
+                // Taken by something else: phones that use the relay still find it.
+                tracing::warn!(%error, port = identity.port, "remote port is not free");
+                endpoint(relay.as_ref(), key, 0).await?
+            }
+            bound => bound?,
+        };
         if relay.is_some()
             && tokio::time::timeout(ONLINE_TIMEOUT, endpoint.online())
                 .await
@@ -54,6 +82,15 @@ impl Host {
             tracing::warn!("remote relay was not reached");
         }
         Ok(Self { endpoint, relay })
+    }
+
+    /// The port phones on the same network find it at.
+    pub fn port(&self) -> Option<u16> {
+        let bound = self.endpoint.bound_sockets();
+        bound
+            .iter()
+            .find(|socket| socket.is_ipv4())
+            .map(|it| it.port())
     }
 
     /// Where this computer is now, and the code that pairs a phone with it.
@@ -101,7 +138,7 @@ pub struct Phone {
 impl Phone {
     pub async fn bind(relay: Option<&Relay>) -> Result<Self> {
         Ok(Self {
-            endpoint: endpoint(relay).await?,
+            endpoint: endpoint(relay, SecretKey::generate(), 0).await?,
         })
     }
 
@@ -131,7 +168,7 @@ impl Phone {
     }
 }
 
-async fn endpoint(relay: Option<&Relay>) -> Result<Endpoint> {
+async fn endpoint(relay: Option<&Relay>, key: SecretKey, port: u16) -> Result<Endpoint> {
     let mode = match relay {
         Some(relay) => {
             let mut config = RelayConfig::new(relay.url()?, None);
@@ -143,9 +180,11 @@ async fn endpoint(relay: Option<&Relay>) -> Result<Endpoint> {
         None => RelayMode::Disabled,
     };
     Endpoint::builder(presets::Minimal)
-        .secret_key(SecretKey::generate())
+        .secret_key(key)
         .alpns(vec![ALPN.to_vec()])
         .relay_mode(mode)
+        .bind_addr(SocketAddr::from((Ipv4Addr::UNSPECIFIED, port)))
+        .map_err(lost)?
         .bind()
         .await
         .map_err(lost)
@@ -245,7 +284,7 @@ mod tests {
     use super::*;
 
     async fn pair() -> (Host, Phone, Link, Link) {
-        let host = Host::bind(None).await.unwrap();
+        let host = Host::bind(None, &Identity::generate()).await.unwrap();
         let phone = Phone::bind(None).await.unwrap();
         let ticket = host.ticket("code".into());
         let answer = async { host.accept().await.unwrap().answer().await };
@@ -285,8 +324,8 @@ mod tests {
 
     #[tokio::test]
     async fn a_phone_reaches_only_the_computer_whose_key_it_was_given() {
-        let host = Host::bind(None).await.unwrap();
-        let other = Host::bind(None).await.unwrap();
+        let host = Host::bind(None, &Identity::generate()).await.unwrap();
+        let other = Host::bind(None, &Identity::generate()).await.unwrap();
         let phone = Phone::bind(None).await.unwrap();
         let mut ticket = host.ticket("code".into());
         ticket.addresses = other.ticket(String::new()).addresses;
@@ -296,7 +335,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_phone_that_connects_and_says_nothing_keeps_no_other_waiting() {
-        let host = Host::bind(None).await.unwrap();
+        let host = Host::bind(None, &Identity::generate()).await.unwrap();
         let ticket = host.ticket("code".into());
         let silent = Phone::bind(None).await.unwrap();
         let address = EndpointAddr::from_parts(
@@ -316,8 +355,31 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_computer_that_comes_back_is_found_with_the_same_ticket() {
+        let mut identity = Identity::generate();
+        let host = Host::bind(None, &identity).await.unwrap();
+        identity.port = host.port().unwrap();
+        let ticket = host.ticket(String::new());
+        host.close().await;
+        let host = Host::bind(None, &identity).await.unwrap();
+        let phone = Phone::bind(None).await.unwrap();
+        let answer = async { host.accept().await.unwrap().answer().await };
+        let (theirs, ours) = tokio::join!(answer, phone.dial(&ticket));
+        assert!(theirs.is_ok() && ours.is_ok());
+    }
+
+    #[tokio::test]
+    async fn a_computer_whose_port_was_taken_still_starts() {
+        let mut identity = Identity::generate();
+        let first = Host::bind(None, &identity).await.unwrap();
+        identity.port = first.port().unwrap();
+        let second = Host::bind(None, &identity).await.unwrap();
+        assert_ne!(second.port(), first.port());
+    }
+
+    #[tokio::test]
     async fn closing_the_computer_ends_accepting() {
-        let host = Host::bind(None).await.unwrap();
+        let host = Host::bind(None, &Identity::generate()).await.unwrap();
         host.close().await;
         assert!(host.accept().await.is_none());
     }

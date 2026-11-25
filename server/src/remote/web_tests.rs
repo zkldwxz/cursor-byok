@@ -59,7 +59,7 @@ impl Computer {
             retries.clone(),
         );
         let stop = CancellationToken::new();
-        let access = Arc::new(Access::new(stop.clone()));
+        let access = Arc::new(Access::open(store.clone(), stop.clone()).await.unwrap());
         let phones = Phones::new(access.clone(), sessions, Models::new(store.clone(), None));
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap().to_string();
@@ -108,14 +108,15 @@ impl Computer {
             .unwrap();
     }
 
-    fn token(&self) -> String {
+    async fn token(&self) -> String {
         let code = self.access.new_pairing_code();
-        self.access.pair(&code, "phone").unwrap()
+        let paired = self.access.pair(&code, "phone").await;
+        paired.unwrap().unwrap()
     }
 
     async fn phone(&self) -> Phone {
         let mut phone = Phone::connect(&self.address, &self.address).await.unwrap();
-        phone.say(json!({"token": self.token()})).await;
+        phone.say(json!({"token": self.token().await})).await;
         phone
     }
 }
@@ -319,12 +320,21 @@ async fn a_device_that_is_not_paired_is_turned_away() {
 }
 
 #[tokio::test]
-async fn turning_remote_control_off_ends_the_session() {
+async fn turning_remote_control_off_ends_the_session_but_not_the_pairing() {
     let computer = Computer::start().await;
     let mut phone = computer.phone().await;
     phone.hear_type("overview").await;
     computer.stop.cancel();
-    phone.hear_type("unpaired").await;
+    let rest = async {
+        let mut heard = Vec::new();
+        while let Some(Ok(Frame::Text(text))) = phone.0.next().await {
+            heard.push(text);
+        }
+        heard
+    };
+    let rest = tokio::time::timeout(Duration::from_secs(10), rest).await;
+    let rest = rest.expect("the session went on");
+    assert!(!rest.iter().any(|text| text.contains("unpaired")));
 }
 
 #[tokio::test]
@@ -620,7 +630,9 @@ async fn heard_by_app(link: &mut remote_link::Link, kind: &str) -> Value {
 }
 
 async fn app(computer: &Computer, hello: Value) -> (remote_link::Phone, remote_link::Link) {
-    let host = remote_link::Host::bind(None).await.unwrap();
+    let host = remote_link::Host::bind(None, &remote_link::Identity::generate())
+        .await
+        .unwrap();
     let ticket = host.ticket(String::new());
     let phones = computer.phones.clone();
     tokio::spawn(async move { app::listen(&host, &phones).await });
@@ -639,12 +651,13 @@ async fn an_app_pairs_once_and_then_follows_like_a_browser() {
     let (_phone, mut link) = app(&computer, hello.clone()).await;
     let paired = heard_by_app(&mut link, "paired").await;
     heard_by_app(&mut link, "overview").await;
-    assert_eq!(computer.access.devices()[0].name, "Pixel");
+    let devices = || async { computer.store.remote_devices().await.unwrap() };
+    assert_eq!(devices().await[0].name, "Pixel");
     let (_phone, mut again) = app(&computer, json!({"token": paired["token"]})).await;
     heard_by_app(&mut again, "overview").await;
     let (_phone, mut second) = app(&computer, hello).await;
     heard_by_app(&mut second, "unpaired").await;
-    assert_eq!(computer.access.devices().len(), 1);
+    assert_eq!(devices().await.len(), 1);
 }
 
 #[tokio::test]
@@ -665,9 +678,10 @@ async fn an_app_that_is_not_paired_hears_nothing_of_the_computer() {
 #[tokio::test]
 async fn removing_a_device_ends_its_app_session() {
     let computer = Computer::start().await;
-    let (_phone, mut link) = app(&computer, json!({"token": computer.token()})).await;
+    let (_phone, mut link) = app(&computer, json!({"token": computer.token().await})).await;
     heard_by_app(&mut link, "overview").await;
-    computer.access.remove(&computer.access.devices()[0].id);
+    let devices = computer.store.remote_devices().await.unwrap();
+    assert!(computer.access.remove(&devices[0].id).await.unwrap());
     heard_by_app(&mut link, "unpaired").await;
 }
 
@@ -811,4 +825,81 @@ async fn an_ssh_conversation_is_followed_but_cannot_be_steered() {
         .command(json!({"type": "send", "text": "hello"}))
         .await;
     assert_eq!(reply["code"], "gone");
+}
+
+#[tokio::test]
+async fn an_app_is_told_where_to_find_the_computer_next_time() {
+    let computer = Computer::start().await;
+    let (_phone, mut link) = app(&computer, json!({"token": computer.token().await})).await;
+    let told = heard_by_app(&mut link, "computer").await;
+    let place = remote_link::Ticket::parse(told["link"].as_str().unwrap()).unwrap();
+    assert!(place.code.is_empty());
+    assert!(!told["name"].as_str().unwrap().is_empty());
+    // A browser is there already.
+    let mut browser = computer.phone().await;
+    assert_eq!(browser.hear_type("computer").await["link"], Value::Null);
+}
+
+#[tokio::test]
+async fn context_and_effort_are_shown_and_go_with_the_next_message() {
+    let computer = Computer::start().await;
+    let model = computer
+        .store
+        .create_model(
+            &serde_json::from_value(json!({
+                "display_name": "Mine",
+                "type": "openai",
+                "base_url": "https://example.com/v1",
+                "openai_endpoint": crate::model::OPENAI_CHAT_ENDPOINT,
+                "tooltip_data": "Mine",
+                "model_id": "maker-1",
+                "context_window_tokens": 500_000,
+            }))
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    let mut one = session("one");
+    one.model_id = Some(model.model_hash);
+    let mut agents = Agents::open(&computer.relay, vec![one]);
+    let mut phone = computer.phone().await;
+    phone.hear(|it| it["reachable"] == true).await;
+    phone.say(json!({"attach": "one"})).await;
+    agents.attached("one").await;
+    let chat = phone
+        .hear(|it| it["tuning"]["context"]["label"] == "500K")
+        .await;
+    assert_eq!(chat["tuning"]["context"]["now"], "500k");
+    let efforts = chat["tuning"]["effort"]["items"].as_array().unwrap();
+    assert!(efforts.iter().any(|it| it["id"] == "xhigh"));
+    for (kind, id, reply) in [
+        ("context", "1m", "done"),
+        ("effort", "xhigh", "done"),
+        ("effort", "endless", "refused"),
+    ] {
+        let pick = json!({"type": "pick", "kind": kind, "id": id});
+        assert_eq!(phone.command(pick).await["type"], reply);
+    }
+    phone
+        .say(json!({"command": {"type": "send", "text": "go on"}}))
+        .await;
+    let (id, message) = agents
+        .called::<pb::SendAgentHostMessageRequest>("SendMessage")
+        .await;
+    let sent = message.requested_model.unwrap().parameters;
+    let sent = sent
+        .iter()
+        .map(|it| (it.id.as_str(), it.value.as_str()))
+        .collect::<Vec<_>>();
+    assert_eq!(sent, [("context", "1m"), ("reasoning", "xhigh")]);
+    agents.answer(&id, pb::SendAgentHostMessageResponse::default());
+    phone.hear_type("done").await;
+
+    // Another model may not have what was set for this one.
+    phone
+        .command(json!({"type": "pick", "kind": "model", "id": "model-b"}))
+        .await;
+    phone
+        .hear(|it| it["type"] == "chat" && it["tuning"]["context"].is_null())
+        .await;
 }

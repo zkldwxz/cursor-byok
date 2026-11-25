@@ -115,11 +115,7 @@ impl SshChats {
             checkpoint,
             running,
             transcript: super::kept::transcript(&messages, running),
-            model: model.map(|(name, label)| Model {
-                id: String::new(),
-                label,
-                name,
-            }),
+            model: model.map(|(name, label)| Model::named(String::new(), label, name)),
         }))
     }
 }

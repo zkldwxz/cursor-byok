@@ -229,6 +229,44 @@ const EFFORTS: [(&str, &str); 5] = [
 ];
 const DEFAULT_CONTEXT: &str = "200k";
 
+/// What of a model a person chooses: each the value Cursor sends and the name it shows.
+pub(crate) struct ModelChoices {
+    pub contexts: Vec<(String, String)>,
+    pub efforts: Vec<(String, String)>,
+}
+
+pub(crate) fn model_choices(model: &ModelConfig) -> ModelChoices {
+    let gateway = model.gateway_capabilities.as_ref();
+    let contexts = match (gateway, model.context_window_tokens) {
+        (Some(_), Some(tokens)) => vec![(tokens.to_string(), format_token_count(tokens))],
+        _ => context_options(model.context_window_tokens),
+    };
+    let efforts = match gateway {
+        Some(gateway) => gateway
+            .efforts
+            .iter()
+            .map(|id| (id.clone(), id.clone()))
+            .collect(),
+        None => every_effort(),
+    };
+    ModelChoices { contexts, efforts }
+}
+
+/// Effort 与上下文档位由宿主统一提供,与内置模型一致;插件不再声明这两项。
+pub(crate) fn plugin_model_choices() -> ModelChoices {
+    ModelChoices {
+        contexts: context_options(None),
+        efforts: every_effort(),
+    }
+}
+
+fn every_effort() -> Vec<(String, String)> {
+    EFFORTS
+        .into_iter()
+        .map(|(id, name)| (id.to_owned(), name.to_owned()))
+        .collect()
+}
+
 fn context_options(context_window_tokens: Option<u64>) -> Vec<(String, String)> {
     let mut contexts = CONTEXTS
         .into_iter()
@@ -459,17 +497,12 @@ const FAST_TOGGLE: [(&str, &str); 2] = [("false", ""), ("true", "Fast")];
 
 fn available_model(model: &ModelConfig) -> AvailableModel {
     let gateway = model.gateway_capabilities.as_ref();
-    let efforts = gateway.map(|g| {
-        g.efforts
-            .iter()
-            .map(|s| (s.as_str(), s.as_str()))
-            .collect::<Vec<_>>()
-    });
-    let efforts = efforts.as_deref().unwrap_or(&EFFORTS);
-    let contexts = match (gateway, model.context_window_tokens) {
-        (Some(_), Some(tokens)) => vec![(tokens.to_string(), format_token_count(tokens))],
-        _ => context_options(model.context_window_tokens),
-    };
+    let ModelChoices { contexts, efforts } = model_choices(model);
+    let efforts = efforts
+        .iter()
+        .map(|(id, name)| (id.as_str(), name.as_str()))
+        .collect::<Vec<_>>();
+    let efforts = efforts.as_slice();
     let tooltip = model_tooltip(model);
     let ultrafast = model.uses_ultrafast_by_default();
     let variants = model_variants(
@@ -749,8 +782,7 @@ fn available_plugin_model(model: &PluginModelDescriptor) -> AvailableModel {
     let tooltip = TooltipData {
         markdown_content: model.description.clone(),
     };
-    // Effort 与上下文档位由宿主统一提供,与内置模型一致;插件不再声明这两项。
-    let contexts = context_options(None);
+    let contexts = plugin_model_choices().contexts;
     let variants = model_variants(
         &model.id,
         &model.display_name,

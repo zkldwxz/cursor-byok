@@ -1,19 +1,26 @@
-//! Issues one-time pairing codes and the device tokens they are exchanged for.
+//! Issues one-time pairing codes and the lasting device tokens they are exchanged for.
 use std::time::{Duration, Instant};
 
-use parking_lot::Mutex;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
+use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
+
+use crate::{
+    store::{RemoteDevice, Store},
+    Result,
+};
 
 const PAIRING_LIFETIME: Duration = Duration::from_secs(10 * 60);
 const MAX_NAME_CHARS: usize = 40;
 
-/// Everything here lives only while remote control is on: turning it off, or
-/// quitting, forgets every device and ends its sessions.
+/// Who may come in while remote control is on. Phones stay paired until they
+/// are removed; turning it off only ends their sessions.
 pub(super) struct Access {
-    pairing: Mutex<Option<Pairing>>,
+    store: Store,
+    pairing: parking_lot::Mutex<Option<Pairing>>,
+    /// Held while they are written, so that no two changes cross.
     devices: Mutex<Vec<Device>>,
     /// Parent of every device's session.
     stop: CancellationToken,
@@ -25,8 +32,7 @@ struct Pairing {
 }
 
 struct Device {
-    view: PairedDevice,
-    token_hash: [u8; 32],
+    kept: RemoteDevice,
     session: CancellationToken,
 }
 
@@ -37,13 +43,29 @@ pub struct PairedDevice {
     pub paired_at_ms: i64,
 }
 
-impl Access {
-    pub fn new(stop: CancellationToken) -> Self {
+impl From<RemoteDevice> for PairedDevice {
+    fn from(device: RemoteDevice) -> Self {
         Self {
-            pairing: Mutex::default(),
-            devices: Mutex::default(),
-            stop,
+            id: device.id,
+            name: device.name,
+            paired_at_ms: device.paired_at_ms,
         }
+    }
+}
+
+impl Access {
+    pub async fn open(store: Store, stop: CancellationToken) -> Result<Self> {
+        let devices = store.remote_devices().await?.into_iter();
+        let devices = devices.map(|kept| Device {
+            kept,
+            session: stop.child_token(),
+        });
+        Ok(Self {
+            pairing: Default::default(),
+            devices: Mutex::new(devices.collect()),
+            store,
+            stop,
+        })
     }
 
     /// Replaces any earlier code, so only the newest link pairs.
@@ -56,59 +78,71 @@ impl Access {
         code
     }
 
-    pub fn pair(&self, code: &str, name: &str) -> Option<String> {
+    /// The device's token, if the code is the one of the newest link.
+    pub async fn pair(&self, code: &str, name: &str) -> Result<Option<String>> {
         {
             let mut pairing = self.pairing.lock();
-            let current = pairing.as_ref()?;
+            let Some(current) = pairing.as_ref() else {
+                return Ok(None);
+            };
             if hash(&current.code) != hash(code) || Instant::now() >= current.expires {
-                return None;
+                return Ok(None);
             }
             *pairing = None;
         }
         let token = secret();
-        self.devices.lock().push(Device {
-            view: PairedDevice {
+        let device = Device {
+            kept: RemoteDevice {
                 id: Uuid::new_v4().to_string(),
                 name: name.trim().chars().take(MAX_NAME_CHARS).collect(),
                 paired_at_ms: chrono::Utc::now().timestamp_millis(),
+                token_hash: hash(&token),
             },
-            token_hash: hash(&token),
             session: self.stop.child_token(),
-        });
-        Some(token)
+        };
+        let mut devices = self.devices.lock().await;
+        let mut kept = kept(&devices);
+        kept.push(device.kept.clone());
+        self.store.set_remote_devices(&kept).await?;
+        devices.push(device);
+        Ok(Some(token))
     }
 
     /// The token's session: cancelled once its device is removed.
-    pub fn session(&self, token: &str) -> Option<CancellationToken> {
+    pub async fn session(&self, token: &str) -> Option<CancellationToken> {
         let token_hash = hash(token);
-        self.devices
-            .lock()
+        let devices = self.devices.lock().await;
+        devices
             .iter()
-            .find(|device| device.token_hash == token_hash)
+            .find(|device| device.kept.token_hash == token_hash)
             .map(|device| device.session.clone())
     }
 
-    pub fn remove(&self, id: &str) -> bool {
-        let mut devices = self.devices.lock();
-        let Some(index) = devices.iter().position(|device| device.view.id == id) else {
-            return false;
+    pub async fn remove(&self, id: &str) -> Result<bool> {
+        let mut devices = self.devices.lock().await;
+        let Some(index) = devices.iter().position(|device| device.kept.id == id) else {
+            return Ok(false);
         };
+        let mut kept = kept(&devices);
+        kept.remove(index);
+        self.store.set_remote_devices(&kept).await?;
         devices.remove(index).session.cancel();
-        true
+        Ok(true)
     }
 
-    pub fn devices(&self) -> Vec<PairedDevice> {
-        self.devices
-            .lock()
-            .iter()
-            .map(|device| device.view.clone())
-            .collect()
+    /// Remote control was turned off since.
+    pub fn is_closed(&self) -> bool {
+        self.stop.is_cancelled()
     }
 
     #[cfg(test)]
     fn expire_pairing(&self) {
         self.pairing.lock().as_mut().unwrap().expires = Instant::now();
     }
+}
+
+fn kept(devices: &[Device]) -> Vec<RemoteDevice> {
+    devices.iter().map(|device| device.kept.clone()).collect()
 }
 
 fn secret() -> String {
@@ -123,64 +157,98 @@ fn hash(value: &str) -> [u8; 32] {
 mod tests {
     use super::*;
 
-    fn access() -> Access {
-        Access::new(CancellationToken::new())
+    async fn store() -> Store {
+        let directory = tempfile::tempdir().unwrap().keep();
+        let url = format!("sqlite://{}", directory.join("state.db").display());
+        Store::connect(&url).await.unwrap()
     }
 
-    #[test]
-    fn a_pairing_code_admits_exactly_one_device() {
-        let access = access();
+    async fn access() -> Access {
+        let stop = CancellationToken::new();
+        Access::open(store().await, stop).await.unwrap()
+    }
+
+    async fn paired(access: &Access, code: &str) -> Option<String> {
+        access.pair(code, "  phone  ").await.unwrap()
+    }
+
+    async fn names(access: &Access) -> Vec<String> {
+        let devices = access.store.remote_devices().await.unwrap();
+        devices.into_iter().map(|device| device.name).collect()
+    }
+
+    #[tokio::test]
+    async fn a_pairing_code_admits_exactly_one_device() {
+        let access = access().await;
         let code = access.new_pairing_code();
-        let token = access.pair(&code, "  phone  ").unwrap();
-        assert!(access.session(&token).is_some());
-        assert_eq!(access.devices()[0].name, "phone");
-        assert_eq!(access.pair(&code, "second"), None);
+        let token = paired(&access, &code).await.unwrap();
+        assert!(access.session(&token).await.is_some());
+        assert_eq!(names(&access).await, ["phone"]);
+        assert_eq!(paired(&access, &code).await, None);
     }
 
-    #[test]
-    fn a_wrong_guess_neither_pairs_nor_spoils_the_code() {
-        let access = access();
+    #[tokio::test]
+    async fn a_wrong_guess_neither_pairs_nor_spoils_the_code() {
+        let access = access().await;
         let code = access.new_pairing_code();
-        assert_eq!(access.pair("guess", "x"), None);
-        assert_eq!(access.pair("", "x"), None);
-        assert!(access.pair(&code, "phone").is_some());
+        assert_eq!(paired(&access, "guess").await, None);
+        assert_eq!(paired(&access, "").await, None);
+        assert!(paired(&access, &code).await.is_some());
     }
 
-    #[test]
-    fn expired_and_replaced_codes_do_not_pair() {
-        let access = access();
+    #[tokio::test]
+    async fn expired_and_replaced_codes_do_not_pair() {
+        let access = access().await;
         let old = access.new_pairing_code();
         let code = access.new_pairing_code();
-        assert_eq!(access.pair(&old, "phone"), None);
+        assert_eq!(paired(&access, &old).await, None);
         access.expire_pairing();
-        assert_eq!(access.pair(&code, "phone"), None);
+        assert_eq!(paired(&access, &code).await, None);
     }
 
-    #[test]
-    fn removing_a_device_ends_its_session_and_only_its_own() {
-        let access = access();
-        let pair = || {
-            access
-                .pair(&access.new_pairing_code(), "phone")
-                .map(|token| (access.session(&token).unwrap(), token))
-                .unwrap()
-        };
-        let (first, first_token) = pair();
-        let (second, _) = pair();
-        assert!(access.remove(&access.devices()[0].id));
+    #[tokio::test]
+    async fn removing_a_device_ends_its_session_for_good_and_only_its_own() {
+        let access = access().await;
+        let mut tokens = Vec::new();
+        for _ in 0..2 {
+            let code = access.new_pairing_code();
+            tokens.push(paired(&access, &code).await.unwrap());
+        }
+        let first = access.session(&tokens[0]).await.unwrap();
+        let second = access.session(&tokens[1]).await.unwrap();
+        let id = access.store.remote_devices().await.unwrap()[0].id.clone();
+        assert!(access.remove(&id).await.unwrap());
         assert!(first.is_cancelled());
-        assert!(access.session(&first_token).is_none());
+        assert!(access.session(&tokens[0]).await.is_none());
         assert!(!second.is_cancelled());
-        assert!(!access.remove("missing"));
+        assert!(!access.remove("missing").await.unwrap());
+        let again = Access::open(access.store.clone(), CancellationToken::new());
+        let again = again.await.unwrap();
+        assert!(again.session(&tokens[0]).await.is_none());
+        assert!(again.session(&tokens[1]).await.is_some());
     }
 
-    #[test]
-    fn turning_remote_control_off_ends_every_session() {
+    #[tokio::test]
+    async fn turning_remote_control_off_ends_every_session_and_keeps_every_device() {
+        let store = store().await;
         let stop = CancellationToken::new();
-        let access = Access::new(stop.clone());
-        let token = access.pair(&access.new_pairing_code(), "phone").unwrap();
-        let session = access.session(&token).unwrap();
+        let access = Access::open(store.clone(), stop.clone()).await.unwrap();
+        let code = access.new_pairing_code();
+        let token = paired(&access, &code).await.unwrap();
+        let session = access.session(&token).await.unwrap();
         stop.cancel();
         assert!(session.is_cancelled());
+        let again = Access::open(store, CancellationToken::new()).await.unwrap();
+        assert!(!again.session(&token).await.unwrap().is_cancelled());
+    }
+
+    #[tokio::test]
+    async fn no_token_itself_is_kept() {
+        let access = access().await;
+        let code = access.new_pairing_code();
+        let token = paired(&access, &code).await.unwrap();
+        let devices = access.store.remote_devices().await.unwrap();
+        let written = serde_json::to_string(&devices).unwrap();
+        assert!(!written.contains(&token));
     }
 }

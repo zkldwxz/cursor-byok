@@ -21,7 +21,7 @@ use crate::{
 
 use super::{
     access::Access,
-    models::{Model, Models},
+    models::{set_context, set_effort, Model, Models},
     sessions::{Overview, Sessions, Verdict},
     ssh::Kept,
     transcript::{Row, Transcript},
@@ -134,13 +134,17 @@ async fn pair(
     if !same_origin(&headers) {
         return StatusCode::FORBIDDEN.into_response();
     }
-    match phones.access.pair(&request.code, &request.name) {
-        Some(token) => (
+    match phones.access.pair(&request.code, &request.name).await {
+        Ok(Some(token)) => (
             [(header::CACHE_CONTROL, "no-store")],
             Json(json!({"token": token})),
         )
             .into_response(),
-        None => StatusCode::UNAUTHORIZED.into_response(),
+        Ok(None) => StatusCode::UNAUTHORIZED.into_response(),
+        Err(error) => {
+            tracing::warn!(%error, "cannot keep the paired phone");
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
     }
 }
 
@@ -154,7 +158,7 @@ async fn connect(
     }
     upgrade
         .max_message_size(MAX_MESSAGE_BYTES)
-        .on_upgrade(move |socket| serve(Wire::Browser(Box::new(socket)), phones))
+        .on_upgrade(move |socket| serve(Wire::Browser(Box::new(socket)), phones, None))
 }
 
 fn same_origin(headers: &HeaderMap) -> bool {
@@ -165,16 +169,24 @@ fn same_origin(headers: &HeaderMap) -> bool {
     origin.is_some() && origin.as_deref() == text(header::HOST)
 }
 
-pub(super) async fn serve(mut wire: Wire, phones: Phones) {
+/// `place` is the link by which an app finds this computer next time.
+pub(super) async fn serve(mut wire: Wire, phones: Phones, place: Option<String>) {
     let Ok(Some(session)) =
         tokio::time::timeout(AUTH_TIMEOUT, authenticate(&mut wire, &phones)).await
     else {
         let _ = wire.send(json!({"type": "unpaired"})).await;
         return;
     };
+    let computer = json!({"type": "computer", "name": computer_name(), "link": place});
+    if wire.send(computer).await.is_err() {
+        return;
+    }
     tokio::select! {
         () = session.cancelled() => {
-            let _ = wire.send(json!({"type": "unpaired"})).await;
+            // Turned off, it may be on again: only a removed phone has to pair anew.
+            if !phones.access.is_closed() {
+                let _ = wire.send(json!({"type": "unpaired"})).await;
+            }
         }
         result = Session::new(&mut wire, &phones).run() => {
             if let Err(error) = result {
@@ -182,6 +194,12 @@ pub(super) async fn serve(mut wire: Wire, phones: Phones) {
             }
         }
     }
+}
+
+/// Tells this computer from a person's others.
+fn computer_name() -> String {
+    let name = gethostname::gethostname().to_string_lossy().into_owned();
+    name.strip_suffix(".local").unwrap_or(&name).to_owned()
 }
 
 /// How a phone says who it is: as a message, so it never appears in a URL.
@@ -196,13 +214,16 @@ async fn authenticate(wire: &mut Wire, phones: &Phones) -> Option<CancellationTo
     let token = match serde_json::from_str(&wire.receive().await?).ok()? {
         Hello::Paired { token } => token,
         Hello::New(request) => {
-            let token = phones.access.pair(&request.code, &request.name)?;
+            let paired = phones.access.pair(&request.code, &request.name).await;
+            let token = paired
+                .inspect_err(|error| tracing::warn!(%error, "cannot keep the paired phone"))
+                .ok()??;
             let paired = json!({"type": "paired", "token": token});
             wire.send(paired).await.ok()?;
             token
         }
     };
-    phones.access.session(&token)
+    phones.access.session(&token).await
 }
 
 #[derive(Deserialize)]
@@ -229,6 +250,8 @@ enum Command {
 enum Menu {
     Mode,
     Model,
+    Context,
+    Effort,
 }
 
 /// Cursor's modes this server has prompts for.
@@ -280,8 +303,10 @@ struct Chat {
     fresh: bool,
     mode: Option<pb::AgentMode>,
     model: Option<String>,
-    /// The model as the phone shows it.
-    shown: Option<Model>,
+    context: Option<String>,
+    effort: Option<String>,
+    /// The model as the phone shows it, and what is set of it.
+    shown: Option<(Model, Value)>,
     /// What was last read of an SSH conversation.
     kept: Option<Kept>,
     sent: Option<(Vec<Row>, Value)>,
@@ -302,6 +327,8 @@ impl Chat {
             fresh: true,
             mode: None,
             model: None,
+            context: None,
+            effort: None,
             shown: None,
             kept: None,
             sent: None,
@@ -325,7 +352,7 @@ impl Chat {
                 self.events = None;
                 self.fresh = false;
                 self.transcript = std::mem::take(&mut kept.transcript);
-                self.shown = kept.model.clone();
+                self.shown = kept.model.clone().map(|model| (model, Value::Null));
                 self.kept = Some(kept);
             }
             Ok(None) => {}
@@ -415,6 +442,8 @@ impl<'a> Session<'a> {
             let items = match kind {
                 Menu::Mode => json!(MODES.map(|(id, _)| json!({"id": id}))),
                 Menu::Model => json!(self.phones.models.list().await?),
+                // These come with the conversation, for its model.
+                Menu::Context | Menu::Effort => return Err(Refusal::Gone),
             };
             return Ok(json!({"type": "menu", "items": items}));
         }
@@ -447,7 +476,27 @@ impl<'a> Session<'a> {
             Command::Pick {
                 kind: Menu::Model,
                 id,
-            } => chat.model = Some(id),
+            } => {
+                if chat.model.as_ref() != Some(&id) {
+                    // Another model may not have what was set.
+                    (chat.context, chat.effort) = (None, None);
+                }
+                chat.model = Some(id);
+            }
+            Command::Pick {
+                kind: kind @ (Menu::Context | Menu::Effort),
+                id,
+            } => {
+                let (model, _) = chat.shown.as_ref().ok_or(Refusal::NoModel)?;
+                let (setting, set) = match kind {
+                    Menu::Context => (&model.context, &mut chat.context),
+                    _ => (&model.effort, &mut chat.effort),
+                };
+                if !setting.has(&id) {
+                    return Err(Refusal::Gone);
+                }
+                *set = Some(id);
+            }
             Command::Menu { .. } => unreachable!("menus were answered above"),
         }
         Ok(json!({"type": "done"}))
@@ -477,8 +526,22 @@ impl<'a> Session<'a> {
         Ok(())
     }
 
-    /// The phone's choice, else the conversation's, else the first configured.
+    /// The model as the next message asks for it.
     async fn model(&mut self) -> Result<Option<pb::RequestedModel>> {
+        let mut model = self.chosen().await?;
+        if let (Some(model), Some(chat)) = (&mut model, &self.chat) {
+            if let Some(context) = &chat.context {
+                set_context(model, context);
+            }
+            if let Some(effort) = &chat.effort {
+                set_effort(model, effort);
+            }
+        }
+        Ok(model)
+    }
+
+    /// The phone's choice, else the conversation's, else the first configured.
+    async fn chosen(&mut self) -> Result<Option<pb::RequestedModel>> {
         let Some(chat) = &self.chat else {
             return Ok(None);
         };
@@ -503,15 +566,16 @@ impl<'a> Session<'a> {
     async fn relabel(&mut self) -> Result<()> {
         let shown = if self.is_read_only() {
             let kept = self.chat.as_ref().and_then(|chat| chat.kept.as_ref());
-            kept.and_then(|kept| kept.model.clone())
+            let model = kept.and_then(|kept| kept.model.clone());
+            model.map(|model| (model, Value::Null))
         } else if let Some(model) = self.model().await? {
-            let models = self.phones.models.list().await?;
-            let known = models.into_iter().find(|it| it.id == model.model_id);
-            Some(known.unwrap_or_else(|| Model {
-                id: model.model_id.clone(),
-                label: model.model_id.clone(),
-                name: model.model_id,
-            }))
+            let known = self.phones.models.find(&model.model_id).await?;
+            let known = known.unwrap_or_else(|| {
+                let id = model.model_id.clone();
+                Model::named(id.clone(), id.clone(), id)
+            });
+            let tuning = known.tuning(&model);
+            Some((known, tuning))
         } else {
             None
         };
@@ -597,8 +661,9 @@ impl<'a> Session<'a> {
         };
         status["open"] = json!(!chat.fresh || chat.session().is_none());
         status["mode"] = json!(MODES.iter().find(|(_, it)| *it == mode).map(|(id, _)| id));
-        status["model"] = json!(chat.shown.as_ref().map(|model| &model.label));
-        status["modelName"] = json!(chat.shown.as_ref().map(|model| &model.name));
+        status["model"] = json!(chat.shown.as_ref().map(|(model, _)| &model.label));
+        status["modelName"] = json!(chat.shown.as_ref().map(|(model, _)| &model.name));
+        status["tuning"] = json!(chat.shown.as_ref().map(|(_, tuning)| tuning));
         status["readOnly"] = json!(read_only);
         status["retry"] = json!(chat
             .session()

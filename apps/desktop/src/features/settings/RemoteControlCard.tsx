@@ -62,7 +62,7 @@ export function RemoteControlCard() {
       <div className={styles.row}>
         <div className={styles.details}>
           <strong>{t("开启手机遥控")}</strong>
-          <small>{t("用手机 App 或浏览器查看 Cursor 对话、发消息、批准操作和回答提问。关闭或退出软件后，配对全部失效。")}</small>
+          <small>{t("用手机 App 或浏览器查看 Cursor 对话、发消息、批准操作和回答提问。App 的配对长期有效，重新开启不用再配；浏览器的地址每次都会变，要重新配对。不用的手机在下面移除。")}</small>
         </div>
         <Switch label={t("开启手机遥控")} checked={enabled} disabled={!status || busy} onChange={(next) => next ? setConfirming(true) : void turn(false)} />
       </div>

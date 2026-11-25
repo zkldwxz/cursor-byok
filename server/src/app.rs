@@ -199,6 +199,14 @@ impl App {
         self.registry.web_cache().set_service_addr(address);
         self.harness.set_backend_addr(address);
         tracing::info!(%address, %inference_address, "management and inference listeners ready");
+        tokio::spawn({
+            let remote = self.remote.clone();
+            async move {
+                if let Err(error) = remote.restore().await {
+                    tracing::warn!(%error, "cannot let phones in again");
+                }
+            }
+        });
         let registry = self.registry;
         let harness = self.harness;
         let api_addr = control::InferenceAddress(inference_address);
@@ -216,14 +224,14 @@ impl App {
             () = self.magpie.follow() => unreachable!("catalog follower runs until shutdown"),
             () = self.default_prices.follow() => unreachable!("price follower runs until shutdown"),
             result = &mut server => {
-                self.remote.disable().await;
+                self.remote.close().await;
                 if let Err(error) = harness.disable().await {
                     tracing::warn!(%error, "failed to disable Cursor harness after server stop");
                 }
                 result?;
             },
             () = shutdown.cancelled() => {
-                self.remote.disable().await;
+                self.remote.close().await;
                 if let Err(error) = harness.disable().await {
                     tracing::warn!(%error, "failed to disable Cursor harness during shutdown");
                 }

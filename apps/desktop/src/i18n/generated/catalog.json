@@ -3788,18 +3788,6 @@
         }
       ]
     },
-    "804c42e9ddae82be": {
-      "source": "用手机 App 或浏览器查看 Cursor 对话、发消息、批准操作和回答提问。关闭或退出软件后，配对全部失效。",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/settings/RemoteControlCard.tsx",
-          "line": 65,
-          "column": 19
-        }
-      ]
-    },
     "80a57e03f0717f91": {
       "source": "未配置",
       "kind": "text",
@@ -5512,6 +5500,18 @@
           "file": "features/home/metrics/HomeMetrics.tsx",
           "line": 98,
           "column": 5
+        }
+      ]
+    },
+    "b59454f2d9778281": {
+      "source": "用手机 App 或浏览器查看 Cursor 对话、发消息、批准操作和回答提问。App 的配对长期有效，重新开启不用再配；浏览器的地址每次都会变，要重新配对。不用的手机在下面移除。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 65,
+          "column": 19
         }
       ]
     },
