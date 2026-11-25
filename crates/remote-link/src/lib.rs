@@ -17,6 +17,8 @@ pub use ticket::{Relay, Ticket};
 const ALPN: &[u8] = b"cursor-byok/remote/1";
 const ONLINE_TIMEOUT: Duration = Duration::from_secs(10);
 const DIAL_TIMEOUT: Duration = Duration::from_secs(20);
+/// Closing takes up to three seconds when a phone is gone.
+const PORT_TIMEOUT: Duration = Duration::from_secs(5);
 /// A conversation's history is the longest message.
 const MAX_MESSAGE_BYTES: usize = 16 * 1024 * 1024;
 /// Until it is known who speaks, and for everything a phone says.
@@ -65,13 +67,14 @@ pub struct Host {
 impl Host {
     pub async fn bind(relay: Option<Relay>, identity: &Identity) -> Result<Self> {
         let key = SecretKey::from_bytes(&identity.key);
-        let endpoint = match endpoint(relay.as_ref(), key.clone(), identity.port).await {
-            Err(error) if identity.port != 0 => {
-                // Taken by something else: phones that use the relay still find it.
-                tracing::warn!(%error, port = identity.port, "remote port is not free");
-                endpoint(relay.as_ref(), key, 0).await?
-            }
-            bound => bound?,
+        let kept = match identity.port {
+            0 => None,
+            port => at_port(relay.as_ref(), &key, port).await,
+        };
+        let endpoint = match kept {
+            Some(endpoint) => endpoint,
+            // Taken by something else: phones that use the relay still find it.
+            None => endpoint(relay.as_ref(), key, 0).await?,
         };
         if relay.is_some()
             && tokio::time::timeout(ONLINE_TIMEOUT, endpoint.online())
@@ -165,6 +168,21 @@ impl Phone {
         tokio::time::timeout(DIAL_TIMEOUT, dial)
             .await
             .map_err(|_| lost("the computer did not answer"))?
+    }
+}
+
+/// Waits for the port, which a host that is still leaving holds until it is dropped.
+async fn at_port(relay: Option<&Relay>, key: &SecretKey, port: u16) -> Option<Endpoint> {
+    let deadline = tokio::time::Instant::now() + PORT_TIMEOUT;
+    loop {
+        match endpoint(relay, key.clone(), port).await {
+            Ok(endpoint) => return Some(endpoint),
+            Err(error) if tokio::time::Instant::now() >= deadline => {
+                tracing::warn!(%error, port, "remote port is not free");
+                return None;
+            }
+            Err(_) => tokio::time::sleep(Duration::from_millis(100)).await,
+        }
     }
 }
 
@@ -355,13 +373,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_computer_that_comes_back_is_found_with_the_same_ticket() {
+    async fn a_computer_turned_off_and_on_at_once_is_found_with_the_same_ticket() {
         let mut identity = Identity::generate();
         let host = Host::bind(None, &identity).await.unwrap();
         identity.port = host.port().unwrap();
         let ticket = host.ticket(String::new());
-        host.close().await;
+        // Still leaving when it comes back, and dropped only then.
+        tokio::spawn(async move { host.close().await });
         let host = Host::bind(None, &identity).await.unwrap();
+        assert_eq!(host.port(), Some(identity.port));
         let phone = Phone::bind(None).await.unwrap();
         let answer = async { host.accept().await.unwrap().answer().await };
         let (theirs, ours) = tokio::join!(answer, phone.dial(&ticket));
