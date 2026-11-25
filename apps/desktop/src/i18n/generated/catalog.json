@@ -999,6 +999,18 @@
         }
       ]
     },
+    "1f98e6e1c757bc73": {
+      "source": "安装命令已自动复制。点击“打开终端”，将命令粘贴到终端中执行：macOS 输入开机密码，Windows 在弹出的授权窗口中确认。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/CursorSettingsPage.tsx",
+          "line": 417,
+          "column": 77
+        }
+      ]
+    },
     "1f9b46e61efcccb5": {
       "source": "筛选项：{label}，{summary}",
       "kind": "template",
@@ -1255,7 +1267,7 @@
       "refs": [
         {
           "file": "features/settings/MigrationSettingsCard.tsx",
-          "line": 66,
+          "line": 68,
           "column": 19
         }
       ]
@@ -1331,7 +1343,7 @@
         },
         {
           "file": "features/settings/MigrationSettingsCard.tsx",
-          "line": 85,
+          "line": 87,
           "column": 20
         },
         {
@@ -1471,12 +1483,12 @@
       "refs": [
         {
           "file": "features/settings/MigrationSettingsCard.tsx",
-          "line": 76,
+          "line": 78,
           "column": 24
         },
         {
           "file": "features/settings/MigrationSettingsCard.tsx",
-          "line": 86,
+          "line": 88,
           "column": 33
         }
       ]
@@ -2098,7 +2110,7 @@
       "refs": [
         {
           "file": "features/settings/MigrationSettingsCard.tsx",
-          "line": 65,
+          "line": 67,
           "column": 20
         }
       ]
@@ -2667,12 +2679,12 @@
       "refs": [
         {
           "file": "features/settings/MigrationSettingsCard.tsx",
-          "line": 76,
+          "line": 78,
           "column": 36
         },
         {
           "file": "features/settings/MigrationSettingsCard.tsx",
-          "line": 86,
+          "line": 88,
           "column": 45
         },
         {
@@ -2958,18 +2970,6 @@
         }
       ]
     },
-    "613278f1a398e7f3": {
-      "source": "已开始导出，请选择保存位置",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/settings/MigrationSettingsCard.tsx",
-          "line": 28,
-          "column": 13
-        }
-      ]
-    },
     "621f63a5f08384ac": {
       "source": "缓存读取：{tokens}",
       "kind": "template",
@@ -3130,7 +3130,7 @@
       "refs": [
         {
           "file": "features/settings/MigrationSettingsCard.tsx",
-          "line": 38,
+          "line": 40,
           "column": 17
         }
       ]
@@ -3207,7 +3207,7 @@
       "refs": [
         {
           "file": "features/settings/MigrationSettingsCard.tsx",
-          "line": 96,
+          "line": 98,
           "column": 45
         }
       ]
@@ -3316,7 +3316,7 @@
       "refs": [
         {
           "file": "features/settings/MigrationSettingsCard.tsx",
-          "line": 73,
+          "line": 75,
           "column": 19
         }
       ]
@@ -3410,8 +3410,8 @@
       "refs": [
         {
           "file": "features/settings/MigrationSettingsCard.tsx",
-          "line": 68,
-          "column": 59
+          "line": 70,
+          "column": 72
         }
       ]
     },
@@ -3588,7 +3588,7 @@
       "refs": [
         {
           "file": "features/settings/MigrationSettingsCard.tsx",
-          "line": 61,
+          "line": 63,
           "column": 29
         }
       ]
@@ -5062,6 +5062,18 @@
         }
       ]
     },
+    "ab17d141d44c1048": {
+      "source": "已在浏览器中开始导出，请选择保存位置",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/MigrationSettingsCard.tsx",
+          "line": 27,
+          "column": 15
+        }
+      ]
+    },
     "ab9084a640fbb864": {
       "source": "全不选",
       "kind": "text",
@@ -5273,12 +5285,12 @@
         {
           "file": "features/plugins/PluginManagementPage.tsx",
           "line": 116,
-          "column": 7
+          "column": 23
         },
         {
           "file": "features/plugins/PluginManagementPage.tsx",
           "line": 334,
-          "column": 70
+          "column": 86
         }
       ]
     },
@@ -5325,7 +5337,7 @@
       "refs": [
         {
           "file": "features/settings/MigrationSettingsCard.tsx",
-          "line": 72,
+          "line": 74,
           "column": 20
         }
       ]
@@ -5698,7 +5710,7 @@
       "refs": [
         {
           "file": "features/settings/MigrationSettingsCard.tsx",
-          "line": 43,
+          "line": 45,
           "column": 15
         }
       ]
@@ -5740,7 +5752,7 @@
       "refs": [
         {
           "file": "features/settings/MigrationSettingsCard.tsx",
-          "line": 104,
+          "line": 106,
           "column": 18
         }
       ]
@@ -5999,7 +6011,7 @@
       "refs": [
         {
           "file": "features/settings/MigrationSettingsCard.tsx",
-          "line": 91,
+          "line": 93,
           "column": 16
         }
       ]
@@ -7079,18 +7091,6 @@
         }
       ]
     },
-    "eb77492c9f76a7e1": {
-      "source": "安装命令已自动复制。点击“打开终端”，将命令粘贴到终端中执行，并按提示输入密码。",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/models/CursorSettingsPage.tsx",
-          "line": 417,
-          "column": 77
-        }
-      ]
-    },
     "eba54690937bc532": {
       "source": "账号管理",
       "kind": "text",
@@ -7110,7 +7110,7 @@
       "refs": [
         {
           "file": "features/settings/MigrationSettingsCard.tsx",
-          "line": 84,
+          "line": 86,
           "column": 14
         }
       ]

@@ -174,6 +174,11 @@ impl CursorHarness {
         } else {
             self.inner.store.set_cursor_takeover_enabled(false).await?;
             self.disable().await?;
+            // Best effort: a failure here leaves a stale local login, which is
+            // worse than a failed request but must not block disabling.
+            if let Err(error) = account::remove_injected().await {
+                tracing::warn!(%error, "failed to remove the injected local Cursor account");
+            }
         }
         self.status().await
     }

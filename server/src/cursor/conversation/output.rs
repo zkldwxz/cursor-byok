@@ -583,9 +583,10 @@ impl ConversationOutput {
                                 })
                                 .await
                                 .map_err(|_| Error::Protocol("checkpoint worker closed".into()))?;
-                            match receiver
-                                .await
-                                .map_err(|_| Error::Protocol("checkpoint worker stopped".into()))?
+                            match self
+                                .await_checkpoint(receiver)
+                                .await?
+                                .map_err(|error| Error::Protocol(error.to_string()))
                             {
                                 Ok(checkpoint) => {
                                     context_tokens = checkpoint_context_tokens(&checkpoint);
@@ -619,10 +620,7 @@ impl ConversationOutput {
                                 })
                                 .await
                                 .map_err(|_| Error::Protocol("checkpoint worker closed".into()))?;
-                            match receiver
-                                .await
-                                .map_err(|_| Error::Protocol("checkpoint worker stopped".into()))?
-                            {
+                            match self.await_checkpoint(receiver).await? {
                                 Ok(checkpoints) => {
                                     final_checkpoint = Some(checkpoints);
                                     state.barrier.complete(Ok(()));
@@ -663,9 +661,9 @@ impl ConversationOutput {
                                 })
                                 .await
                                 .map_err(|_| Error::Protocol("checkpoint worker closed".into()))?;
-                            let result = published
-                                .await
-                                .map_err(|_| Error::Protocol("checkpoint worker stopped".into()))?
+                            let result = self
+                                .await_checkpoint(published)
+                                .await?
                                 .map_err(Error::Protocol);
                             match result {
                                 Ok(()) => state.barrier.complete(Ok(())),
@@ -712,11 +710,9 @@ impl ConversationOutput {
                                 .await
                                 .map_err(|_| Error::Protocol("checkpoint worker closed".into()))?;
                             if requires_ready {
-                                let result = published
-                                    .await
-                                    .map_err(|_| {
-                                        Error::Protocol("checkpoint worker stopped".into())
-                                    })?
+                                let result = self
+                                    .await_checkpoint(published)
+                                    .await?
                                     .map_err(Error::Protocol);
                                 match result {
                                     Ok(()) => state.barrier.complete(Ok(())),
@@ -789,6 +785,15 @@ impl ConversationOutput {
         for id in self.tool_runtime.drain_running().await {
             let _ = self.handle.emit(&codec::abort(id));
         }
+    }
+
+    /// Awaits one checkpoint result while staying responsive to being
+    /// superseded.
+    async fn await_checkpoint<T, E>(
+        &self,
+        receiver: oneshot::Receiver<std::result::Result<T, E>>,
+    ) -> Result<std::result::Result<T, E>> {
+        await_checkpoint(&self.superseded, receiver).await
     }
 
     async fn forward_completion(
@@ -1009,6 +1014,24 @@ fn cursor_error(failure: RunFailure) -> Error {
     }
 }
 
+/// Awaits one checkpoint result while staying responsive to being superseded.
+///
+/// The checkpoint worker publishes through the client's KV store, which blocks
+/// until Cursor acknowledges. A run that has already been replaced must not
+/// keep its transport alive for that wait: logs show a cancelled run holding
+/// on for the full KV timeout because this await ignored the supersede token.
+async fn await_checkpoint<T, E>(
+    superseded: &CancellationToken,
+    receiver: oneshot::Receiver<std::result::Result<T, E>>,
+) -> Result<std::result::Result<T, E>> {
+    tokio::select! {
+        biased;
+        _ = superseded.cancelled() => Err(Error::Cancelled),
+        result = receiver => result
+            .map_err(|_| Error::Protocol("checkpoint worker stopped".into())),
+    }
+}
+
 fn accept_tool_completion(
     delivery: CommandResult,
     request_id: &str,
@@ -1107,8 +1130,11 @@ fn checkpoint_context_tokens(checkpoint: &pb::ConversationStateStructure) -> Opt
 
 #[cfg(test)]
 mod tests {
-    use super::{accept_tool_completion, checkpoint_context_tokens};
+    use super::{accept_tool_completion, await_checkpoint, checkpoint_context_tokens};
     use crate::{cursor::protocol::proto::agent::v1 as pb, run::CommandResult, Error};
+    use std::time::Duration;
+    use tokio::sync::oneshot;
+    use tokio_util::sync::CancellationToken;
 
     #[test]
     fn compacted_checkpoint_replaces_the_in_memory_context_usage() {
@@ -1140,5 +1166,42 @@ mod tests {
             accept_tool_completion(CommandResult::StaleTarget, "request", "run", "call"),
             Err(Error::RunNotFound(request_id)) if request_id == "request"
         ));
+    }
+
+    /// The checkpoint worker blocks on the client's KV acknowledgement. A run
+    /// that has been replaced must stop waiting instead of holding its
+    /// transport until the KV timeout expires.
+    #[tokio::test]
+    async fn a_superseded_run_stops_waiting_for_a_checkpoint() {
+        let superseded = CancellationToken::new();
+        let (_sender, receiver) = oneshot::channel::<std::result::Result<(), String>>();
+        let waiting = tokio::spawn({
+            let superseded = superseded.clone();
+            async move { await_checkpoint(&superseded, receiver).await }
+        });
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        superseded.cancel();
+        let result = tokio::time::timeout(Duration::from_secs(1), waiting)
+            .await
+            .expect("a superseded run must not keep waiting")
+            .unwrap();
+        assert!(matches!(result, Err(Error::Cancelled)));
+    }
+
+    #[tokio::test]
+    async fn a_live_run_still_receives_the_checkpoint_result() {
+        let superseded = CancellationToken::new();
+        let (sender, receiver) = oneshot::channel::<std::result::Result<u32, String>>();
+        let waiting = tokio::spawn({
+            let superseded = superseded.clone();
+            async move { await_checkpoint(&superseded, receiver).await }
+        });
+        sender.send(Ok(7)).unwrap();
+        let result = tokio::time::timeout(Duration::from_secs(1), waiting)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(result, Ok(7));
     }
 }

@@ -13,8 +13,9 @@ mod settings;
 
 use axum::{
     body::{to_bytes, Body},
-    extract::State,
+    extract::{Request as AxumRequest, State},
     http::{header, Request, Response, StatusCode},
+    middleware::{self, Next},
     routing::{any, get, post, put},
     Router,
 };
@@ -268,5 +269,104 @@ pub fn api_router(service: ControlService) -> Router {
             "/__byok-api__/api/harness/cursor/workspace-extension/vsix",
             post(harness::save_workspace_extension_vsix),
         )
+        .layer(middleware::from_fn(same_origin))
         .with_state(service)
+}
+
+/// Rejects management requests that did not come from the app's own page.
+///
+/// The listener is loopback-only, but a browser page can still reach it: DNS
+/// rebinding makes an attacker's origin resolve to 127.0.0.1, and then
+/// `GET /api/models` hands over every configured API key. The app's own page is
+/// served from `http://127.0.0.1:<port>` and sends `Sec-Fetch-Site:
+/// same-origin`; anything else is refused. Non-browser clients (curl, tests)
+/// omit the header and stay allowed, since they are already running as the user.
+async fn same_origin(request: AxumRequest, next: Next) -> Response<Body> {
+    let headers = request.headers();
+    let trusted_host = headers
+        .get(header::HOST)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse::<axum::http::uri::Authority>().ok())
+        .is_none_or(|host| matches!(host.host(), "127.0.0.1" | "[::1]" | "localhost"));
+    let fetch_site = headers
+        .get("sec-fetch-site")
+        .and_then(|value| value.to_str().ok());
+    let browser_same_origin = fetch_site.is_none() || fetch_site == Some("same-origin");
+    if trusted_host && browser_same_origin {
+        return next.run(request).await;
+    }
+    tracing::warn!(
+        host = ?headers.get(header::HOST),
+        fetch_site,
+        "rejected a cross-origin management request"
+    );
+    let mut response = Response::new(Body::from("cross-origin request rejected"));
+    *response.status_mut() = StatusCode::FORBIDDEN;
+    response
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+        routing::get,
+        Router,
+    };
+    use tower::ServiceExt;
+
+    use super::same_origin;
+
+    fn router() -> Router {
+        Router::new()
+            .route("/x", get(|| async { "ok" }))
+            .layer(axum::middleware::from_fn(same_origin))
+    }
+
+    async fn status(host: Option<&str>, fetch_site: Option<&str>) -> StatusCode {
+        let mut request = Request::builder().uri("/x");
+        if let Some(host) = host {
+            request = request.header("host", host);
+        }
+        if let Some(fetch_site) = fetch_site {
+            request = request.header("sec-fetch-site", fetch_site);
+        }
+        router()
+            .oneshot(request.body(Body::empty()).unwrap())
+            .await
+            .unwrap()
+            .status()
+    }
+
+    #[tokio::test]
+    async fn the_apps_own_page_and_plain_clients_are_allowed() {
+        assert_eq!(
+            status(Some("127.0.0.1:3001"), Some("same-origin")).await,
+            StatusCode::OK
+        );
+        assert_eq!(
+            status(Some("localhost:3001"), Some("same-origin")).await,
+            StatusCode::OK
+        );
+        // curl and the desktop shell's own fetches send no Sec-Fetch-Site.
+        assert_eq!(status(Some("127.0.0.1:3001"), None).await, StatusCode::OK);
+        assert_eq!(status(None, None).await, StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn a_rebound_host_or_foreign_origin_is_rejected() {
+        // DNS rebinding: the browser thinks it is talking to evil.example.
+        assert_eq!(
+            status(Some("evil.example:3001"), Some("same-origin")).await,
+            StatusCode::FORBIDDEN
+        );
+        assert_eq!(
+            status(Some("127.0.0.1:3001"), Some("cross-site")).await,
+            StatusCode::FORBIDDEN
+        );
+        assert_eq!(
+            status(Some("127.0.0.1:3001"), Some("same-site")).await,
+            StatusCode::FORBIDDEN
+        );
+    }
 }

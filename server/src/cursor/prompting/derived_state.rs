@@ -130,6 +130,10 @@ mod tests {
     }
 
     fn todo_write_messages(arguments: Value) -> Vec<CanonicalMessage> {
+        tool_messages("TodoWrite", arguments)
+    }
+
+    fn tool_messages(name: &str, arguments: Value) -> Vec<CanonicalMessage> {
         vec![
             CanonicalMessage {
                 message_id: "assistant".into(),
@@ -143,7 +147,7 @@ mod tests {
                     tool_calls: vec![ToolCallContent {
                         index: 0,
                         call_id: "todo-call".into(),
-                        name: "TodoWrite".into(),
+                        name: name.into(),
                         arguments,
                     }],
                 },
@@ -155,7 +159,7 @@ mod tests {
                 origin: Origin::Tool,
                 content: MessageContent::ToolResult(ToolResultContent {
                     call_id: "todo-call".into(),
-                    name: "TodoWrite".into(),
+                    name: name.into(),
                     content: "{}".into(),
                     is_error: false,
                     image: None,

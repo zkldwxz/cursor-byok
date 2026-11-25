@@ -32,13 +32,17 @@ pub(crate) fn after_read(
     call: &ToolCall,
     result: &pb::ReadResult,
 ) -> std::result::Result<EditWrite, String> {
+    let mut original = String::new();
     let before = match result.result.as_ref() {
         Some(pb::read_result::Result::Success(success)) => {
             if success.truncated {
                 return Err("cannot edit a truncated Read result".into());
             }
             match success.output.as_ref() {
-                Some(pb::read_success::Output::Content(content)) => normalize_newlines(content),
+                Some(pb::read_success::Output::Content(content)) => {
+                    original = content.clone();
+                    normalize_newlines(content)
+                }
                 Some(pb::read_success::Output::Data(_)) => {
                     return Err("cannot edit a binary file".into());
                 }
@@ -72,7 +76,10 @@ pub(crate) fn after_read(
         "editnotebook" => edit_notebook(call, &before)?,
         _ => return Err(format!("{} is not an edit tool", call.name)),
     };
-    Ok(EditWrite { before, after })
+    Ok(EditWrite {
+        before: restore_newlines(before, line_ending_of(&original)),
+        after: restore_newlines(after, line_ending_of(&original)),
+    })
 }
 
 pub(crate) fn success(path: String, write: &EditWrite) -> pb::EditResult {
@@ -112,6 +119,26 @@ pub(crate) fn failure(path: String, error: impl Into<String>) -> pb::EditResult 
 pub(crate) fn normalize_newlines(value: &str) -> String {
     let normalized = value.replace("\r\n", "\n");
     normalized.replace('\r', "\n")
+}
+
+/// The dominant line ending of a file, so an edit can keep it.
+///
+/// Editing normalizes to `\n` for matching, and writing that back would rewrite
+/// every line of a CRLF file: a whole-file diff, and a `.bat`/`.ps1` that no
+/// longer runs. The file's own convention wins.
+fn line_ending_of(original: &str) -> &'static str {
+    if original.contains("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    }
+}
+
+fn restore_newlines(value: String, line_ending: &str) -> String {
+    if line_ending == "\n" {
+        return value;
+    }
+    value.replace('\n', line_ending)
 }
 
 fn replace_string(call: &ToolCall, before: &str) -> std::result::Result<String, String> {
@@ -260,8 +287,59 @@ fn normalized(value: &str) -> String {
 mod tests {
     use serde_json::json;
 
-    use super::edit_notebook;
+    use super::{after_read, edit_notebook};
+    use crate::cursor::protocol::proto::agent::v1 as pb;
     use crate::model::ToolCall;
+
+    fn read_result(content: &str) -> pb::ReadResult {
+        pb::ReadResult {
+            result: Some(pb::read_result::Result::Success(pb::ReadSuccess {
+                path: "/file".into(),
+                output: Some(pb::read_success::Output::Content(content.into())),
+                ..Default::default()
+            })),
+        }
+    }
+
+    fn replace_call(old: &str, new: &str) -> ToolCall {
+        ToolCall {
+            index: 0,
+            call_id: "call".into(),
+            model_call_id: "model".into(),
+            name: "StrReplace".into(),
+            arguments_text: String::new(),
+            arguments: json!({
+                "path": "/file",
+                "old_string": old,
+                "new_string": new,
+            }),
+            argument_error: None,
+        }
+    }
+
+    /// Editing normalizes to LF for matching. Writing that back would rewrite
+    /// every line of a CRLF file and break `.bat`/`.ps1` files, so the file's
+    /// own line ending has to survive the round trip.
+    #[test]
+    fn a_crlf_file_keeps_crlf_after_an_edit() {
+        let write = after_read(
+            &replace_call("second", "changed"),
+            &read_result("first\r\nsecond\r\nthird\r\n"),
+        )
+        .unwrap();
+        assert_eq!(write.before, "first\r\nsecond\r\nthird\r\n");
+        assert_eq!(write.after, "first\r\nchanged\r\nthird\r\n");
+    }
+
+    #[test]
+    fn an_lf_file_stays_lf() {
+        let write = after_read(
+            &replace_call("second", "changed"),
+            &read_result("first\nsecond\nthird\n"),
+        )
+        .unwrap();
+        assert_eq!(write.after, "first\nchanged\nthird\n");
+    }
 
     fn notebook_call(old_string: &str) -> ToolCall {
         ToolCall {

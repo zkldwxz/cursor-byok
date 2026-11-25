@@ -1,5 +1,5 @@
 //! Chooses one published price per model ID from the models.dev catalog.
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use serde::Deserialize;
 
@@ -38,28 +38,70 @@ pub(super) struct PriceCatalog(HashMap<String, DefaultPrice>);
 impl PriceCatalog {
     pub fn parse(json: &[u8]) -> Result<Self> {
         let providers: BTreeMap<String, Provider> = serde_json::from_slice(json)?;
-        let mut votes = HashMap::<String, BTreeMap<&str, usize>>::new();
-        let mut listings = HashMap::<(&str, &str), Vec<Listing>>::new();
+        // models.dev only attributes a model to a canonical ID when several
+        // providers sell it. A lab's own catalogue routinely leaves the field
+        // off (`gpt-4o`, `o3`, `claude-opus-4-6`, most Qwen models), so the
+        // attributed pass alone would drop the official rate and fall back to a
+        // reseller or to no price at all.
+        //
+        // A provider is a lab when it attributes a usable model to its own
+        // namespace (`openai` → `openai/gpt-5`). Resellers, gateways, and
+        // subscription plans attribute models to other labs, so their
+        // unattributed listings still cannot price a bare ID. A provider whose
+        // only self-attributed entries are unusable stays a relay as well.
+        let labs = providers
+            .iter()
+            .filter(|(provider, Provider { models })| {
+                models.values().any(|model| {
+                    model
+                        .canonical_model_id
+                        .as_deref()
+                        .is_some_and(|canonical| lab(canonical) == provider.as_str())
+                        && model
+                            .cost
+                            .as_ref()
+                            .and_then(|cost| cost.price(provider))
+                            .is_some()
+                })
+            })
+            .map(|(provider, _)| provider.as_str())
+            .collect::<HashSet<_>>();
+        let mut votes = HashMap::<String, BTreeMap<String, usize>>::new();
+        let mut listings = HashMap::<(String, String), Vec<Listing>>::new();
         let mut prices = HashMap::new();
         for (provider, Provider { models }) in &providers {
             for (id, model) in models {
-                let Some(canonical) = model.canonical_model_id.as_deref() else {
-                    continue;
-                };
-                let id = model_key(id);
-                *votes
-                    .entry(id.clone())
-                    .or_default()
-                    .entry(canonical)
-                    .or_default() += 1;
                 let Some(price) = model.cost.as_ref().and_then(|cost| cost.price(provider)) else {
                     continue;
                 };
+                let id = model_key(id);
+                let Some(canonical) = model.canonical_model_id.as_deref() else {
+                    // An unattributed listing from a lab names that lab's own
+                    // model, so it can satisfy a vote another provider cast.
+                    if !labs.contains(provider.as_str()) {
+                        continue;
+                    }
+                    let own = format!("{provider}/{id}");
+                    listings
+                        .entry((provider.clone(), own))
+                        .or_default()
+                        .push(Listing {
+                            id: id.clone(),
+                            price: price.clone(),
+                        });
+                    prices.entry(id).or_insert(price);
+                    continue;
+                };
+                *votes
+                    .entry(id.clone())
+                    .or_default()
+                    .entry(canonical.to_string())
+                    .or_default() += 1;
                 if lab(canonical) == provider {
                     prices.entry(id.clone()).or_insert_with(|| price.clone());
                 }
                 listings
-                    .entry((provider, canonical))
+                    .entry((provider.clone(), canonical.to_string()))
                     .or_default()
                     .push(Listing { id, price });
             }
@@ -75,14 +117,14 @@ impl PriceCatalog {
             }
             let published = |provider: &str, paid: bool| {
                 closest(
-                    listings.get(&(provider, canonical))?,
-                    &model_key(canonical),
+                    listings.get(&(provider.to_string(), canonical.clone()))?,
+                    &model_key(&canonical),
                     paid,
                 )
             };
             // A reseller's zero is a promotion or a subscription, not a price.
             if let Some(price) =
-                published(lab(canonical), false).or_else(|| published(RESELLER, true))
+                published(lab(&canonical), false).or_else(|| published(RESELLER, true))
             {
                 prices.insert(id, price);
             }
@@ -187,6 +229,76 @@ mod tests {
 
     fn priced(input: f64, output: f64, source: &str) -> Option<(f64, f64, String)> {
         Some((input, output, source.into()))
+    }
+
+    #[test]
+    fn an_unattributed_lab_listing_is_priced_from_its_own_provider() {
+        // models.dev leaves `canonical_model_id` off many models a lab sells
+        // directly — gpt-4o, gpt-4.1, o3, claude-opus-4-6 — so skipping them
+        // dropped the official price and fell back to a reseller, or to no
+        // price at all. `openai` is corroborated as a lab namespace by the
+        // reseller's attribution.
+        let catalog = json!({
+            "openai": {"models": {
+                "gpt-5": model("openai/gpt-5", json!({"input": 1.25, "output": 10})),
+                "gpt-4o": {"cost": {"input": 2.5, "output": 10, "cache_read": 1.25}},
+                "o3": {"cost": {"input": 2, "output": 8, "cache_read": 0.5}},
+            }},
+            "openrouter": {"models": {
+                "openai/gpt-4o": model("openai/gpt-4o", json!({"input": 9, "output": 9})),
+            }},
+        });
+        let catalog = PriceCatalog::parse(catalog.to_string().as_bytes()).unwrap();
+        let gpt = catalog.price("gpt-4o").unwrap();
+        assert_eq!(
+            (
+                gpt.input_per_million,
+                gpt.output_per_million,
+                gpt.source.as_str()
+            ),
+            (2.5, 10.0, "openai"),
+            "the lab's own listing must win over the reseller"
+        );
+        assert_eq!(catalog.price("o3").unwrap().input_per_million, 2.0);
+    }
+
+    #[test]
+    fn a_relay_listing_without_attribution_is_not_treated_as_a_lab() {
+        // A relay is never a lab namespace: every model it sells is attributed
+        // to some other lab, so its unattributed entry must not become a price
+        // for the bare ID — nothing ties it to the model the user called.
+        let catalog = json!({
+            "zhipuai": {"models": {
+                "glm-5.3": model("zhipuai/glm-5.3", json!({"input": 1.2, "output": 4.2})),
+            }},
+            "relay": {"models": {
+                "vendor/glm-5.3": model("zhipuai/glm-5.3", json!({"input": 9, "output": 9})),
+                "unattributed": {"cost": {"input": 1, "output": 1}},
+            }},
+        });
+        let catalog = PriceCatalog::parse(catalog.to_string().as_bytes()).unwrap();
+        assert_eq!(catalog.price("unattributed"), None);
+        // The relay's attributed listing still resolves through the lab price.
+        assert_eq!(catalog.price("glm-5.3").unwrap().source, "zhipuai");
+    }
+
+    #[test]
+    fn a_lab_listing_does_not_override_an_attributed_price() {
+        // The attributed pass runs first and is authoritative.
+        let catalog = json!({
+            "openai": {"models": {
+                "gpt-5": model("openai/gpt-5", json!({"input": 1.25, "output": 10})),
+            }},
+            "relay": {"models": {
+                "gpt-5": {"cost": {"input": 99, "output": 99}},
+            }},
+        });
+        let catalog = PriceCatalog::parse(catalog.to_string().as_bytes()).unwrap();
+        let price = catalog.price("gpt-5").unwrap();
+        assert_eq!(
+            (price.input_per_million, price.source.as_str()),
+            (1.25, "openai")
+        );
     }
 
     #[test]

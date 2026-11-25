@@ -50,11 +50,14 @@ impl App {
             ));
         }
         let store = Store::connect(&config.database_url).await?;
-        // Best-effort startup maintenance: dead checkpoint lineages and aged
-        // wire blobs are what make the database grow without bound.
+        // Best-effort maintenance: dead checkpoint lineages and aged wire blobs
+        // are what make the database grow without bound. Startup alone is not
+        // enough — the desktop app stays resident in the tray for weeks — so a
+        // background task repeats it.
         if let Err(error) = store.prune_dead_lineages().await {
             tracing::warn!(%error, "startup lineage prune skipped");
         }
+        store.spawn_periodic_prune();
         if config.use_persisted_ports {
             let ports = store.port_settings().await?;
             config.listen_addr.set_port(ports.service_port);

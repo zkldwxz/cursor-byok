@@ -15,7 +15,7 @@ use crate::{
 
 use super::{
     consume_model_cycle,
-    model_retry::{should_retry, MODEL_RETRY_DELAY},
+    model_retry::{retry_delay, should_retry},
     CommitBarrier, CommitCause, MessagesCommitted, RunCommand, RunEvent, RunFailure, RunOutcome,
     RunPort,
 };
@@ -460,11 +460,12 @@ impl RunEngine {
                         }
                         retries += 1;
                         let message = failure_message(&cycle_failure.failure);
+                        let retry_delay = retry_delay(&cycle_failure, retries);
                         tracing::warn!(
                             provider_call_index,
                             retries,
                             max_retries = super::model_retry::MAX_MODEL_RETRIES,
-                            delay_ms = MODEL_RETRY_DELAY.as_millis() as u64,
+                            delay_ms = retry_delay.as_millis() as u64,
                             %message,
                             checkpoint_id = checkpoint.0,
                             "model attempt failed; retrying from current checkpoint"
@@ -482,7 +483,7 @@ impl RunEngine {
                             return (client_failure(), usage);
                         }
 
-                        let delay = tokio::time::sleep(MODEL_RETRY_DELAY);
+                        let delay = tokio::time::sleep(retry_delay);
                         tokio::pin!(delay);
                         loop {
                             tokio::select! {

@@ -20,8 +20,13 @@ use crate::{
 
 type BlobSetSender = oneshot::Sender<Result<()>>;
 
-const SET_TIMEOUT: Duration = Duration::from_secs(30 * 60);
-const GET_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+/// Cursor acknowledges a Blob SET on the same stream it is reading, so a live
+/// connection answers in milliseconds. The long ceiling only exists for a
+/// client that is slow to drain a large backlog; it must not be the time a
+/// superseded run spends holding its transport, so cancellation is checked
+/// against both the disconnect token and the run's own supersede token.
+const SET_TIMEOUT: Duration = Duration::from_secs(2 * 60);
+const GET_TIMEOUT: Duration = Duration::from_secs(2 * 60);
 
 #[derive(Clone)]
 pub struct BlobSynchronizer {
@@ -327,13 +332,16 @@ impl BlobSynchronizer {
 mod tests {
     use super::*;
 
+    /// The acknowledgement arrives on the live connection, so the timeout only
+    /// covers a client that stops draining. It must stay short enough that a
+    /// superseded run does not hold its transport for minutes.
     #[test]
-    fn set_timeout_allows_slow_cursor_acknowledgements() {
-        assert_eq!(SET_TIMEOUT, Duration::from_secs(30 * 60));
+    fn set_timeout_is_short_enough_for_a_replaced_run_to_release_its_transport() {
+        assert_eq!(SET_TIMEOUT, Duration::from_secs(2 * 60));
     }
 
     #[test]
-    fn get_timeout_allows_slow_cursor_responses() {
-        assert_eq!(GET_TIMEOUT, Duration::from_secs(10 * 60));
+    fn get_timeout_matches_the_set_timeout() {
+        assert_eq!(GET_TIMEOUT, Duration::from_secs(2 * 60));
     }
 }

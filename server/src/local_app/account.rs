@@ -17,6 +17,17 @@ pub async fn inject_if_missing() -> Result<()> {
     inject_if_missing_at(&state_db_path()?).await
 }
 
+/// Removes the injected local account, leaving a real Cursor login alone.
+///
+/// Disabling takeover stops the proxy, but Cursor keeps the injected token and
+/// then sends it to the real backend, which rejects it: the user appears logged
+/// in as `cursor@ai.com` and every request fails. The token is only removed when
+/// it is still the one this app injected, so disabling never signs the user out
+/// of an account they own.
+pub async fn remove_injected() -> Result<()> {
+    remove_injected_at(&state_db_path()?).await
+}
+
 fn state_db_path() -> Result<PathBuf> {
     let home = dirs::home_dir()
         .ok_or_else(|| Error::Config("cannot resolve user home directory".into()))?;
@@ -87,6 +98,51 @@ async fn inject_if_missing_at(path: &Path) -> Result<()> {
         subject = SUBJECT,
         "injected local Cursor account"
     );
+    Ok(())
+}
+
+async fn remove_injected_at(path: &Path) -> Result<()> {
+    if !path.is_file() {
+        return Ok(());
+    }
+    let options = sqlx::sqlite::SqliteConnectOptions::new()
+        .filename(path)
+        .read_only(true);
+    let mut connection = SqliteConnection::connect_with(&options).await?;
+    let token = local_token()?;
+    let current = sqlx::query("SELECT CAST(value AS TEXT) AS value FROM ItemTable WHERE key = ?")
+        .bind("cursorAuth/accessToken")
+        .fetch_optional(&mut connection)
+        .await?;
+    // A real login owns the row now; leave it alone.
+    if !current.is_some_and(|row| {
+        row.try_get::<String, _>("value")
+            .is_ok_and(|value| value == token)
+    }) {
+        return Ok(());
+    }
+    drop(connection);
+
+    let mut connection =
+        SqliteConnection::connect_with(&sqlx::sqlite::SqliteConnectOptions::new().filename(path))
+            .await?;
+    let mut transaction = connection.begin().await?;
+    for key in [
+        "cursorAuth/accessToken",
+        "cursorAuth/refreshToken",
+        "cursorAuth/cachedEmail",
+        "cursorAuth/cachedSignUpType",
+        "cursorAuth/stripeMembershipAuthId",
+        "cursorAuth/stripeMembershipType",
+        "cursorAuth/stripeSubscriptionStatus",
+    ] {
+        sqlx::query("DELETE FROM ItemTable WHERE key = ?")
+            .bind(key)
+            .execute(&mut *transaction)
+            .await?;
+    }
+    transaction.commit().await?;
+    tracing::info!("removed the injected local Cursor account");
     Ok(())
 }
 
@@ -171,5 +227,41 @@ mod tests {
         ));
         assert!(!is_local_cursor_token("official-cursor-token"));
         assert!(!is_local_cursor_token(""));
+    }
+
+    #[tokio::test]
+    async fn disabling_takeover_removes_only_the_injected_account() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("state.vscdb");
+        inject_if_missing_at(&path).await.unwrap();
+        remove_injected_at(&path).await.unwrap();
+
+        let mut connection = SqliteConnection::connect(&format!("sqlite:{}", path.display()))
+            .await
+            .unwrap();
+        let remaining: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM ItemTable WHERE key LIKE 'cursorAuth/%'")
+                .fetch_one(&mut connection)
+                .await
+                .unwrap();
+        assert_eq!(remaining, 0, "the injected login must be gone");
+
+        // A real login is never removed.
+        sqlx::query("INSERT INTO ItemTable(key, value) VALUES('cursorAuth/accessToken', 'real')")
+            .execute(&mut connection)
+            .await
+            .unwrap();
+        drop(connection);
+        remove_injected_at(&path).await.unwrap();
+        let mut connection = SqliteConnection::connect(&format!("sqlite:{}", path.display()))
+            .await
+            .unwrap();
+        let token: String =
+            sqlx::query_scalar("SELECT CAST(value AS TEXT) FROM ItemTable WHERE key = ?")
+                .bind("cursorAuth/accessToken")
+                .fetch_one(&mut connection)
+                .await
+                .unwrap();
+        assert_eq!(token, "real");
     }
 }

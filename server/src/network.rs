@@ -11,6 +11,11 @@ use crate::{
 
 const LOCAL_NO_PROXY: &str = "localhost,127.0.0.0/8,::1";
 
+/// How long a TCP/TLS handshake may take before the request fails. Provider
+/// calls keep their own much longer total timeout; this only bounds a dead
+/// host so the caller sees an error instead of a hung UI.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
+
 #[derive(Clone)]
 pub struct NetworkClients {
     store: Store,
@@ -118,7 +123,13 @@ pub async fn client_builder(store: &Store) -> Result<reqwest::ClientBuilder> {
     let settings = store.proxy_settings_secret().await?;
     // Use the platform TLS stack for compatibility with provider gateways that
     // only offer legacy TLS 1.2 cipher suites unsupported by rustls.
-    let mut builder = reqwest::Client::builder().use_native_tls();
+    //
+    // A dead upstream must fail fast: without a connect timeout the Cursor
+    // backend forwards hang on the OS SYN timeout (logs show a status request
+    // taking 117 seconds), and the Cursor UI waits with them.
+    let mut builder = reqwest::Client::builder()
+        .use_native_tls()
+        .connect_timeout(CONNECT_TIMEOUT);
     if settings.mode.is_custom() {
         builder = builder.proxy(custom_proxy(&settings)?);
     }

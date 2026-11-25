@@ -17,15 +17,17 @@ export function MigrationSettingsCard() {
   const [pending, setPending] = useState<MigrationFile | null>(null);
   const [importing, setImporting] = useState(false);
 
-  const exportFile = () => {
-    // The endpoint answers with Content-Disposition, so the browser saves it.
-    const link = document.createElement("a");
-    link.href = api.migrationExportUrl();
-    link.download = "";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    message(t("已开始导出，请选择保存位置"));
+  const exportFile = async () => {
+    // The app window is a WKWebView without a download handler, so an
+    // `<a download>` click is cancelled before the request is even sent and
+    // the save dialog never appears. Hand the URL to the system browser
+    // instead, like the plugin resource export does.
+    try {
+      await api.openExternalUrl(api.migrationExportUrl());
+      message(t("已在浏览器中开始导出，请选择保存位置"));
+    } catch (error) {
+      message(error instanceof Error ? error.message : String(error), { duration: 5000 });
+    }
   };
 
   const pickFile = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -65,7 +67,7 @@ export function MigrationSettingsCard() {
           <strong>{t("导出配置")}</strong>
           <small>{t("把模型配置（含 API Key）和插件凭证打包成一个文件。文件包含密钥，请妥善保存。")}</small>
         </div>
-        <Button variant="secondary" onClick={exportFile}>{t("导出")}</Button>
+        <Button variant="secondary" onClick={() => void exportFile()}>{t("导出")}</Button>
       </div>
       <div className={styles.row}>
         <div className={styles.description}>

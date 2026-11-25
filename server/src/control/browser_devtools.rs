@@ -10,16 +10,13 @@ use serde_json::json;
 use crate::cursor::tools::browser_bridge::{self, BrowserReply};
 
 pub async fn pair(headers: HeaderMap) -> impl IntoResponse {
-    let trusted_host = headers
-        .get(header::HOST)
+    // The router-wide `same_origin` middleware already rejects a rebinding
+    // host; this endpoint additionally requires the browser to prove it is
+    // same-origin, because the token it returns authorizes browser control.
+    if headers
+        .get("sec-fetch-site")
         .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.parse::<axum::http::uri::Authority>().ok())
-        .is_some_and(|host| matches!(host.host(), "127.0.0.1" | "[::1]"));
-    if !trusted_host
-        || headers
-            .get("sec-fetch-site")
-            .and_then(|value| value.to_str().ok())
-            != Some("same-origin")
+        != Some("same-origin")
     {
         return StatusCode::FORBIDDEN.into_response();
     }

@@ -47,7 +47,26 @@ fn shell(value: &pb::ShellResult) -> Result<(String, bool)> {
             ));
         }
         R::Success(success) => return Ok((streams(&success.stdout, &success.stderr), false)),
-        R::Failure(failure) => streams(&failure.stdout, &failure.stderr),
+        R::Failure(failure) => {
+            // The model only sees this text; without the exit code and abort
+            // reason a failed command whose output was empty is
+            // indistinguishable from a successful silent one, and a command the
+            // user stopped looks like a fresh error worth retrying.
+            let mut header = format!("exit code {}", failure.exit_code);
+            if !failure.signal.is_empty() {
+                header.push_str(&format!(", signal {}", failure.signal));
+            }
+            if failure.aborted {
+                let reason = failure
+                    .abort_reason
+                    .as_ref()
+                    .map(|reason| format!("{reason:?}"))
+                    .unwrap_or_default();
+                header.push_str(&format!(", aborted by user ({reason})"));
+            }
+            let output = streams(&failure.stdout, &failure.stderr);
+            format!("shell failed: {header}\n{output}")
+        }
         R::Timeout(timeout) => format!(
             "shell timed out after {}ms in {}",
             timeout.timeout_ms, timeout.working_directory
@@ -480,6 +499,95 @@ fn missing(name: &str) -> Error {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    fn shell_failure(exit_code: i32, stdout: &str, stderr: &str) -> pb::ShellResult {
+        pb::ShellResult {
+            result: Some(pb::shell_result::Result::Failure(pb::ShellFailure {
+                command: "false".into(),
+                exit_code,
+                stdout: stdout.into(),
+                stderr: stderr.into(),
+                ..Default::default()
+            })),
+            ..Default::default()
+        }
+    }
+
+    /// The model only sees this text, so a failure must be distinguishable from
+    /// a silent success and must name the exit code it can act on.
+    #[test]
+    fn a_failed_shell_command_reports_its_exit_code() {
+        let call = ToolCall {
+            index: 0,
+            call_id: "shell".into(),
+            model_call_id: "model".into(),
+            name: "Shell".into(),
+            arguments_text: String::new(),
+            arguments: json!({"command": "false"}),
+            argument_error: None,
+        };
+        let (content, is_error) = output(
+            &pb::exec_client_message::Message::ShellResult(shell_failure(1, "", "")),
+            &call,
+        )
+        .unwrap();
+        assert!(is_error);
+        assert!(content.contains("exit code 1"), "{content}");
+        assert_ne!(content, "shell completed without output");
+    }
+
+    #[test]
+    fn a_user_aborted_shell_command_says_so() {
+        let call = ToolCall {
+            index: 0,
+            call_id: "shell".into(),
+            model_call_id: "model".into(),
+            name: "Shell".into(),
+            arguments_text: String::new(),
+            arguments: json!({"command": "sleep 100"}),
+            argument_error: None,
+        };
+        let mut failure = shell_failure(130, "", "");
+        if let Some(pb::shell_result::Result::Failure(value)) = failure.result.as_mut() {
+            value.aborted = true;
+            value.abort_reason = Some(pb::ShellAbortReason::UserAbort as i32);
+        }
+        let (content, is_error) = output(
+            &pb::exec_client_message::Message::ShellResult(failure),
+            &call,
+        )
+        .unwrap();
+        assert!(is_error);
+        assert!(content.contains("aborted by user"), "{content}");
+    }
+
+    #[test]
+    fn a_successful_silent_shell_command_stays_unchanged() {
+        let call = ToolCall {
+            index: 0,
+            call_id: "shell".into(),
+            model_call_id: "model".into(),
+            name: "Shell".into(),
+            arguments_text: String::new(),
+            arguments: json!({"command": "true"}),
+            argument_error: None,
+        };
+        let result = pb::ShellResult {
+            result: Some(pb::shell_result::Result::Success(pb::ShellSuccess {
+                command: "true".into(),
+                exit_code: 0,
+                ..Default::default()
+            })),
+            ..Default::default()
+        };
+        let (content, is_error) = output(
+            &pb::exec_client_message::Message::ShellResult(result),
+            &call,
+        )
+        .unwrap();
+        assert!(!is_error);
+        assert_eq!(content, "shell completed without output");
+    }
 
     fn mcp_text(text: &str) -> pb::McpToolResultContentItem {
         pb::McpToolResultContentItem {
