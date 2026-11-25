@@ -21,8 +21,9 @@ use crate::{
 
 use super::{
     access::Access,
-    models::Models,
+    models::{Model, Models},
     sessions::{Overview, Sessions, Verdict},
+    ssh::Kept,
     transcript::{Row, Transcript},
     wire::Wire,
 };
@@ -242,6 +243,8 @@ enum Refusal {
     /// Answered elsewhere, or no longer asked.
     Gone,
     NoModel,
+    /// Of an SSH host, which Cursor keeps from remote control.
+    ReadOnly,
     Failed(Error),
 }
 
@@ -257,6 +260,7 @@ impl Refusal {
             Self::Offline => "offline",
             Self::Gone => "gone",
             Self::NoModel => "no_model",
+            Self::ReadOnly => "read_only",
             Self::Failed(_) => "failed",
         }
     }
@@ -274,7 +278,9 @@ struct Chat {
     mode: Option<pb::AgentMode>,
     model: Option<String>,
     /// The model as the phone shows it.
-    label: Option<String>,
+    shown: Option<Model>,
+    /// What was last read of an SSH conversation.
+    kept: Option<Kept>,
     sent: Option<(Vec<Row>, Value)>,
 }
 
@@ -293,7 +299,8 @@ impl Chat {
             fresh: true,
             mode: None,
             model: None,
-            label: None,
+            shown: None,
+            kept: None,
             sent: None,
         }
     }
@@ -302,6 +309,24 @@ impl Chat {
         match &self.place {
             Place::Session(id) => Some(id),
             Place::Draft(_) => None,
+        }
+    }
+
+    /// Takes in what was added to an SSH conversation.
+    async fn read(&mut self, sessions: &Sessions) {
+        let Some(session) = self.session() else {
+            return;
+        };
+        match sessions.kept(session, self.kept.as_ref()).await {
+            Ok(Some(mut kept)) => {
+                self.events = None;
+                self.fresh = false;
+                self.transcript = std::mem::take(&mut kept.transcript);
+                self.shown = kept.model.clone();
+                self.kept = Some(kept);
+            }
+            Ok(None) => {}
+            Err(error) => tracing::warn!(%error, "cannot read the SSH conversation"),
         }
     }
 
@@ -344,7 +369,7 @@ impl<'a> Session<'a> {
                 Ok(()) = self.overview.changed() => self.list().await?,
                 event = heard(&mut self.chat) => self.hear(event).await,
                 _ = publish.tick() => self.publish().await?,
-                _ = reattach.tick() => self.reattach(),
+                _ = reattach.tick() => self.reattach().await,
                 _ = ping.tick() => self.wire.ping().await?,
             }
         }
@@ -355,7 +380,7 @@ impl<'a> Session<'a> {
             Request::Overview => self.list().await,
             Request::Attach(id) => {
                 self.chat = Some(Chat::new(Place::Session(id)));
-                self.reattach();
+                self.reattach().await;
                 self.relabel().await
             }
             Request::Draft(workspace) => {
@@ -389,6 +414,9 @@ impl<'a> Session<'a> {
                 Menu::Model => json!(self.phones.models.list().await?),
             };
             return Ok(json!({"type": "menu", "items": items}));
+        }
+        if self.is_read_only() {
+            return Err(Refusal::ReadOnly);
         }
         let chat = self.chat.as_mut().ok_or(Refusal::Offline)?;
         let sessions = &self.phones.sessions;
@@ -470,22 +498,37 @@ impl<'a> Session<'a> {
     }
 
     async fn relabel(&mut self) -> Result<()> {
-        let label = match self.model().await? {
-            Some(model) => {
-                let models = self.phones.models.list().await?;
-                let known = models.into_iter().find(|it| it.id == model.model_id);
-                Some(known.map_or(model.model_id, |known| known.label))
-            }
-            None => None,
+        let shown = if self.is_read_only() {
+            let kept = self.chat.as_ref().and_then(|chat| chat.kept.as_ref());
+            kept.and_then(|kept| kept.model.clone())
+        } else if let Some(model) = self.model().await? {
+            let models = self.phones.models.list().await?;
+            let known = models.into_iter().find(|it| it.id == model.model_id);
+            Some(known.unwrap_or_else(|| Model {
+                id: model.model_id.clone(),
+                label: model.model_id.clone(),
+                name: model.model_id,
+            }))
+        } else {
+            None
         };
         if let Some(chat) = &mut self.chat {
-            chat.label = label;
+            chat.shown = shown;
         }
         Ok(())
     }
 
-    fn reattach(&mut self) {
+    fn is_read_only(&self) -> bool {
+        let session = self.chat.as_ref().and_then(Chat::session);
+        session.is_some_and(|session| self.overview.borrow().is_ssh(session))
+    }
+
+    async fn reattach(&mut self) {
+        let read_only = self.is_read_only();
         let Some(chat) = &mut self.chat else { return };
+        if read_only {
+            return chat.read(&self.phones.sessions).await;
+        }
         if chat.events.is_some() {
             return;
         }
@@ -537,6 +580,7 @@ impl<'a> Session<'a> {
 
     /// Sends only the rows that changed, and nothing when nothing did.
     async fn publish(&mut self) -> Result<()> {
+        let read_only = self.is_read_only();
         let Some(chat) = &mut self.chat else {
             return Ok(());
         };
@@ -550,7 +594,12 @@ impl<'a> Session<'a> {
         };
         status["open"] = json!(!chat.fresh || chat.session().is_none());
         status["mode"] = json!(MODES.iter().find(|(_, it)| *it == mode).map(|(id, _)| id));
-        status["model"] = json!(chat.label);
+        status["model"] = json!(chat.shown.as_ref().map(|model| &model.label));
+        status["modelName"] = json!(chat.shown.as_ref().map(|model| &model.name));
+        status["readOnly"] = json!(read_only);
+        status["retry"] = json!(chat
+            .session()
+            .and_then(|session| self.phones.sessions.retry(session)));
         let rows = chat.transcript.rows();
         let from = match &chat.sent {
             Some((sent, last)) => {

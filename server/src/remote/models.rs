@@ -7,6 +7,8 @@ use crate::{plugin::PluginRegistry, store::Store, Result};
 pub(super) struct Model {
     pub id: String,
     pub label: String,
+    /// As its maker names it; the label may be anything.
+    pub name: String,
 }
 
 #[derive(Clone)]
@@ -29,8 +31,10 @@ impl Models {
         let configured = configured.into_iter().map(|model| Model {
             id: model.model_hash,
             label: model.display_name,
+            name: model.model_id,
         });
         let plugins = plugins.into_iter().map(|model| Model {
+            name: model.id.clone(),
             id: model.id,
             label: model.display_name,
         });

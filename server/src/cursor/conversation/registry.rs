@@ -15,7 +15,9 @@ use crate::{
     store::Store,
 };
 
-use super::{CompiledMessages, MessageDelivery, PendingMessages, TransportCommand};
+use super::{
+    CompiledMessages, MessageDelivery, PendingMessages, TransportCommand, UpstreamRetries,
+};
 
 #[derive(Clone)]
 pub struct ConversationRegistry {
@@ -38,6 +40,7 @@ struct RegistryInner {
     current: Mutex<HashMap<ConversationId, ActiveRun>>,
     pending: Mutex<HashMap<ConversationId, PendingMessages>>,
     changed: Notify,
+    upstream_retries: UpstreamRetries,
     pub dependencies: ConversationDependencies,
 }
 
@@ -63,6 +66,7 @@ impl ConversationRegistry {
                 current: Mutex::new(HashMap::new()),
                 pending: Mutex::new(HashMap::new()),
                 changed: Notify::new(),
+                upstream_retries: UpstreamRetries::default(),
                 dependencies: ConversationDependencies {
                     store,
                     provider,
@@ -74,6 +78,10 @@ impl ConversationRegistry {
                 },
             }),
         }
+    }
+
+    pub fn upstream_retries(&self) -> &UpstreamRetries {
+        &self.inner.upstream_retries
     }
 
     pub(crate) fn dependencies(&self) -> &ConversationDependencies {

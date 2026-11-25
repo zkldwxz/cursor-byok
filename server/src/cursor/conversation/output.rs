@@ -173,6 +173,10 @@ impl ConversationOutput {
         let mut context_tokens = None::<u64>;
         let mut ready = VecDeque::new();
         let mut presentation = StepBuffer::default();
+        let upstream = self
+            .registry
+            .upstream_retries()
+            .of(&self.context.exec.conversation_id);
 
         loop {
             if self.superseded.is_cancelled() {
@@ -198,6 +202,9 @@ impl ConversationOutput {
                     failure = worker.failures.recv(), if checkpoint_worker_open => Input::CheckpointFailure(failure),
                 }
             };
+            if let Input::Event(Some(event)) = &input {
+                upstream.hear(event);
+            }
             match input {
                 Input::CheckpointFailure(Some(error)) => return Err(error),
                 Input::CheckpointFailure(None) => {

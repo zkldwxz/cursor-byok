@@ -10,6 +10,7 @@ use uuid::Uuid;
 
 use crate::{
     cursor::{
+        conversation::UpstreamRetries,
         protocol::proto::agent::v1::{
             self as pb, agent_host_turn_awaiting_input::Question, interaction_query::Query,
             interaction_response::Result as Reply,
@@ -20,17 +21,25 @@ use crate::{
     Error, Result,
 };
 
-use super::relay::Relay;
+use super::{
+    relay::Relay,
+    ssh::{Kept, SshChat, SshChats},
+    transcript::file_name,
+};
 
 const WORKSPACES_INTERVAL: Duration = Duration::from_secs(10);
 const RETRY: Duration = Duration::from_secs(2);
 /// Older turns stay on the computer: a phone has no use for megabytes of them.
 const HISTORY_TURNS: usize = 40;
+/// Cursor refuses to be asked for more at once.
+const MAX_BLOBS: usize = 64;
 
 #[derive(Clone)]
 pub(super) struct Sessions {
     relay: Relay,
     modes: MessageModes,
+    ssh: SshChats,
+    retries: UpstreamRetries,
 }
 
 /// What the agent was asked for is answered with one of these.
@@ -61,12 +70,28 @@ pub(super) struct Overview {
 struct Open {
     workspaces: Vec<String>,
     sessions: BTreeMap<String, pb::AgentHostSession>,
+    /// Cursor keeps these from remote control; they can only be read.
+    ssh: Vec<SshChat>,
+}
+
+/// A workspace as the phone lists it.
+#[derive(Default)]
+struct Listed<'a> {
+    path: &'a str,
+    host: Option<&'a str>,
+    /// With when each was last changed.
+    chats: Vec<(i64, Value)>,
 }
 
 impl Overview {
     pub fn has_workspace(&self, path: &str) -> bool {
         let open = self.open.as_ref();
         open.is_some_and(|open| open.workspaces.iter().any(|known| known == path))
+    }
+
+    pub fn is_ssh(&self, session: &str) -> bool {
+        let open = self.open.as_ref();
+        open.is_some_and(|open| open.ssh.iter().any(|chat| chat.id == session))
     }
 
     pub fn model(&self, session: &str) -> Option<pb::RequestedModel> {
@@ -90,34 +115,58 @@ impl Overview {
         let Some(open) = &self.open else {
             return json!({"reachable": false, "workspaces": []});
         };
-        let mut chats: BTreeMap<&str, Vec<&pb::AgentHostSession>> = BTreeMap::new();
+        let mut listed: BTreeMap<String, Listed> = BTreeMap::new();
         for path in &open.workspaces {
-            chats.entry(path).or_default();
+            listed.entry(path.clone()).or_default().path = path;
         }
         // A subagent's session is part of the conversation that started it.
         for session in open.sessions.values().filter(|it| it.parent.is_none()) {
-            if let Some(path) = workspace_path(session.workspace.as_ref()) {
-                chats.entry(path).or_default().push(session);
-            }
-        }
-        let mut workspaces = chats.into_iter().collect::<Vec<_>>();
-        for (_, sessions) in &mut workspaces {
-            sessions.sort_by_key(|session| std::cmp::Reverse(updated_ms(session)));
-        }
-        workspaces.sort_by_key(|(_, sessions)| {
-            std::cmp::Reverse(sessions.first().map(|session| updated_ms(session)))
-        });
-        json!({
-            "reachable": true,
-            "workspaces": workspaces.into_iter().map(|(path, sessions)| json!({
-                "id": path,
-                "title": path.rsplit(['/', '\\']).next().unwrap_or(path),
-                "chats": sessions.into_iter().map(|session| json!({
+            let Some(path) = workspace_path(session.workspace.as_ref()) else {
+                continue;
+            };
+            let workspace = listed.entry(path.into()).or_default();
+            workspace.path = path;
+            workspace.chats.push((
+                updated_ms(session),
+                json!({
                     "id": session.session_id,
                     "label": session.title.clone().unwrap_or_default(),
                     "state": state(session),
                     "updatedAt": updated_ms(session),
-                })).collect::<Vec<_>>(),
+                }),
+            ));
+        }
+        for chat in &open.ssh {
+            let workspace = listed.entry(chat.workspace()).or_default();
+            workspace.path = &chat.path;
+            workspace.host = Some(&chat.host);
+            workspace.chats.push((
+                chat.updated_ms,
+                json!({
+                    "id": chat.id,
+                    "label": chat.title,
+                    "state": if chat.running { "running" } else { "idle" },
+                    "updatedAt": chat.updated_ms,
+                    "readOnly": true,
+                }),
+            ));
+        }
+        let mut listed = listed.into_iter().collect::<Vec<_>>();
+        for (_, workspace) in &mut listed {
+            workspace
+                .chats
+                .sort_by_key(|(updated, _)| std::cmp::Reverse(*updated));
+        }
+        listed.sort_by_key(|(_, workspace)| {
+            std::cmp::Reverse(workspace.chats.first().map(|(updated, _)| *updated))
+        });
+        json!({
+            "reachable": true,
+            "workspaces": listed.into_iter().map(|(id, workspace)| json!({
+                "id": id,
+                "title": file_name(workspace.path),
+                "host": workspace.host,
+                "chats": workspace.chats.into_iter().map(|(_, chat)| chat).collect::<Vec<_>>(),
             })).collect::<Vec<_>>(),
         })
     }
@@ -144,8 +193,24 @@ fn state(session: &pb::AgentHostSession) -> &'static str {
 }
 
 impl Sessions {
-    pub fn new(relay: Relay, modes: MessageModes) -> Self {
-        Self { relay, modes }
+    pub fn new(relay: Relay, modes: MessageModes, ssh: SshChats, retries: UpstreamRetries) -> Self {
+        Self {
+            relay,
+            modes,
+            ssh,
+            retries,
+        }
+    }
+
+    /// Which time its model is being tried again; `None` while it answers.
+    pub fn retry(&self, session_id: &str) -> Option<u32> {
+        self.retries.attempt(session_id)
+    }
+
+    /// An SSH conversation, unless nothing was added since `last`.
+    pub async fn kept(&self, session_id: &str, last: Option<&Kept>) -> Result<Option<Kept>> {
+        let last = last.map(|kept| (kept.checkpoint, kept.running));
+        self.ssh.read(session_id, last).await
     }
 
     /// Keeps `report` at what Cursor says, across reconnections, until dropped.
@@ -208,7 +273,14 @@ impl Sessions {
                         None => {}
                     }
                 }
-                _ = refresh.tick() => open.workspaces = self.workspaces().await?,
+                _ = refresh.tick() => {
+                    open.workspaces = self.workspaces().await?;
+                    match self.ssh.list().await {
+                        Ok(chats) => open.ssh = chats,
+                        // Those of this computer are still worth showing.
+                        Err(error) => tracing::warn!(%error, "cannot list the SSH conversations"),
+                    }
+                }
             }
             report.send_if_modified(|last| {
                 let now = Some(open.clone());
@@ -304,6 +376,18 @@ impl Sessions {
     }
 
     async fn blobs(
+        &self,
+        session_id: &str,
+        wanted: Vec<Vec<u8>>,
+    ) -> Result<BTreeMap<Vec<u8>, Vec<u8>>> {
+        let mut found = BTreeMap::new();
+        for wanted in wanted.chunks(MAX_BLOBS) {
+            found.extend(self.few_blobs(session_id, wanted.to_vec()).await?);
+        }
+        Ok(found)
+    }
+
+    async fn few_blobs(
         &self,
         session_id: &str,
         mut wanted: Vec<Vec<u8>>,

@@ -1,11 +1,13 @@
 //! Lets paired phones follow and steer Cursor's Agents Window, from the app or from a browser.
 mod access;
 mod app;
+mod kept;
 mod markdown;
 mod models;
 pub(crate) mod presence;
 mod relay;
 mod sessions;
+mod ssh;
 mod transcript;
 mod tunnel;
 mod web;
@@ -27,7 +29,10 @@ use tokio::{net::TcpListener, sync::Mutex};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    cursor::transport::MessageModes, plugin::PluginRegistry, store::RelaySettings, store::Store,
+    cursor::{conversation::UpstreamRetries, transport::MessageModes},
+    local_app::account,
+    plugin::PluginRegistry,
+    store::{RelaySettings, Store},
     Error, Result,
 };
 
@@ -36,6 +41,7 @@ pub use access::PairedDevice;
 use models::Models;
 use relay::Relay;
 use sessions::Sessions;
+use ssh::SshChats;
 use tunnel::Tunnel;
 
 /// Long enough for phones to hear that they are no longer paired.
@@ -121,21 +127,35 @@ impl Qr {
 }
 
 impl RemoteControl {
-    pub fn new(store: Store, plugins: PluginRegistry, modes: MessageModes) -> Self {
-        Self::build(store, Some(plugins), modes, tunnel::find_cloudflared)
+    pub fn new(
+        store: Store,
+        plugins: PluginRegistry,
+        modes: MessageModes,
+        retries: UpstreamRetries,
+    ) -> Self {
+        let ssh = SshChats::new(store.clone(), account::state_db_path().ok());
+        let relay = Relay::default();
+        let sessions = Sessions::new(relay.clone(), modes, ssh, retries);
+        Self::build(
+            store,
+            Some(plugins),
+            relay,
+            sessions,
+            tunnel::find_cloudflared,
+        )
     }
 
     fn build(
         store: Store,
         plugins: Option<PluginRegistry>,
-        modes: MessageModes,
+        relay: Relay,
+        sessions: Sessions,
         cloudflared: fn() -> Option<PathBuf>,
     ) -> Self {
-        let relay = Relay::default();
         Self {
             inner: Arc::new(Inner {
                 switch: RemoteSwitch::default(),
-                sessions: Sessions::new(relay.clone(), modes),
+                sessions,
                 relay,
                 models: Models::new(store.clone(), plugins),
                 store,
@@ -350,7 +370,14 @@ mod tests {
         let directory = tempfile::tempdir().unwrap().keep();
         let url = format!("sqlite://{}", directory.join("state.db").display());
         let store = Store::connect(&url).await.unwrap();
-        RemoteControl::build(store, None, MessageModes::default(), cloudflared)
+        let relay = Relay::default();
+        let sessions = Sessions::new(
+            relay.clone(),
+            MessageModes::default(),
+            SshChats::new(store.clone(), None),
+            UpstreamRetries::default(),
+        );
+        RemoteControl::build(store, None, relay, sessions, cloudflared)
     }
 
     /// The browser's link, once cloudflared has opened its tunnel.

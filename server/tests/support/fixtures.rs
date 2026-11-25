@@ -18,7 +18,12 @@ pub async fn temp_store() -> (tempfile::TempDir, Store) {
 pub fn remote(store: &Store) -> RemoteControl {
     let runtime = PluginRuntime::managed().unwrap();
     let plugins = PluginRegistry::managed(store.clone(), runtime, "0.1.0".into()).unwrap();
-    RemoteControl::new(store.clone(), plugins, Default::default())
+    RemoteControl::new(
+        store.clone(),
+        plugins,
+        Default::default(),
+        Default::default(),
+    )
 }
 
 pub fn user(id: &str, text: &str) -> CanonicalMessage {

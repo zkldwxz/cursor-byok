@@ -107,6 +107,7 @@ impl App {
             store.clone(),
             plugins.clone(),
             registry.message_modes().clone(),
+            registry.conversations().upstream_retries().clone(),
         );
         let control = control::ControlService::new(
             store.clone(),
