@@ -1,4 +1,4 @@
-//! Extracts typed definitions and scoped declarations from the file's syntax tree.
+//! Extracts typed definitions, enum members and scoped declarations from the file's syntax tree.
 use tree_sitter::{Node, Tree};
 
 use super::snapshot::{IndexedDeclaration, LineSpan};
@@ -20,7 +20,7 @@ pub(super) fn extend(
             "constructor_declaration",
             "compact_constructor_declaration",
         ],
-        "javascript" | "typescript" | "python" => &[],
+        "rust" | "javascript" | "typescript" | "python" => &[],
         _ => return Vec::new(),
     };
     let mut declarations = Vec::new();
@@ -30,21 +30,26 @@ pub(super) fn extend(
         if let Some(declaration) = scoped_declaration(language, node, source) {
             declarations.push(declaration);
         }
+        if let Some((name, qualified)) = enum_member(node, source) {
+            if let Some(chunk) = chunk_of(chunks, node, name) {
+                for symbol in [name.to_owned(), qualified] {
+                    definitions.push(IndexedDefinition {
+                        symbol,
+                        chunk,
+                        implementation: false,
+                        member: true,
+                    });
+                }
+            }
+        }
         if kinds.contains(&node.kind()) {
             let name = node
                 .child_by_field_name("name")
                 .or_else(|| declarator_name(node.child_by_field_name("declarator")?));
             if let Some(name) = name {
-                let line = name.start_position().row + 1;
-                let index = chunks.partition_point(|chunk| chunk.end_line < line);
+                let position = name;
                 let name = &source[name.byte_range()];
-                // A syntax boundary can split one source line across chunks.
-                if let Some(offset) = chunks[index..]
-                    .iter()
-                    .take_while(|chunk| chunk.start_line <= line)
-                    .position(|chunk| chunk.content.contains(name))
-                {
-                    let index = index + offset;
+                if let Some(index) = chunk_of(chunks, position, name) {
                     if !definitions
                         .iter()
                         .any(|entry| entry.chunk == index && entry.symbol == name)
@@ -53,6 +58,7 @@ pub(super) fn extend(
                             symbol: name.to_owned(),
                             chunk: index,
                             implementation: node.child_by_field_name("body").is_some(),
+                            member: false,
                         });
                     }
                 }
@@ -67,6 +73,41 @@ pub(super) fn extend(
             }
         }
     }
+}
+
+fn chunk_of(chunks: &[Chunk], node: Node<'_>, name: &str) -> Option<usize> {
+    let line = node.start_position().row + 1;
+    let index = chunks.partition_point(|chunk| chunk.end_line < line);
+    // A syntax boundary can split one source line across chunks.
+    let offset = chunks[index..]
+        .iter()
+        .take_while(|chunk| chunk.start_line <= line)
+        .position(|chunk| chunk.content.contains(name))?;
+    Some(index + offset)
+}
+
+/// The member's own name and `Enum.Member`.
+fn enum_member<'source>(node: Node<'_>, source: &'source str) -> Option<(&'source str, String)> {
+    let name = match node.kind() {
+        "enum_variant" | "enum_constant" | "enumerator" | "enum_assignment" => {
+            node.child_by_field_name("name")?
+        }
+        "property_identifier" if node.parent()?.kind() == "enum_body" => node,
+        _ => return None,
+    };
+    let owner = std::iter::successors(node.parent(), Node::parent).find(|parent| {
+        matches!(
+            parent.kind(),
+            "enum_item" | "enum_declaration" | "enum_specifier"
+        )
+    })?;
+    let name = &source[name.byte_range()];
+    // A C enum may be anonymous; its members are still known by name.
+    let qualified = owner.child_by_field_name("name").map_or_else(
+        || name.to_owned(),
+        |owner| format!("{}.{name}", &source[owner.byte_range()]),
+    );
+    Some((name, qualified))
 }
 
 fn scoped_declaration(language: &str, node: Node<'_>, source: &str) -> Option<IndexedDeclaration> {

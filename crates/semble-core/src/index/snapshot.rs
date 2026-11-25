@@ -37,6 +37,8 @@ pub struct IndexedDefinition {
     pub symbol: String,
     pub chunk: usize,
     pub implementation: bool,
+    /// An enum member, plain or as `Enum.Member`: looked up by name, never guessed.
+    pub member: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

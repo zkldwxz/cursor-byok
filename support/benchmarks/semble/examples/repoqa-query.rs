@@ -20,6 +20,7 @@ use serde_json::json;
 struct Query {
     root: PathBuf,
     query: String,
+    top_k: Option<usize>,
     audit: Option<Target>,
 }
 
@@ -89,7 +90,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
         }
         let mut request = SearchRequest::new(query.query, query.root);
-        request.top_k = if query.audit.is_some() { 100 } else { 10 };
+        request.top_k = query
+            .top_k
+            .unwrap_or(if query.audit.is_some() { 100 } else { 10 });
         request.max_snippet_lines = Some(0);
         let started = Instant::now();
         let result = engine.search(request)?;

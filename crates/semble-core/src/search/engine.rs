@@ -18,12 +18,17 @@ use crate::{
 };
 
 use super::{
-    rerank::{is_symbol_query, path_penalty, rerank},
+    rerank::{is_symbol_query, path_penalty, rerank, symbol_name},
     rrf,
 };
 
 const NATURAL_LANGUAGE_SEMANTIC_WEIGHT: f32 = 0.5;
 const SYMBOL_SEMANTIC_WEIGHT: f32 = 0.3;
+/// Weight of a name that shares words with the question, as one more ranked list.
+const NAME_WEIGHT: f32 = 0.5;
+/// How much of the question a name must account for to be answered before
+/// anything the content says. Below it a shared word is only a hint.
+const LEADING_NAME_SHARE: f32 = 0.15;
 
 pub struct SearchEngine {
     config: SembleConfig,
@@ -148,7 +153,21 @@ impl SearchEngine {
         } else {
             NATURAL_LANGUAGE_SEMANTIC_WEIGHT
         };
-        let mut fused = rrf::fuse(&semantic, &lexical_ranking, semantic_weight);
+        let verbatim = if symbol_query {
+            index
+                .bm25
+                .search_identifier(symbol_name(&request.query), candidate_count)
+                .iter()
+                .map(|matched| matched.document)
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let mut fused = if verbatim.is_empty() {
+            rrf::fuse(&semantic, &lexical_ranking, semantic_weight)
+        } else {
+            rrf::fuse(&[], &verbatim, 0.0)
+        };
         let literal_query = is_literal_query(&request.query);
         if !symbol_query && !literal_query {
             let declarations = fused
@@ -167,13 +186,26 @@ impl SearchEngine {
                 *current = current.max(score);
             }
         }
-        let definitions = if !symbol_query {
-            index
-                .lexical
-                .inferred_symbols(&request.query, &index.chunks, request.top_k)
-        } else {
-            Vec::new()
-        };
+        let mut definitions = Vec::new();
+        if !symbol_query {
+            let inferred =
+                index
+                    .lexical
+                    .inferred_symbols(&request.query, &index.chunks, request.top_k);
+            let (leading, supporting): (Vec<_>, Vec<_>) =
+                inferred.into_iter().partition(|symbol| {
+                    symbol.share >= LEADING_NAME_SHARE
+                        && (symbol.compound || fused.contains_key(&symbol.chunk))
+                });
+            definitions.extend(
+                leading
+                    .into_iter()
+                    .map(|symbol| (symbol.chunk, symbol.score)),
+            );
+            for (rank, symbol) in supporting.into_iter().enumerate() {
+                *fused.entry(symbol.chunk).or_default() += rrf::contribution(rank, NAME_WEIGHT);
+            }
+        }
         let strong_lexical = if symbol_query || !literal_query {
             Vec::new()
         } else {
@@ -1043,6 +1075,154 @@ mod tests {
             );
             assert!(hits[0].start_line <= 2 && hits[0].end_line >= 2);
         }
+    }
+
+    fn paths(engine: &SearchEngine, root: &Path, query: &str, top_k: usize) -> Vec<String> {
+        let mut request = SearchRequest::new(query, root);
+        request.top_k = top_k;
+        engine
+            .search(request)
+            .unwrap()
+            .results
+            .into_iter()
+            .map(|hit| hit.file_path)
+            .collect()
+    }
+
+    #[test]
+    fn enum_members_resolve_to_the_enum_that_declares_them() {
+        let (source, _cache, engine) = fixture();
+        let cases = [
+            (
+                "src/attempt.rs",
+                "pub enum Attempt {\n    SharedPrefix,\n    Isolated,\n}\n",
+                ["SharedPrefix", "Attempt::SharedPrefix"],
+            ),
+            (
+                "src/flags.ts",
+                "export enum Flags {\n  SKIP_MARKER = '__skip',\n  RAW_MARKER,\n}\n",
+                ["RAW_MARKER", "Flags.SKIP_MARKER"],
+            ),
+            (
+                "src/Token.java",
+                "enum Token {\n  END_OF_INPUT,\n  BEGIN_INPUT;\n}\n",
+                ["END_OF_INPUT", "Token.BEGIN_INPUT"],
+            ),
+            (
+                "src/level.h",
+                "enum class Level {\n  kVerboseTrace,\n  kQuietTrace = 4,\n};\n",
+                ["kVerboseTrace", "Level::kQuietTrace"],
+            ),
+        ];
+        for (path, contents, queries) in &cases {
+            fs::write(source.path().join(path), contents).unwrap();
+            for (index, query) in queries.iter().enumerate() {
+                fs::write(
+                    source.path().join(format!(
+                        "src/use{index}_{}.rs",
+                        path.replace(['/', '.'], "_")
+                    )),
+                    format!("fn consume() {{\n    handle({query});\n    again({query});\n}}\n"),
+                )
+                .unwrap();
+            }
+        }
+        for (path, _, queries) in cases {
+            for query in queries {
+                assert_eq!(paths(&engine, source.path(), query, 1), [path], "{query}");
+            }
+        }
+        // A type of the same name is what the name refers to first.
+        fs::write(
+            source.path().join("src/isolated.rs"),
+            "pub struct Isolated {\n    id: u32,\n}\n",
+        )
+        .unwrap();
+        engine.prepare(source.path(), &[ContentType::Code]).unwrap();
+        assert_eq!(
+            paths(&engine, source.path(), "Isolated", 2),
+            ["src/isolated.rs", "src/attempt.rs"]
+        );
+    }
+
+    #[test]
+    fn a_verbatim_identifier_outranks_places_that_share_only_its_words() {
+        let (source, _cache, engine) = fixture();
+        for index in 0..6 {
+            fs::write(
+                source.path().join(format!("src/noise{index}.rs")),
+                "fn noise() {\n    shared(); shared(); prefix(); prefix(); shared(); prefix();\n}\n",
+            )
+            .unwrap();
+        }
+        fs::write(
+            source.path().join("src/state.rs"),
+            "fn advance(state: &mut State) {\n    let total = state.first + state.second + state.third;\n    state.sharedPrefix = total;\n}\n",
+        )
+        .unwrap();
+        assert_eq!(
+            paths(&engine, source.path(), "sharedPrefix", 5),
+            ["src/state.rs"]
+        );
+    }
+
+    #[test]
+    fn a_name_that_explains_one_word_of_a_question_does_not_displace_the_evidence() {
+        let (source, _cache, engine) = fixture();
+        fs::write(
+            source.path().join("src/dispatch.rs"),
+            "fn assign_affinity(body: &mut Body) {\n    // Parse the prompt cache lifetime of one conversation.\n    body.insert(prompt_cache_lifetime);\n}\n",
+        )
+        .unwrap();
+        for (index, name) in ["Cache", "Conversation", "Provider", "Request", "Lifetime"]
+            .iter()
+            .enumerate()
+        {
+            fs::write(
+                source.path().join(format!("src/type{index}.rs")),
+                format!("pub struct {name} {{\n    id: u32,\n}}\n"),
+            )
+            .unwrap();
+        }
+        // As in a real repository, most chunks are not candidates of either ranking.
+        for index in 0..40 {
+            fs::write(
+                source.path().join(format!("src/parser{index}.rs")),
+                format!("fn parse_{index}() {{\n    parse(request, provider, cache, conversation, lifetime);\n}}\n"),
+            )
+            .unwrap();
+        }
+        let question = "where does the provider request parse the prompt cache lifetime that belongs to one conversation";
+        assert_eq!(
+            paths(&engine, source.path(), question, 1),
+            ["src/dispatch.rs"]
+        );
+    }
+
+    #[test]
+    fn a_name_that_explains_much_of_a_short_question_still_comes_first() {
+        let (source, _cache, engine) = fixture();
+        fs::write(
+            source.path().join("src/renderer.rs"),
+            "pub fn create_renderer(options: Options) {\n    run(options);\n}\n",
+        )
+        .unwrap();
+        for index in 0..4 {
+            fs::write(
+                source.path().join(format!("src/host{index}.rs")),
+                "fn setup() {\n    // custom host operations, custom host operations\n    renderer(custom, host, operations);\n}\n",
+            )
+            .unwrap();
+        }
+        assert_eq!(
+            paths(
+                &engine,
+                source.path(),
+                "create a custom renderer from host operations",
+                1
+            ),
+            ["src/renderer.rs"]
+        );
     }
 
     #[test]

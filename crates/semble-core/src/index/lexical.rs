@@ -12,6 +12,14 @@ use crate::Chunk;
 
 use super::{IndexedDefinition, IndexedFile};
 
+/// Words of a question that say nothing about which code it is after.
+const QUESTION_FILLER: &[&str] = &[
+    "a", "an", "and", "any", "are", "as", "at", "be", "by", "can", "do", "does", "for", "from",
+    "has", "how", "if", "in", "into", "is", "it", "its", "not", "of", "on", "or", "that", "the",
+    "their", "then", "this", "to", "using", "was", "we", "what", "when", "where", "which", "while",
+    "who", "why", "will", "with",
+];
+
 static DECLARATION: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
         r"(?m)^\s*(?:(?:export|default|async|declare|public|private|protected|static|pub(?:\([^)]*\))?)\s+)*(?:function|fn|def|class|struct|enum|trait|interface|type|record|module|namespace|protocol)\s+([A-Za-z_][A-Za-z0-9_]*)",
@@ -89,6 +97,17 @@ struct Definition {
     parts: Vec<String>,
     chunk: usize,
     implementation: bool,
+    member: bool,
+}
+
+/// A definition whose name shares words with a question.
+pub(crate) struct InferredSymbol {
+    pub chunk: usize,
+    pub score: f32,
+    /// Share of the question's words that the name accounts for.
+    pub share: f32,
+    /// The name is made of several words, so matching it is not one shared word.
+    pub compound: bool,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -113,6 +132,7 @@ impl SymbolIndex {
                     parts,
                     chunk: chunk_offset + indexed.chunk,
                     implementation: indexed.implementation,
+                    member: indexed.member,
                 });
                 definitions_by_symbol
                     .entry(symbol)
@@ -128,15 +148,21 @@ impl SymbolIndex {
     }
 
     pub fn exact_symbol(&self, query: &str, chunks: &[Chunk], limit: usize) -> Vec<(usize, f32)> {
-        self.rank_symbol(&query.trim().to_ascii_lowercase(), chunks, limit)
+        let name = query.trim().to_ascii_lowercase().replace("::", ".");
+        // A member is known as `Enum.Member`, however far its path is spelled out.
+        let start = name
+            .rmatch_indices('.')
+            .nth(1)
+            .map_or(0, |(dot, _)| dot + 1);
+        self.rank_symbol(&name[start..], chunks, limit)
     }
 
-    pub fn inferred_symbols(
+    pub(crate) fn inferred_symbols(
         &self,
         query: &str,
         chunks: &[Chunk],
         limit: usize,
-    ) -> Vec<(usize, f32)> {
+    ) -> Vec<InferredSymbol> {
         let raw_terms = tokenize(query).into_iter().collect::<HashSet<_>>();
         let mut query_terms = raw_terms
             .iter()
@@ -145,8 +171,15 @@ impl SymbolIndex {
         if query_terms.contains("update") {
             query_terms.insert("set".into());
         }
-        let mut symbols = HashMap::<&str, f32>::new();
-        for definition in &self.definitions {
+        let question_words = raw_terms
+            .iter()
+            .filter(|term| !QUESTION_FILLER.contains(&term.as_str()))
+            .map(|term| normalize_term(term))
+            .collect::<HashSet<_>>()
+            .len()
+            .max(1) as f32;
+        let mut symbols = HashMap::<&str, (f32, f32, bool)>::new();
+        for definition in self.definitions.iter().filter(|value| !value.member) {
             let meaningful = definition
                 .parts
                 .iter()
@@ -174,16 +207,31 @@ impl SymbolIndex {
                 - unmatched * 3.0
                 - meaningful.len() as f32 * 0.1
                 + if action_match { 2.0 } else { 0.0 };
+            let found = (
+                score,
+                matched as f32 / question_words,
+                meaningful.len() >= 2,
+            );
             symbols
                 .entry(&definition.symbol)
-                .and_modify(|current| *current = current.max(score))
-                .or_insert(score);
+                .and_modify(|current| {
+                    if score > current.0 {
+                        *current = found;
+                    }
+                })
+                .or_insert(found);
         }
         let mut symbols = symbols.into_iter().collect::<Vec<_>>();
-        symbols.sort_by(|left, right| right.1.total_cmp(&left.1).then_with(|| left.0.cmp(right.0)));
+        symbols.sort_by(|left, right| {
+            right
+                .1
+                 .0
+                .total_cmp(&left.1 .0)
+                .then_with(|| left.0.cmp(right.0))
+        });
         symbols.truncate(limit.min(6));
         let mut output = Vec::new();
-        for (symbol, symbol_score) in symbols {
+        for (symbol, (symbol_score, share, compound)) in symbols {
             for (chunk, source_score) in self.rank_symbol(symbol, chunks, 1) {
                 let path_matches = tokenize(&chunks[chunk].file_path)
                     .into_iter()
@@ -195,20 +243,22 @@ impl SymbolIndex {
                 if source_weight < 0.5 {
                     continue;
                 }
-                output.push((
+                output.push(InferredSymbol {
                     chunk,
-                    (symbol_score * 10.0 + path_matches as f32 * 2.0) * source_weight
+                    score: (symbol_score * 10.0 + path_matches as f32 * 2.0) * source_weight
                         + source_score,
-                ));
+                    share,
+                    compound,
+                });
             }
         }
         output.sort_by(|left, right| {
             right
-                .1
-                .total_cmp(&left.1)
-                .then_with(|| left.0.cmp(&right.0))
+                .score
+                .total_cmp(&left.score)
+                .then_with(|| left.chunk.cmp(&right.chunk))
         });
-        output.dedup_by_key(|item| item.0);
+        output.dedup_by_key(|item| item.chunk);
         output.truncate(limit);
         output
     }
@@ -222,8 +272,12 @@ impl SymbolIndex {
             .map(|&position| {
                 let definition = &self.definitions[position];
                 let chunk = &chunks[definition.chunk];
-                let score = (1.0 + if definition.implementation { 0.5 } else { 0.0 })
-                    * source_priority(&chunk.file_path, symbol);
+                let kind = match (definition.member, definition.implementation) {
+                    (true, _) => 0.5,
+                    (false, false) => 1.0,
+                    (false, true) => 1.5,
+                };
+                let score = kind * source_priority(&chunk.file_path, symbol);
                 (definition.chunk, score)
             })
             .collect::<Vec<_>>();
@@ -279,6 +333,7 @@ pub fn extract_definitions(chunks: &[Chunk]) -> Vec<IndexedDefinition> {
                     .lines()
                     .take(12)
                     .any(|line| line.contains('{') || line.trim_end().ends_with("=>")),
+                member: false,
             });
         }
     }
@@ -495,7 +550,7 @@ mod tests {
                 &chunks,
                 5,
             )[0]
-            .0,
+            .chunk,
             0
         );
     }
@@ -532,7 +587,7 @@ mod tests {
                 &chunks,
                 5,
             )[0]
-            .0,
+            .chunk,
             2
         );
     }
