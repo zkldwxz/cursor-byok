@@ -343,6 +343,33 @@
     {
       "type": "function",
       "function": {
+        "name": "SemanticSearch",
+        "description": "Find code by meaning or by symbol name. Combines semantic retrieval, lexical matching and exact-symbol lookup over an index of the workspace, and returns ranked absolute file paths with one-based line ranges and snippets.\n\nUse it first whenever you do not already know where the code is: to locate an implementation, understand how a behavior works, or find the entry points of a flow. Use Grep instead when you need every exact occurrence of a string or pattern, and Read when you already know the file.\n\nWrite natural-language queries in English, because the retrieval model performs best in English; keep identifiers, literals and code fragments unchanged. One focused question per call; run several calls in parallel for independent questions. Results are ranked evidence, not an exhaustive list.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "description": "Focused English description of the behavior to find, or an exact symbol name such as \"Config.load\".",
+              "type": "string"
+            },
+            "target_directory": {
+              "description": "Absolute directory to search. Defaults to the workspace root; required when the workspace has several roots.",
+              "type": "string"
+            },
+            "top_k": {
+              "description": "Number of ranked results to return, 1 to 20. Defaults to 5.",
+              "minimum": 1,
+              "maximum": 20,
+              "type": "integer"
+            }
+          },
+          "required": ["query"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
         "name": "Grep",
         "description": "A search tool built on ripgrep. Results are capped to several thousand output lines for responsiveness; when truncation occurs, the results report \"at least\" counts, but are otherwise accurate.",
         "parameters": {

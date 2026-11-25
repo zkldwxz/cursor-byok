@@ -214,6 +214,7 @@ pub fn tool_placeholder(name: &str, call_id: &str) -> Result<pb::ToolCall> {
         "delete" => Tool::DeleteToolCall(pb::DeleteToolCall::default()),
         "glob" => Tool::GlobToolCall(pb::GlobToolCall::default()),
         "grep" => Tool::GrepToolCall(pb::GrepToolCall::default()),
+        "semanticsearch" => Tool::SemSearchToolCall(pb::SemSearchToolCall::default()),
         "read" => Tool::ReadToolCall(pb::ReadToolCall::default()),
         "todowrite" => Tool::UpdateTodosToolCall(pb::UpdateTodosToolCall::default()),
         "strreplace" | "editnotebook" | "write" => Tool::EditToolCall(pb::EditToolCall::default()),
@@ -323,6 +324,13 @@ pub fn render_tool_call(call: &ToolCall, completed: bool) -> Result<pb::ToolCall
         }
         Some(pb::tool_call::Tool::GrepToolCall(tool)) => {
             tool.args = Some(super::request::grep_args(call)?);
+        }
+        Some(pb::tool_call::Tool::SemSearchToolCall(tool)) => {
+            tool.args = Some(pb::SemSearchToolArgs {
+                query: string("query"),
+                target_directories: optional("target_directory").into_iter().collect(),
+                explanation: String::new(),
+            });
         }
         Some(pb::tool_call::Tool::ReadToolCall(tool)) => {
             tool.args = Some(pb::ReadToolArgs {

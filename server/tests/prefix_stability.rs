@@ -140,7 +140,7 @@ fn every_prompt_mode_loads_the_captured_tool_set() {
             .as_path(),
     )
     .unwrap();
-    assert_eq!(assets.mode(Mode::Agent).tools.len(), 19);
+    assert_eq!(assets.mode(Mode::Agent).tools.len(), 20);
     assert_eq!(
         assets
             .mode(Mode::Agent)
@@ -150,6 +150,7 @@ fn every_prompt_mode_loads_the_captured_tool_set() {
             .collect::<Vec<_>>(),
         vec![
             "Shell",
+            "SemanticSearch",
             "Grep",
             "Delete",
             "WebSearch",
@@ -179,6 +180,7 @@ fn every_prompt_mode_loads_the_captured_tool_set() {
             "Delete",
             "FetchMcpResource",
             "Glob",
+            "SemanticSearch",
             "Grep",
             "Read",
             "ReadLints",
@@ -190,7 +192,7 @@ fn every_prompt_mode_loads_the_captured_tool_set() {
             "WebSearch",
             "Write",
         ],
-        "658cb3ebf719528e98d50cc7959f30f3533555c2f277af52638e477d4b62f7fe",
+        "91edd7da7df2c8cf2e8888dfcfb361051f15fc907c086fd4f17d4f7f2902c423",
     );
     assert_mode(
         &assets,
@@ -198,6 +200,7 @@ fn every_prompt_mode_loads_the_captured_tool_set() {
         &[
             "Shell",
             "Glob",
+            "SemanticSearch",
             "Grep",
             "Read",
             "TodoWrite",
@@ -210,7 +213,7 @@ fn every_prompt_mode_loads_the_captured_tool_set() {
             "FetchMcpResource",
             "CallMcpTool",
         ],
-        "25a95af0798b3622e4ff92874ead471c79d218daece7c48c00a8bff58f7abcbc",
+        "9b0da75a359c2d7624f0e396803e28b3624dc02d39c5ebc17d1bcce23ae4c6e4",
     );
     assert_mode(
         &assets,
@@ -221,6 +224,7 @@ fn every_prompt_mode_loads_the_captured_tool_set() {
             "Delete",
             "FetchMcpResource",
             "Glob",
+            "SemanticSearch",
             "Grep",
             "Read",
             "ReadLints",
@@ -232,7 +236,7 @@ fn every_prompt_mode_loads_the_captured_tool_set() {
             "WebSearch",
             "Write",
         ],
-        "658cb3ebf719528e98d50cc7959f30f3533555c2f277af52638e477d4b62f7fe",
+        "91edd7da7df2c8cf2e8888dfcfb361051f15fc907c086fd4f17d4f7f2902c423",
     );
     assert_mode(
         &assets,
@@ -243,6 +247,7 @@ fn every_prompt_mode_loads_the_captured_tool_set() {
             "Delete",
             "FetchMcpResource",
             "Glob",
+            "SemanticSearch",
             "Grep",
             "Read",
             "ReadLints",
@@ -256,13 +261,14 @@ fn every_prompt_mode_loads_the_captured_tool_set() {
             "Write",
             "GenerateImage",
         ],
-        "6b4223d58d3eae141ed6a91090e95825177db42a4199b68156e09b8d6e849e76",
+        "410786a5bb6617b9d331e107cbe1376b46ffae6c16e92b1d59c6a6eebb62b8b2",
     );
     assert_mode(
         &assets,
         Mode::Subagent,
         &[
             "Shell",
+            "SemanticSearch",
             "Grep",
             "Delete",
             "WebSearch",
@@ -281,11 +287,11 @@ fn every_prompt_mode_loads_the_captured_tool_set() {
             "UpdateCurrentStep",
             "CallMcpTool",
         ],
-        "9a4579aa3ffc358b99f3fd161e3bd247524beeb1e989caba3c16d659ff3b7744",
+        "ce5b92f38e3c370df38d138b6d25ceeb814b238934adb45d8fdbfe8ab78a61e2",
     );
     assert_eq!(
         schema_digest(&assets.mode(Mode::Agent).tools),
-        "b97e1418401bb1550f01f365326d98f818fb0e73fe9d0532d1534d3a5bf691df"
+        "cfc167350ef16049fc60e1a06cd806b6555f9724509d8f1f5595912cd0711e1d"
     );
     let task = assets
         .mode(Mode::Agent)
@@ -518,6 +524,7 @@ fn subagent_uses_the_agent_prompt_and_only_the_captured_tool_delta() {
             .collect::<Vec<_>>(),
         vec![
             "Shell",
+            "SemanticSearch",
             "Grep",
             "Delete",
             "WebSearch",

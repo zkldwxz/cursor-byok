@@ -257,6 +257,15 @@ impl ConversationRuntime {
                                             Ok(codec::ClientExecEvent::Completed(result)) => {
                                                 generation.results.send(*result)
                                             }
+                                            Ok(codec::ClientExecEvent::Search(reply)) => {
+                                                let handle = handle.clone();
+                                                generation.tools.continue_search(
+                                                    *reply,
+                                                    move |message| {
+                                                        let _ = handle.emit(&message);
+                                                    },
+                                                )
+                                            }
                                             Ok(codec::ClientExecEvent::Pending) => {}
                                             Err(error) => generation.results.send_error(error),
                                         }
@@ -547,6 +556,7 @@ async fn start_generation(
         results.clone(),
         dependencies.store.clone(),
         dependencies.web_cache.clone(),
+        dependencies.semantic.clone(),
     );
     let generation = RunGeneration {
         id: *next_generation,

@@ -29,6 +29,7 @@ pub(crate) struct ConversationDependencies {
     pub provider: Arc<dyn Provider>,
     pub compiler: PromptCompiler,
     pub web_cache: WebCache,
+    pub semantic: crate::cursor::tools::semantic_search::SemanticPackage,
     /// 本地 rules 服务的 md 存储目录;编译请求上下文时合并其中的规则。
     pub local_rules_dir: Option<std::path::PathBuf>,
 }
@@ -53,6 +54,7 @@ impl ConversationRegistry {
         provider: Arc<dyn Provider>,
         compiler: PromptCompiler,
         web_cache: WebCache,
+        semantic: crate::cursor::tools::semantic_search::SemanticPackage,
         local_rules_dir: Option<std::path::PathBuf>,
         plugins: Option<crate::plugin::PluginRegistry>,
     ) -> Self {
@@ -67,6 +69,7 @@ impl ConversationRegistry {
                     plugins,
                     compiler,
                     web_cache,
+                    semantic,
                     local_rules_dir,
                 },
             }),
