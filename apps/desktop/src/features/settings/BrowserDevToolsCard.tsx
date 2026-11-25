@@ -28,7 +28,7 @@ export function BrowserDevToolsCard() {
       <div className={styles.row}>
         <div className={styles.details}>
           <strong>{t("配对 Chrome 扩展")}</strong>
-          <small>{t("把配对码粘贴到 Chrome 扩展，再共享要调试的标签页。重新配对会替换旧连接。")}</small>
+          <small>{t("把配对码粘贴到 Chrome 扩展，配对一次即可。Cursor 能使用蓝色「Cursor」标签组里的任何网站。重新配对会替换旧连接。")}</small>
         </div>
       </div>
       {code && <TextInput type="password" value={code} readOnly aria-label={t("Chrome 扩展配对码")} onFocus={(event) => event.currentTarget.select()} />}

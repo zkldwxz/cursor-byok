@@ -47,6 +47,7 @@ const magpieModels: MagpieCatalog["models"] = [
   { id: "google/gemini-2.5-pro", magpie_label: "Gemini 2.5 Pro", context_window: 1_048_576, reasoning: true, modalities: { input: ["text", "image"] } },
   { id: "deepseek/deepseek-v3.2", magpie_label: "DeepSeek V3.2", context_window: 128_000, reasoning: false, modalities: { input: ["text"] } },
 ];
+let remoteEnabled = false;
 let magpie: MagpieCatalog | null = null;
 let workspaceExtension: WorkspaceExtensionStatus = { state: "missing", installed_version: null, expected_version: "1.1.0", cursor_cli: true };
 const modelPriceMap = new Map<string, ModelPrice>();
@@ -204,6 +205,9 @@ export function installDemoApi() {
       };
       return json(harnessStatus);
     }
+    if (path === "/remote" && method === "PUT") remoteEnabled = Boolean((body as { enabled?: unknown } | null)?.enabled);
+    if (path === "/remote") return json({ enabled: remoteEnabled, cloudflared: true, cursor: true, devices: [], error: null });
+    if (path === "/remote/pairing") return json({ link: "https://example.com/#demo", qr_svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path d="M1 1h3v3H1zM6 1h3v3H6zM1 6h3v3H1z"/></svg>' });
     if (path === "/model-prices" && method === "GET") return json(modelPriceEntries());
     if (path === "/model-prices" && method === "PUT") {
       const input = body as ModelPriceInput | null;

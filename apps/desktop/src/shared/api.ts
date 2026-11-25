@@ -209,6 +209,30 @@ export interface CommitSettingsView extends CommitSettings {
   default_prompt: string;
 }
 
+export interface RemoteStatus {
+  enabled: boolean;
+  cloudflared: boolean;
+  cursor: boolean;
+  devices: { id: string; name: string; paired_at_ms: number }[];
+  relay: RelaySettings;
+  error: string | null;
+}
+
+export interface RelaySettings {
+  address: string;
+  token: string;
+}
+
+export interface PairingLink {
+  app: PairingQr;
+  web: PairingQr | null;
+}
+
+export interface PairingQr {
+  link: string;
+  svg: string;
+}
+
 export interface ModelPrice {
   input_per_million: number;
   output_per_million: number;
@@ -618,6 +642,11 @@ export const api = {
   installWorkspaceExtension: () => request<WorkspaceExtensionStatus>("/harness/cursor/workspace-extension/install", { method: "POST" }),
   saveWorkspaceExtensionVsix: () => request<{ saved_to: string }>("/harness/cursor/workspace-extension/vsix", { method: "POST" }),
   calls: () => request<LlmCall[]>("/llm-calls?limit=500"),
+  remote: () => request<RemoteStatus>("/remote"),
+  setRemote: (enabled: boolean) => request<RemoteStatus>("/remote", { method: "PUT", body: JSON.stringify({ enabled }) }),
+  setRemoteRelay: (relay: RelaySettings) => request<RemoteStatus>("/remote/relay", { method: "PUT", body: JSON.stringify(relay) }),
+  pairRemote: () => request<PairingLink>("/remote/pairing", { method: "POST" }),
+  removeRemoteDevice: (id: string) => request<void>(`/remote/devices/${encodeURIComponent(id)}`, { method: "DELETE" }),
   pairBrowserDevTools: () => request<{ token: string }>("/browser-devtools/pair", { method: "POST" }),
   call: (id: string) => request<CallDetail>(`/llm-calls/${encodeURIComponent(id)}`),
   openExternalUrl: (url: string) => request<void>("/desktop/open-external-url", { method: "POST", body: JSON.stringify({ url }) }),

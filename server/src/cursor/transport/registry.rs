@@ -22,7 +22,7 @@ use crate::{
     Result,
 };
 
-use super::{OutputHub, TransportHandle};
+use super::{MessageModes, OutputHub, TransportHandle};
 
 #[derive(Clone)]
 pub struct TransportRegistry {
@@ -39,6 +39,7 @@ struct RegistryInner {
     web_cache: WebCache,
     plugins: Option<PluginRegistry>,
     conversations: ConversationRegistry,
+    message_modes: MessageModes,
 }
 
 #[derive(Clone)]
@@ -117,6 +118,7 @@ impl TransportRegistry {
                 upstream: Mutex::new(HashMap::new()),
                 route_changed: Notify::new(),
                 traces: CursorTraceService::new(store.clone()),
+                message_modes: MessageModes::default(),
                 conversations: ConversationRegistry::new(
                     store.clone(),
                     provider,
@@ -130,6 +132,10 @@ impl TransportRegistry {
                 plugins,
             }),
         }
+    }
+
+    pub fn message_modes(&self) -> &MessageModes {
+        &self.inner.message_modes
     }
 
     pub fn store(&self) -> &Store {

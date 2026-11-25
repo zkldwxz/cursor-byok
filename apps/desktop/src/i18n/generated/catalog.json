@@ -147,7 +147,7 @@
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 186,
+          "line": 187,
           "column": 82
         },
         {
@@ -198,6 +198,18 @@
           "file": "features/calls/CallTimeline.tsx",
           "line": 111,
           "column": 42
+        }
+      ]
+    },
+    "064d5346ac53f298": {
+      "source": "在 Cursor BYOK App 里扫码。10 分钟内有效，只能配对一台手机；拿到它的人可以操作你的 Cursor，不要转发。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 84,
+          "column": 84
         }
       ]
     },
@@ -342,6 +354,18 @@
         }
       ]
     },
+    "09a25f2b0f91bd8e": {
+      "source": "手机遥控",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 60,
+          "column": 29
+        }
+      ]
+    },
     "0bbb2c0ce279d6d5": {
       "source": "尚未同步模型",
       "kind": "text",
@@ -400,7 +424,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 103,
+          "line": 104,
           "column": 38
         }
       ]
@@ -448,7 +472,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 284,
+          "line": 286,
           "column": 26
         }
       ]
@@ -491,6 +515,23 @@
           "file": "features/calls/ModelPricesCard.tsx",
           "line": 52,
           "column": 15
+        }
+      ]
+    },
+    "0e69b9774b0e5f77": {
+      "source": "开启手机遥控",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 64,
+          "column": 20
+        },
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 67,
+          "column": 24
         }
       ]
     },
@@ -876,7 +917,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 288,
+          "line": 290,
           "column": 131
         }
       ]
@@ -914,17 +955,17 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 73,
+          "line": 74,
           "column": 42
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 191,
+          "line": 192,
           "column": 22
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 218,
+          "line": 219,
           "column": 58
         }
       ]
@@ -1086,7 +1127,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 261,
+          "line": 263,
           "column": 43
         }
       ]
@@ -1103,6 +1144,18 @@
         }
       ]
     },
+    "22bd81a0f7a133d4": {
+      "source": "配对手机",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 60,
+          "column": 170
+        }
+      ]
+    },
     "22c6b4eb4caee6ae": {
       "source": "代理设置已保存",
       "kind": "text",
@@ -1110,7 +1163,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 128,
+          "line": 129,
           "column": 15
         }
       ]
@@ -1122,7 +1175,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 311,
+          "line": 313,
           "column": 24
         }
       ]
@@ -1352,13 +1405,18 @@
           "column": 66
         },
         {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 95,
+          "column": 86
+        },
+        {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 182,
+          "line": 183,
           "column": 81
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 303,
+          "line": 305,
           "column": 22
         },
         {
@@ -1471,7 +1529,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 152,
+          "line": 153,
           "column": 15
         }
       ]
@@ -1681,7 +1739,7 @@
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 246,
+          "line": 248,
           "column": 27
         }
       ]
@@ -1758,7 +1816,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 313,
+          "line": 315,
           "column": 42
         }
       ]
@@ -1847,7 +1905,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 295,
+          "line": 297,
           "column": 14
         }
       ]
@@ -1881,7 +1939,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 246,
+          "line": 248,
           "column": 39
         }
       ]
@@ -1958,12 +2016,12 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 253,
+          "line": 255,
           "column": 22
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 259,
+          "line": 261,
           "column": 26
         }
       ]
@@ -2064,7 +2122,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 159,
+          "line": 160,
           "column": 66
         }
       ]
@@ -2076,7 +2134,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 279,
+          "line": 281,
           "column": 52
         }
       ]
@@ -2136,18 +2194,6 @@
           "file": "features/settings/ProxySettingsCard.tsx",
           "line": 55,
           "column": 59
-        }
-      ]
-    },
-    "44a7180294593ce1": {
-      "source": "把配对码粘贴到 Chrome 扩展，再共享要调试的标签页。重新配对会替换旧连接。",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/settings/BrowserDevToolsCard.tsx",
-          "line": 31,
-          "column": 19
         }
       ]
     },
@@ -2568,7 +2614,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 180,
+          "line": 181,
           "column": 26
         }
       ]
@@ -2689,7 +2735,7 @@
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 239,
+          "line": 241,
           "column": 78
         }
       ]
@@ -2749,7 +2795,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 243,
+          "line": 245,
           "column": 21
         }
       ]
@@ -2970,6 +3016,18 @@
         }
       ]
     },
+    "6135d4159e892541": {
+      "source": "移除",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 92,
+          "column": 86
+        }
+      ]
+    },
     "621f63a5f08384ac": {
       "source": "缓存读取：{tokens}",
       "kind": "template",
@@ -3063,7 +3121,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 612,
+          "line": 636,
           "column": 43
         }
       ]
@@ -3159,7 +3217,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 103,
+          "line": 104,
           "column": 55
         }
       ]
@@ -3362,7 +3420,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 170,
+          "line": 171,
           "column": 16
         }
       ]
@@ -3439,7 +3497,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 271,
+          "line": 273,
           "column": 26
         }
       ]
@@ -3475,7 +3533,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 607,
+          "line": 631,
           "column": 43
         }
       ]
@@ -3492,6 +3550,18 @@
         }
       ]
     },
+    "7b350e685e43e75e": {
+      "source": "浏览器用的隧道没有连上，App 不受影响。要用浏览器请重新开启。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 79,
+          "column": 59
+        }
+      ]
+    },
     "7ba2d6728fe2531b": {
       "source": "确认清理",
       "kind": "text",
@@ -3499,7 +3569,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 304,
+          "line": 306,
           "column": 23
         }
       ]
@@ -3626,7 +3696,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 146,
+          "line": 147,
           "column": 83
         }
       ]
@@ -3718,6 +3788,18 @@
         }
       ]
     },
+    "804c42e9ddae82be": {
+      "source": "用手机 App 或浏览器查看 Cursor 对话、发消息、批准操作和回答提问。关闭或退出软件后，配对全部失效。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 65,
+          "column": 19
+        }
+      ]
+    },
     "80a57e03f0717f91": {
       "source": "未配置",
       "kind": "text",
@@ -3737,7 +3819,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 545,
+          "line": 569,
           "column": 21
         }
       ]
@@ -4049,7 +4131,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 242,
+          "line": 244,
           "column": 22
         }
       ]
@@ -4075,6 +4157,18 @@
           "file": "features/models/MagpieProvider.tsx",
           "line": 120,
           "column": 52
+        }
+      ]
+    },
+    "8da97ddda990e7c4": {
+      "source": "开启",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 95,
+          "column": 109
         }
       ]
     },
@@ -4188,7 +4282,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 162,
+          "line": 163,
           "column": 7
         }
       ]
@@ -4632,7 +4726,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 250,
+          "line": 252,
           "column": 26
         }
       ]
@@ -4694,7 +4788,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 65,
+          "line": 66,
           "column": 34
         }
       ]
@@ -4722,6 +4816,18 @@
           "file": "shared/ui/FormControls.tsx",
           "line": 15,
           "column": 81
+        }
+      ]
+    },
+    "a15d88d5b564acd8": {
+      "source": "中继地址",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 70,
+          "column": 27
         }
       ]
     },
@@ -4790,8 +4896,13 @@
           "column": 103
         },
         {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 76,
+          "column": 71
+        },
+        {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 183,
+          "line": 184,
           "column": 133
         },
         {
@@ -4858,6 +4969,18 @@
           "file": "features/calls/CallList.tsx",
           "line": 34,
           "column": 95
+        }
+      ]
+    },
+    "a49410d803b848b3": {
+      "source": "把配对码粘贴到 Chrome 扩展，配对一次即可。Cursor 能使用蓝色「Cursor」标签组里的任何网站。重新配对会替换旧连接。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/BrowserDevToolsCard.tsx",
+          "line": 31,
+          "column": 19
         }
       ]
     },
@@ -5330,6 +5453,18 @@
         }
       ]
     },
+    "b47e996ce4665762": {
+      "source": "没有找到 cloudflared，只能用 App 连接。要用浏览器请先安装。macOS：brew install cloudflared",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 78,
+          "column": 75
+        }
+      ]
+    },
     "b48b6518293a604e": {
       "source": "导入配置",
       "kind": "text",
@@ -5428,7 +5563,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 159,
+          "line": 160,
           "column": 45
         }
       ]
@@ -5466,7 +5601,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 287,
+          "line": 289,
           "column": 22
         }
       ]
@@ -5621,7 +5756,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 288,
+          "line": 290,
           "column": 31
         }
       ]
@@ -5633,7 +5768,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 279,
+          "line": 281,
           "column": 40
         }
       ]
@@ -5757,6 +5892,18 @@
         }
       ]
     },
+    "c4234d5423d35969": {
+      "source": "还没有连上 Cursor。在 Cursor 里打开 Agents Window，可以最小化，不要关闭。首次开启后要重启两次 Cursor。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 81,
+          "column": 10
+        }
+      ]
+    },
     "c5090637ff56ae34": {
       "source": "缓存输入占比",
       "kind": "text",
@@ -5807,6 +5954,18 @@
           "file": "features/plugins/PluginResourcePanels.tsx",
           "line": 442,
           "column": 66
+        }
+      ]
+    },
+    "c7060386d549f924": {
+      "source": "中继令牌",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 73,
+          "column": 27
         }
       ]
     },
@@ -5979,12 +6138,12 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 168,
+          "line": 169,
           "column": 22
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 174,
+          "line": 175,
           "column": 20
         }
       ]
@@ -5996,7 +6155,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 205,
+          "line": 206,
           "column": 21
         }
       ]
@@ -6064,7 +6223,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 161,
+          "line": 162,
           "column": 7
         }
       ]
@@ -6254,6 +6413,18 @@
           "file": "features/models/CursorModelEditor.tsx",
           "line": 172,
           "column": 122
+        }
+      ]
+    },
+    "d63e37a39886fa56": {
+      "source": "要开启手机遥控吗？",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 95,
+          "column": 45
         }
       ]
     },
@@ -6627,7 +6798,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 323,
+          "line": 325,
           "column": 30
         },
         {
@@ -6646,6 +6817,18 @@
           "file": "features/calls/CallDetails.tsx",
           "line": 98,
           "column": 33
+        }
+      ]
+    },
+    "dfa5826fa1f76b7d": {
+      "source": "配对的手机可以让 Cursor 在这台电脑上运行命令。开启期间，Cursor 自带的远程控制由 Cursor BYOK 代为应答。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 97,
+          "column": 8
         }
       ]
     },
@@ -6754,6 +6937,30 @@
           "file": "features/home/charts/DailyTokenUsageChart.tsx",
           "line": 141,
           "column": 15
+        }
+      ]
+    },
+    "e19c3b9e266c69c9": {
+      "source": "浏览器",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 85,
+          "column": 51
+        }
+      ]
+    },
+    "e21403ecd4b9ea46": {
+      "source": "手机和电脑不在同一网络时，由这台 iroh 中继转发，它读不到内容。留空则 App 只能在同一网络使用。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 70,
+          "column": 44
         }
       ]
     },
@@ -6913,7 +7120,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 79,
+          "line": 80,
           "column": 17
         }
       ]
@@ -7079,6 +7286,18 @@
         }
       ]
     },
+    "e9f55d147c08906a": {
+      "source": "用手机相机扫码。10 分钟内有效，只能配对一台手机；拿到它的人可以操作你的 Cursor，不要转发。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 85,
+          "column": 106
+        }
+      ]
+    },
     "ea26b760e930a7ca": {
       "source": "调用观测",
       "kind": "text",
@@ -7086,7 +7305,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 165,
+          "line": 166,
           "column": 26
         }
       ]
@@ -7146,7 +7365,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 224,
+          "line": 225,
           "column": 16
         }
       ]
@@ -7318,7 +7537,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 254,
+          "line": 256,
           "column": 21
         }
       ]
@@ -7409,7 +7628,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 192,
+          "line": 193,
           "column": 21
         }
       ]
@@ -7567,6 +7786,18 @@
         }
       ]
     },
+    "fcda50a2f6fb5174": {
+      "source": "配对二维码",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 104,
+          "column": 72
+        }
+      ]
+    },
     "fd313ae7f4c257b9": {
       "source": "上下文增长",
       "kind": "text",
@@ -7639,7 +7870,7 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 314,
+          "line": 316,
           "column": 38
         }
       ]
@@ -7666,7 +7897,7 @@
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 183,
+          "line": 184,
           "column": 121
         },
         {
@@ -7695,17 +7926,17 @@
       "refs": [
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 74,
+          "line": 75,
           "column": 46
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 204,
+          "line": 205,
           "column": 22
         },
         {
           "file": "features/settings/SettingsPage.tsx",
-          "line": 219,
+          "line": 220,
           "column": 58
         }
       ]

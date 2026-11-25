@@ -32,6 +32,7 @@ use crate::{
 #[derive(Clone)]
 pub struct ControlService {
     pub(super) magpie: crate::provider::magpie::Magpie,
+    remote: crate::remote::RemoteControl,
     default_prices: crate::pricing::DefaultPrices,
     store: Store,
     cursor_harness: CursorHarness,
@@ -152,11 +153,17 @@ impl ControlService {
         plugin_runtime: PluginRuntime,
         plugins: PluginRegistry,
         clients: crate::network::NetworkClients,
+        remote: crate::remote::RemoteControl,
         app_version: String,
     ) -> Result<Self> {
         Ok(Self {
-            cursor_harness: CursorHarness::new(store.clone(), app_version.clone())?,
+            cursor_harness: CursorHarness::new(
+                store.clone(),
+                app_version.clone(),
+                remote.switch(),
+            )?,
             magpie: crate::provider::magpie::Magpie::managed(store.clone())?,
+            remote,
             default_prices: crate::pricing::DefaultPrices::new(store.clone()),
             store,
             provider,
@@ -170,6 +177,10 @@ impl ControlService {
 
     pub(crate) fn magpie(&self) -> &crate::provider::magpie::Magpie {
         &self.magpie
+    }
+
+    pub(crate) fn remote(&self) -> &crate::remote::RemoteControl {
+        &self.remote
     }
 
     pub(crate) fn default_prices(&self) -> &crate::pricing::DefaultPrices {
@@ -781,6 +792,12 @@ impl ControlService {
 
     pub async fn ports(&self) -> Result<PortSettings> {
         self.store.port_settings().await
+    }
+
+    pub(super) async fn pair_browser(&self) -> Result<String> {
+        crate::cursor::tools::browser_bridge::BRIDGE
+            .pair(&self.store)
+            .await
     }
 
     pub async fn external_api_settings(&self) -> Result<ExternalApiSettings> {

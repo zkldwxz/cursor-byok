@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" id="theme-color" content="#ffffff">
+    <title>Cursor</title>
+    <link rel="icon" type="image/svg+xml" href="icon.svg">
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body data-view="gate" data-tab="home">
+    <div id="gate"></div>
+    <section id="home" class="page">
+      <header class="page-head">
+        <div id="home-state" class="side-status" role="status"></div>
+      </header>
+      <div class="page-body">
+        <h1 id="hello"></h1>
+        <form id="home-composer" class="composer" hidden>
+          <div class="field">
+            <textarea rows="2" enterkeyhint="enter"></textarea>
+            <button type="submit"></button>
+          </div>
+          <div class="chips"><div id="home-project"></div><div id="home-chips"></div></div>
+        </form>
+        <section id="home-waiting" hidden></section>
+        <header id="home-title" hidden><h2 id="home-by"></h2></header>
+        <div id="home-lists"></div>
+      </div>
+    </section>
+    <aside id="sidebar" class="page"></aside>
+    <nav id="tabs"></nav>
+    <section id="chat" class="page pushed">
+      <header class="chat-head">
+        <div class="chat-lead">
+          <button id="back" class="plain" type="button"></button>
+          <button id="toggle-side" class="plain" type="button"></button>
+          <button id="chats" class="plain" type="button">
+            <span id="state" class="state" role="status"></span>
+            <span class="chat-names"><span id="name"></span><span id="title"></span></span>
+          </button>
+        </div>
+        <div class="chat-actions">
+          <button id="new" class="plain" type="button"></button>
+        </div>
+      </header>
+      <main id="scroll">
+        <div class="column">
+          <div id="transcript"></div>
+          <div id="notice" hidden></div>
+        </div>
+      </main>
+      <footer id="dock" hidden>
+        <button id="latest" class="pill" type="button" hidden></button>
+        <div class="column">
+          <section id="asked" aria-live="polite" hidden></section>
+          <div id="panel" hidden></div>
+          <form id="composer" class="composer">
+            <div class="field">
+              <textarea rows="1" enterkeyhint="enter"></textarea>
+              <button type="submit"></button>
+            </div>
+            <div id="chips" class="chips"></div>
+          </form>
+        </div>
+      </footer>
+      <div id="statusbar" hidden>
+        <div id="status-left"></div>
+        <div id="status-right"></div>
+      </div>
+    </section>
+    <section id="settings" class="page">
+      <header class="page-head">
+        <div class="chat-lead"><button id="settings-back" class="plain" type="button"></button><h1 id="settings-title"></h1></div>
+      </header>
+      <div id="settings-body" class="page-body"></div>
+    </section>
+    <dialog id="sheet"></dialog>
+    <p id="toast" role="alert"></p>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

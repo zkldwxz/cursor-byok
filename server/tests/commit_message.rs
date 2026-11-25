@@ -35,8 +35,9 @@ async fn commit_router(
     )
     .unwrap();
     let clients = NetworkClients::new(store.clone());
+    let remote = fixtures::remote(&store);
     let registry = TransportRegistry::new(store, Arc::new(provider), PromptCompiler::new(assets));
-    cursor::router(registry, clients).unwrap()
+    cursor::router(registry, clients, &remote).unwrap()
 }
 
 fn model_input(model_id: &str) -> ModelConfigInput {

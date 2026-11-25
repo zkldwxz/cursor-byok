@@ -1,15 +1,21 @@
 //! Pairs the Chrome extension with the local management listener.
 
 use axum::{
+    extract::State,
     http::{header, HeaderMap, StatusCode},
-    response::IntoResponse,
+    response::{IntoResponse, Response},
     Json,
 };
 use serde_json::json;
 
-use crate::cursor::tools::browser_bridge::{self, BrowserReply};
+use crate::{
+    cursor::tools::browser_bridge::{BrowserReply, BRIDGE},
+    Result,
+};
 
-pub async fn pair(headers: HeaderMap) -> impl IntoResponse {
+use super::ControlService;
+
+pub async fn pair(State(service): State<ControlService>, headers: HeaderMap) -> Result<Response> {
     // The router-wide `same_origin` middleware already rejects a rebinding
     // host; this endpoint additionally requires the browser to prove it is
     // same-origin, because the token it returns authorizes browser control.
@@ -18,21 +24,21 @@ pub async fn pair(headers: HeaderMap) -> impl IntoResponse {
         .and_then(|value| value.to_str().ok())
         != Some("same-origin")
     {
-        return StatusCode::FORBIDDEN.into_response();
+        return Ok(StatusCode::FORBIDDEN.into_response());
     }
-    let token = browser_bridge::pair_browser().await;
-    (
+    let token = service.pair_browser().await?;
+    Ok((
         [(header::CACHE_CONTROL, "no-store")],
         Json(json!({"token": token})),
     )
-        .into_response()
+        .into_response())
 }
 
 pub async fn next(headers: HeaderMap) -> impl IntoResponse {
     let Some(token) = token(&headers) else {
         return StatusCode::UNAUTHORIZED.into_response();
     };
-    match browser_bridge::next(token).await {
+    match BRIDGE.next(token).await {
         Some(Some(request)) => Json(request).into_response(),
         Some(None) => StatusCode::NO_CONTENT.into_response(),
         None => StatusCode::UNAUTHORIZED.into_response(),
@@ -43,7 +49,7 @@ pub async fn reply(headers: HeaderMap, Json(reply): Json<BrowserReply>) -> Statu
     let Some(token) = token(&headers) else {
         return StatusCode::UNAUTHORIZED;
     };
-    if browser_bridge::reply(token, reply).await {
+    if BRIDGE.reply(token, reply).await {
         StatusCode::NO_CONTENT
     } else {
         StatusCode::NOT_FOUND

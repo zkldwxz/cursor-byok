@@ -1,0 +1,20 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Cursor BYOK",
+  "version": "0.1.0",
+  "identifier": "dev.cursorbyok.mobile",
+  "build": {
+    "frontendDist": "../../../server/src/remote/client"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [{ "title": "Cursor BYOK", "width": 420, "height": 860 }],
+    "security": {
+      "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src ipc: http://ipc.localhost; base-uri 'none'; form-action 'none'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "icon": ["../../desktop/src-tauri/icons/128x128.png", "../../desktop/src-tauri/icons/icon.icns", "../../desktop/src-tauri/icons/icon.ico"]
+  }
+}
