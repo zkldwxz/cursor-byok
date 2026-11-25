@@ -4,6 +4,10 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use eventsource_stream::Eventsource;
 use futures_util::StreamExt;
 use serde_json::{json, Value};
+use std::{
+    collections::HashSet,
+    sync::{LazyLock, Mutex},
+};
 
 use crate::{
     config::ProviderConfig,
@@ -57,11 +61,7 @@ impl Provider for AnthropicProvider {
             let system = if request.prompt.instructions.is_empty() {
                 Value::String(String::new())
             } else {
-                json!([{
-                    "type": "text",
-                    "text": request.prompt.instructions,
-                    "cache_control": {"type": "ephemeral"}
-                }])
+                json!([{"type": "text", "text": request.prompt.instructions, "cache_control": cache_control()}])
             };
             let max_tokens = request.model.max_output_tokens.or(config.max_output_tokens)
                 .unwrap_or(DEFAULT_MAX_OUTPUT_TOKENS);
@@ -76,7 +76,7 @@ impl Provider for AnthropicProvider {
                         "name": tool.name, "description": tool.description, "input_schema": tool.parameters
                     });
                     if index + 1 == tool_count {
-                        value["cache_control"] = json!({"type": "ephemeral"});
+                        value["cache_control"] = cache_control();
                     }
                     value
                 }).collect::<Vec<_>>());
@@ -87,6 +87,12 @@ impl Provider for AnthropicProvider {
                 &config,
                 &[("content-type", "application/json"), ("anthropic-version", "2023-06-01")],
             );
+            // A gateway that rejected the ttl once keeps rejecting it; skip the
+            // field for every later call on this endpoint.
+            let ttl_accepted = !ttl_unsupported(&config.request_url);
+            if !ttl_accepted {
+                strip_cache_ttl(&mut body);
+            }
             if let Some(recorder) = &recorder {
                 recorder.request(request_headers.clone(), &body).await?;
             }
@@ -98,7 +104,26 @@ impl Provider for AnthropicProvider {
                     .json(&body),
                 &cancellation,
                 recorder.as_ref(),
-            ).await?;
+            ).await;
+            let attempt = match attempt {
+                Err(error) if ttl_accepted && ttl_rejected(&error) => {
+                    ttl_mark_unsupported(&config.request_url);
+                    strip_cache_ttl(&mut body);
+                    if let Some(recorder) = &recorder {
+                        recorder.request(request_headers.clone(), &body).await?;
+                    }
+                    send_once(
+                        "Anthropic",
+                        || client.post(&config.request_url)
+                            .header("x-api-key", &config.api_key).header("anthropic-version", "2023-06-01")
+                            .headers(config.custom_headers.clone())
+                            .json(&body),
+                        &cancellation,
+                        recorder.as_ref(),
+                    ).await?
+                }
+                attempt => attempt?,
+            };
             let Attempt::Response(response) = attempt else { return };
             yield ModelEvent::Start { model_call_id: call_id };
             let chunk_recorder = recorder.clone();
@@ -427,11 +452,85 @@ fn mark_cache_breakpoint(messages: &mut [Value]) {
             continue;
         }
         if let Some(block) = block.as_object_mut() {
-            block.insert("cache_control".into(), json!({"type": "ephemeral"}));
+            block.insert("cache_control".into(), cache_control());
             return;
         }
     }
 }
+
+/// Agent runs pause for builds and tests far longer than the default five
+/// minute ephemeral lifetime, and every expiry rewrote the whole context at
+/// 1.25x input price (real logs show 400-780k token rewrites after each
+/// pause). The one hour lifetime turns those rewrites into reads; writes cost
+/// 2x but only happen when the history actually grows.
+fn cache_control() -> Value {
+    json!({"type": "ephemeral", "ttl": "1h"})
+}
+
+/// Removes the ttl from every breakpoint, for gateways that reject the field.
+fn strip_cache_ttl(body: &mut Value) {
+    if let Some(control) = body
+        .pointer_mut("/system/0/cache_control")
+        .and_then(Value::as_object_mut)
+    {
+        control.remove("ttl");
+    }
+    if let Some(tools) = body.get_mut("tools").and_then(Value::as_array_mut) {
+        if let Some(tool) = tools.last_mut() {
+            if let Some(control) = tool.get_mut("cache_control").and_then(Value::as_object_mut) {
+                control.remove("ttl");
+            }
+        }
+    }
+    for message in body
+        .get_mut("messages")
+        .and_then(Value::as_array_mut)
+        .into_iter()
+        .flatten()
+    {
+        for block in message
+            .get_mut("content")
+            .and_then(Value::as_array_mut)
+            .into_iter()
+            .flatten()
+        {
+            if let Some(control) = block
+                .get_mut("cache_control")
+                .and_then(Value::as_object_mut)
+            {
+                control.remove("ttl");
+            }
+        }
+    }
+}
+
+/// Endpoints that rejected the one hour ttl, so later calls skip the field
+/// instead of paying a rejected request every call.
+fn ttl_unsupported(request_url: &str) -> bool {
+    TTL_UNSUPPORTED_ENDPOINTS
+        .lock()
+        .expect("ttl endpoints mutex")
+        .contains(request_url)
+}
+
+fn ttl_mark_unsupported(request_url: &str) {
+    TTL_UNSUPPORTED_ENDPOINTS
+        .lock()
+        .expect("ttl endpoints mutex")
+        .insert(request_url.to_owned());
+}
+
+/// A 400 whose body names the ttl field: the upstream understood the request
+/// shape but not the one hour lifetime.
+fn ttl_rejected(error: &Error) -> bool {
+    let Error::Provider(message) = error else {
+        return false;
+    };
+    message.contains("400") && message.to_ascii_lowercase().contains("ttl")
+}
+
+static TTL_UNSUPPORTED_ENDPOINTS: LazyLock<Mutex<HashSet<String>>> =
+    LazyLock::new(|| Mutex::new(HashSet::new()));
 
 fn anthropic_parts(role: &Role, parts: &[ContentPart]) -> Result<Vec<Value>> {
     parts
@@ -519,14 +618,194 @@ fn context_input_tokens(usage: &Usage) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::{ModelRequest, ModelSpec, PromptSpec, ToolCallContent, ToolResultContent};
+    use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
+    use tokio_util::sync::CancellationToken;
+
+    fn fixture_provider(request_url: String) -> AnthropicProvider {
+        AnthropicProvider::new(
+            reqwest::Client::builder().no_proxy().build().unwrap(),
+            ProviderConfig {
+                kind: crate::config::ProviderKind::Anthropic,
+                request_url,
+                api_key: "test".into(),
+                custom_headers: Default::default(),
+                max_output_tokens: Some(512),
+                request_timeout: std::time::Duration::from_secs(2),
+                allowed_body_fields: None,
+            },
+        )
+    }
+
+    fn fixture_invocation() -> ModelInvocation {
+        ModelInvocation {
+            call_id: "call".into(),
+            run_id: "run".into(),
+            conversation_id: "thread".into(),
+            provider_call_index: 0,
+            request: ModelRequest {
+                model: ModelSpec::new("fixture"),
+                prompt: PromptSpec {
+                    instructions: "system".into(),
+                    tools: vec![crate::model::ToolDefinition {
+                        name: "Read".into(),
+                        description: "Read test fixtures".into(),
+                        parameters: json!({"type":"object"}),
+                    }],
+                },
+                history: vec![ProjectedMessage {
+                    message_id: "u".into(),
+                    role: Role::User,
+                    content: ProjectedContent::Parts(vec![ContentPart::Text {
+                        text: "read two fixtures".into(),
+                    }]),
+                }],
+            },
+        }
+    }
+
+    fn sse(events: &[Value]) -> String {
+        events
+            .iter()
+            .map(|event| format!("data: {event}\n\n"))
+            .collect()
+    }
+
+    /// Agent runs pause for builds and tests far longer than the default five
+    /// minute cache lifetime, and every expiry rewrote the whole context at
+    /// 1.25x price (logs show 400-780k token rewrites). The one hour lifetime
+    /// turns those rewrites into reads.
+    #[tokio::test]
+    async fn cache_breakpoints_carry_the_one_hour_ttl() {
+        let (tx, mut rx) = tokio::sync::mpsc::channel(2);
+        let app = Router::new().route(
+            "/v1/messages",
+            post(move |Json(body): Json<Value>| {
+                let tx = tx.clone();
+                async move {
+                    tx.send(body).await.unwrap();
+                    let events = [
+                        json!({"type":"message_start","message":{"usage":{"input_tokens":3}}}),
+                        json!({"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}),
+                        json!({"type":"content_block_stop","index":0}),
+                        json!({"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":2}}),
+                        json!({"type":"message_stop"}),
+                    ];
+                    ([("content-type","text/event-stream")], sse(&events))
+                }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/v1/messages", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let provider = fixture_provider(url);
+        let body = {
+            let mut stream = provider.stream(fixture_invocation(), CancellationToken::new());
+            let _ = stream.next().await;
+            rx.recv().await.unwrap()
+        };
+        server.abort();
+
+        assert_eq!(
+            body["system"][0]["cache_control"],
+            json!({"type":"ephemeral","ttl":"1h"}),
+            "the system prefix is the most valuable cache entry and must survive build pauses"
+        );
+        let tools = body["tools"].as_array().unwrap();
+        assert_eq!(
+            tools.last().unwrap()["cache_control"],
+            json!({"type":"ephemeral","ttl":"1h"})
+        );
+        let last_user = body["messages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .rev()
+            .find(|message| message["role"] == "user")
+            .unwrap();
+        assert!(last_user["content"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|block| {
+                block.get("cache_control") == Some(&json!({"type":"ephemeral","ttl":"1h"}))
+            }));
+    }
+
+    /// Gateways that do not understand `ttl` must degrade to the five minute
+    /// default instead of failing the call, and the fallback is remembered so
+    /// later calls skip the rejected request entirely.
+    #[tokio::test]
+    async fn a_gateway_rejecting_the_ttl_falls_back_and_is_remembered() {
+        let bodies = std::sync::Arc::new(parking_lot::Mutex::new(Vec::<Value>::new()));
+        let first = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let handler_bodies = bodies.clone();
+        let handler_first = first.clone();
+        let app = Router::new().route(
+            "/v1/messages",
+            post(move |Json(body): Json<Value>| {
+                let bodies = handler_bodies.clone();
+                let first = handler_first.clone();
+                async move {
+                    if first.swap(false, std::sync::atomic::Ordering::SeqCst) {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            axum::Json(json!({
+                                "type":"error",
+                                "error":{"type":"invalid_request_error",
+                                         "message":"cache_control.ttl is not supported"}
+                            })),
+                        )
+                            .into_response();
+                    }
+                    bodies.lock().push(body);
+                    let events = [
+                        json!({"type":"message_start","message":{"usage":{"input_tokens":3}}}),
+                        json!({"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":2}}),
+                        json!({"type":"message_stop"}),
+                    ];
+                    (
+                        [("content-type", "text/event-stream")],
+                        sse(&events),
+                    )
+                        .into_response()
+                }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/v1/messages", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let _ = fixture_provider(url.clone())
+            .stream(fixture_invocation(), CancellationToken::new())
+            .collect::<Vec<_>>()
+            .await;
+        // A later call on the same endpoint must not pay the rejected request
+        // again.
+        let _ = fixture_provider(url)
+            .stream(fixture_invocation(), CancellationToken::new())
+            .collect::<Vec<_>>()
+            .await;
+        server.abort();
+
+        let received = bodies.lock().clone();
+        assert_eq!(
+            received.len(),
+            2,
+            "the ttl attempt must be retried once, then skipped entirely"
+        );
+        assert!(
+            received[0]["system"][0]["cache_control"]
+                .get("ttl")
+                .is_none(),
+            "the retry must carry no ttl"
+        );
+        assert!(received[1]["system"][0]["cache_control"]
+            .get("ttl")
+            .is_none());
+    }
 
     #[tokio::test]
     async fn wire_prefix_survives_a_tool_round_and_refused_tools_are_never_authorized() {
-        use crate::model::{
-            ModelRequest, ModelSpec, PromptSpec, ToolCallContent, ToolResultContent,
-        };
-        use axum::{routing::post, Json, Router};
-        use tokio_util::sync::CancellationToken;
         let (tx, mut rx) = tokio::sync::mpsc::channel(2);
         let app = Router::new().route("/v1/messages", post(move |Json(body): Json<Value>| {
             let tx = tx.clone();
