@@ -522,3 +522,42 @@ async fn searches_that_cannot_run_say_why_before_any_command() {
         assert!(dispatched.messages.len() <= 1, "no command may be sent");
     }
 }
+
+#[test]
+fn every_mode_tells_the_model_when_semantic_search_comes_first() {
+    use cursor_server::cursor::prompting::{Mode, PromptAssets};
+
+    let assets = PromptAssets::load(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("prompt/cursor")
+            .as_path(),
+    )
+    .unwrap();
+    for mode in [
+        Mode::Agent,
+        Mode::Ask,
+        Mode::Plan,
+        Mode::Debug,
+        Mode::Multitask,
+        Mode::Subagent,
+    ] {
+        let mode = assets.mode(mode);
+        let section = mode
+            .prompt
+            .split_once("<code_search>")
+            .and_then(|(_, rest)| rest.split_once("</code_search>"))
+            .expect("each prompt explains how to find code")
+            .0;
+        // Each tool keeps its own job; a guide that names only one hides the others.
+        for tool in ["SemanticSearch", "Grep", "Read", "Shell"] {
+            assert!(section.contains(tool), "{tool}");
+        }
+        for tool in &mode.tools {
+            let steers = match tool.name.as_str() {
+                "Shell" | "Task" => tool.description.as_str(),
+                _ => continue,
+            };
+            assert!(steers.contains("SemanticSearch"), "{}", tool.name);
+        }
+    }
+}
