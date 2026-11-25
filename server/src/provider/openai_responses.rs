@@ -66,7 +66,7 @@ impl Provider for OpenAiResponsesProvider {
         let config = self.config.clone();
         let recorder = self.recorder.clone();
         Box::pin(try_stream! {
-            let ModelInvocation { call_id, request, .. } = invocation;
+            let ModelInvocation { call_id, conversation_id, request, .. } = invocation;
             let input = responses_input(&request.history)?;
             let mut body = json!({
                 "model": request.model.model_id, "input": input, "stream": true,
@@ -80,7 +80,7 @@ impl Provider for OpenAiResponsesProvider {
                 })).collect::<Vec<_>>());
             }
             apply_model(&mut body, &request.model, config.max_output_tokens)?;
-            apply_openai_prompt_cache_key(&mut body, &request.model.model_id)?;
+            apply_openai_prompt_cache_key(&mut body, &request.model.model_id, &conversation_id)?;
             apply_body_allowlist(&mut body, config.allowed_body_fields.as_ref())?;
             let request_headers = recorded_headers(&config, &[("content-type", "application/json")]);
             if let Some(recorder) = &recorder {

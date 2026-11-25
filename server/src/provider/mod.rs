@@ -136,7 +136,13 @@ fn apply_body_allowlist(
     Ok(())
 }
 
-fn apply_openai_prompt_cache_key(body: &mut serde_json::Value, model_id: &str) -> Result<()> {
+/// Pins a conversation to the machine that holds its prefix. The key is the
+/// conversation's own, because a shared one mixes unrelated histories upstream.
+fn apply_openai_prompt_cache_key(
+    body: &mut serde_json::Value,
+    model_id: &str,
+    conversation_id: &str,
+) -> Result<()> {
     if !model_id.to_ascii_lowercase().contains("gpt") {
         return Ok(());
     }
@@ -144,7 +150,7 @@ fn apply_openai_prompt_cache_key(body: &mut serde_json::Value, model_id: &str) -
         .ok_or_else(|| crate::Error::Provider("provider request body must be an object".into()))?
         .insert(
             "prompt_cache_key".into(),
-            serde_json::Value::String("cursor-byok".into()),
+            serde_json::Value::String(conversation_id.into()),
         );
     Ok(())
 }
@@ -152,6 +158,84 @@ fn apply_openai_prompt_cache_key(body: &mut serde_json::Value, model_id: &str) -
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Sends one request through a provider and returns the body upstream saw.
+    async fn sent_body(
+        kind: crate::config::ProviderKind,
+        model_id: &str,
+        conversation_id: &str,
+    ) -> serde_json::Value {
+        let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+        let app = axum::Router::new().fallback(
+            move |axum::Json(body): axum::Json<serde_json::Value>| async move {
+                tx.send(body).await.unwrap();
+                ([("content-type", "text/event-stream")], "data: [DONE]\n\n")
+            },
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let config = crate::config::ProviderConfig {
+            kind: kind.clone(),
+            request_url: format!("http://{}/", listener.local_addr().unwrap()),
+            api_key: "test".into(),
+            custom_headers: Default::default(),
+            max_output_tokens: None,
+            request_timeout: std::time::Duration::from_secs(2),
+            allowed_body_fields: None,
+        };
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+        let provider: Box<dyn Provider> = match kind {
+            crate::config::ProviderKind::OpenAiChat => {
+                Box::new(OpenAiChatProvider::new(client, config))
+            }
+            crate::config::ProviderKind::OpenAiResponses => {
+                Box::new(OpenAiResponsesProvider::new(client, config))
+            }
+            crate::config::ProviderKind::Anthropic => unreachable!("no OpenAI cache key"),
+        };
+        let mut stream = provider.stream(
+            ModelInvocation {
+                call_id: "call".into(),
+                run_id: "run".into(),
+                conversation_id: conversation_id.into(),
+                provider_call_index: 0,
+                request: crate::model::ModelRequest {
+                    prompt: crate::model::PromptSpec {
+                        instructions: "system".into(),
+                        tools: Vec::new(),
+                    },
+                    model: crate::model::ModelSpec::new(model_id),
+                    history: Vec::new(),
+                },
+            },
+            CancellationToken::new(),
+        );
+        let _ = futures_util::StreamExt::next(&mut stream).await;
+        let body = rx.recv().await.unwrap();
+        server.abort();
+        body
+    }
+
+    /// OpenAI routes a request to the machine that cached its key. One key for
+    /// every conversation spreads them over machines that hold other histories.
+    #[tokio::test]
+    async fn each_conversation_keeps_its_own_openai_cache_key() {
+        for kind in [
+            crate::config::ProviderKind::OpenAiChat,
+            crate::config::ProviderKind::OpenAiResponses,
+        ] {
+            let first = sent_body(kind.clone(), "gpt-6.2-sol", "conversation-a").await;
+            let next = sent_body(kind.clone(), "gpt-6.2-sol", "conversation-a").await;
+            let other = sent_body(kind.clone(), "gpt-6.2-sol", "conversation-b").await;
+            assert_eq!(first["prompt_cache_key"], "conversation-a");
+            assert_eq!(next["prompt_cache_key"], first["prompt_cache_key"]);
+            assert_eq!(other["prompt_cache_key"], "conversation-b");
+
+            // Other vendors reject the field, so it stays off their requests.
+            let vendor = sent_body(kind, "deepseek-flash", "conversation-a").await;
+            assert!(vendor.get("prompt_cache_key").is_none());
+        }
+    }
 
     #[test]
     fn sse_transport_errors_are_not_relabelled_as_parse_errors() {
