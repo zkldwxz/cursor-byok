@@ -355,13 +355,17 @@ fn tool_call_response() -> Vec<ModelEvent> {
 /// A locally answered tool round whose usage leaves the prompt over the 90%
 /// budget of a 200K window yet inside the window itself.
 fn over_budget_tool_round() -> Vec<ModelEvent> {
+    todo_round("todo-1", 184_000, 100)
+}
+
+fn todo_round(call_id: &str, input: u64, output: u64) -> Vec<ModelEvent> {
     vec![
         ModelEvent::Start {
-            model_call_id: "todo-call".into(),
+            model_call_id: format!("model-{call_id}"),
         },
         ModelEvent::ToolCallStart {
             index: 0,
-            call_id: "todo-1".into(),
+            call_id: call_id.into(),
             name: "TodoWrite".into(),
         },
         ModelEvent::ToolCallArgumentsDelta {
@@ -371,10 +375,10 @@ fn over_budget_tool_round() -> Vec<ModelEvent> {
         },
         ModelEvent::ToolCallEnd { index: 0 },
         ModelEvent::Usage(Usage {
-            input_tokens: Some(184_000),
-            context_input_tokens: Some(184_000),
-            output_tokens: Some(100),
-            total_tokens: Some(184_100),
+            input_tokens: Some(input),
+            context_input_tokens: Some(input),
+            output_tokens: Some(output),
+            total_tokens: Some(input + output),
             ..Default::default()
         }),
         ModelEvent::Done(FinishReason::ToolUse),
@@ -443,6 +447,24 @@ async fn automatic_compaction_keeps_the_previous_request_as_an_exact_prefix() {
         .iter()
         .any(|message| matches!(&message.content, ProjectedContent::Parts(parts)
             if matches!(parts.as_slice(), [ContentPart::Text { text }] if text.contains("durable summary")))));
+}
+
+/// One generation can ask for several tools that a bridge hands over one by
+/// one; the later ones cost no model call and report zero usage.
+#[tokio::test]
+async fn a_zero_usage_tool_round_does_not_hide_a_full_context() {
+    let provider = fake_provider::FakeProvider::default();
+    provider.push(text_response("first answer", 4_000, 12));
+    provider.push(todo_round("todo-1", 179_900, 100));
+    provider.push(todo_round("todo-2", 0, 0));
+    provider.push(todo_round("todo-3", 0, 0));
+    for index in 0..6 {
+        provider.push(text_response(&format!("answer {index}"), 20_000, 20));
+    }
+
+    let (second, _) = run_over_budget(&provider, "sibling-conversation").await;
+
+    assert_eq!(second.summary_completed, 1);
 }
 
 #[tokio::test]

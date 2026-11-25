@@ -417,7 +417,7 @@ impl ConversationOutput {
                             }
                         }
                         if !self.context.compacting {
-                            context_tokens = usage.context_input_tokens;
+                            context_tokens = usage.measured_context_tokens().or(context_tokens);
                         }
                         match &mut turn_usage {
                             Some(total) => *total += usage,

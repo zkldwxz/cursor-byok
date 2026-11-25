@@ -17,6 +17,15 @@ mod usage {
         pub reasoning_tokens: Option<u64>,
     }
 
+    impl Usage {
+        /// The prompt size a model call measured. A zero is no measurement: an
+        /// ACP bridge reports it for a queued sibling tool call, which reaches
+        /// BYOK as its own response without any model request behind it.
+        pub fn measured_context_tokens(&self) -> Option<u64> {
+            self.context_input_tokens.filter(|tokens| *tokens > 0)
+        }
+    }
+
     impl AddAssign for Usage {
         fn add_assign(&mut self, rhs: Self) {
             self.input_tokens = sum(self.input_tokens, rhs.input_tokens);

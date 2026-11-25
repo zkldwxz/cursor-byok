@@ -282,7 +282,7 @@ impl Store {
             "SELECT usage_json, message_count FROM llm_calls
              WHERE conversation_id = ?
                AND call_id NOT LIKE '%:vision'
-               AND json_extract(usage_json, '$.context_input_tokens') IS NOT NULL
+               AND json_extract(usage_json, '$.context_input_tokens') > 0
              ORDER BY created_at_ms DESC, rowid DESC
              LIMIT 1",
         )
@@ -496,6 +496,9 @@ mod tests {
             ("call-a-1", "model-a", 100_u64, 3_usize),
             ("call-b", "model-b", 200_u64, 5_usize),
             ("call-a-2", "model-a", 300_u64, 7_usize),
+            // An ACP bridge answers a queued sibling tool call without a model
+            // request and reports zero for it; that measures nothing.
+            ("call-sibling", "model-a", 0_u64, 9_usize),
             ("call-reader:vision", "reader", 50_u64, 1_usize),
         ] {
             store

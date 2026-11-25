@@ -1082,7 +1082,7 @@ fn update_context_usage_anchor(
     usage: Usage,
     message_count: usize,
 ) {
-    if let Some(context_input_tokens) = usage.context_input_tokens {
+    if let Some(context_input_tokens) = usage.measured_context_tokens() {
         *anchor = Some(ContextUsageAnchor {
             context_input_tokens,
             message_count,
