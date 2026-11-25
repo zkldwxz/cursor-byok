@@ -91,7 +91,10 @@ mod tests {
         let address = listener.local_addr().unwrap();
         drop(listener);
         let url = format!("http://{address}");
-        let client = reqwest::Client::new();
+        // Loopback must bypass any system proxy: with one configured, reqwest
+        // routes the request through it and the failure arrives as a proxy
+        // response instead of a transport error.
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
         let error = send_once("test", || client.get(&url), &CancellationToken::new(), None)
             .await
             .unwrap_err();

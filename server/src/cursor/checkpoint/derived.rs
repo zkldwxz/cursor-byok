@@ -21,6 +21,7 @@ impl CheckpointBuilder {
         messages: &[CanonicalMessage],
     ) -> Result<(Vec<BlobId>, Option<BlobId>)> {
         let changes = fold_derived_state(messages);
+        let found_plan = changes.plan.is_some();
         let state = if changes.todos.is_some() && !self.base.todos.is_empty() {
             fold_derived_state_from(
                 messages,
@@ -114,8 +115,18 @@ impl CheckpointBuilder {
             } else {
                 Some(self.sync.persist(&encoded, &[]).await?)
             }
-        } else {
+        } else if found_plan {
             None
+        } else {
+            // Compaction replaces the messages that carried the plan, so the
+            // fold finds none. Todos already survive through `base.todos`; the
+            // plan must survive the same way or the plan panel empties after
+            // every compaction.
+            self.base
+                .plan
+                .as_deref()
+                .map(BlobId::from_bytes)
+                .transpose()?
         };
         Ok((todo_ids, plan_id))
     }

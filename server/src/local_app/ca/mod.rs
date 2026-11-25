@@ -88,7 +88,10 @@ impl CaManager {
                 )
             }),
             "windows" => Some(format!(
-                "certutil -addstore -f Root \"{}\"",
+                // `certutil -addstore Root` writes the machine store and needs
+                // elevation, so the command requests it through UAC instead of
+                // failing with access denied in a plain terminal.
+                "powershell -NoProfile -Command \"Start-Process cmd -Verb RunAs -Wait -ArgumentList '/K','certutil','-addstore','-f','Root','{}'\"",
                 self.cert_path().display()
             )),
             "linux" => {

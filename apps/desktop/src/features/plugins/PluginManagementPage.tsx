@@ -113,7 +113,7 @@ function RuntimeGate({ status, starting, onInitialize }: { status: PluginRuntime
         ? t("当前系统不支持插件运行时")
         : t("需要先初始化插件运行时");
   const description = failed
-    ? t("请重试初始化")
+    ? status.error ?? t("请重试初始化")
     : unsupported
       ? status.error ?? t("当前操作系统或 CPU 架构暂不受支持")
       : t("初始化将下载并安装插件运行时。");
@@ -331,7 +331,7 @@ function RuntimeProgressModal({ open, status, starting, onClose }: { open: boole
           {total ? t("已下载 {downloaded} / {total}", { downloaded: formatBytes(downloaded), total: formatBytes(total) }) : t("已下载 {downloaded}", { downloaded: formatBytes(downloaded) })}
         </span>
       </>}
-      {status?.state === "failed" && <span className={styles.error}>{t("请重试初始化")}</span>}
+      {status?.state === "failed" && <span className={styles.error}>{status.error ?? t("请重试初始化")}</span>}
       {status?.state === "ready" && <span>{t("插件运行时 {version} 已安装，可以开始使用插件。", { version: status.version })}</span>}
     </div>
   </Modal>;

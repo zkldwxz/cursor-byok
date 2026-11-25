@@ -302,7 +302,30 @@ pub async fn consume_model_cycle(
         .into_values()
         .map(|tool| tool.call)
         .collect::<Vec<_>>();
+    // Hitting the output cap is a completed turn with a truncated answer, not
+    // a failed call: the text the user already saw must become the assistant
+    // message, otherwise the next turn loses it and the run reports an error
+    // for something the model did correctly.
     if finish_reason == FinishReason::Length {
+        if calls.is_empty() && !text.trim().is_empty() {
+            let model_call_id = model_call_id.ok_or_else(|| {
+                failure(
+                    RunFailure::Protocol("provider completed without Start".into()),
+                    text.clone(),
+                    reasoning.clone(),
+                    usage,
+                )
+            })?;
+            return Ok(ModelCycleResult {
+                model_call_id,
+                text,
+                reasoning,
+                replay_state,
+                calls,
+                usage,
+                finish_reason,
+            });
+        }
         return Err(terminal_failure(
             RunFailure::Provider("model stopped before completing the response".into()),
             text,
@@ -376,6 +399,7 @@ fn failure(
     let retryable = match &failure {
         RunFailure::Protocol(_) => true,
         RunFailure::Provider(message) if is_rejected_request(message) => false,
+        RunFailure::Provider(message) if is_exhausted_quota(message) => false,
         RunFailure::Provider(_) => true,
         RunFailure::ProviderRefusal(_) | RunFailure::Store(_) | RunFailure::Client(_) => false,
     };
@@ -401,6 +425,27 @@ fn is_rejected_request(message: &str) -> bool {
             && token.bytes().all(|byte| byte.is_ascii_digit())
             && !matches!(token, "408" | "425" | "429")
     })
+}
+
+/// A 429 that means the account is out of quota is not a rate limit: the
+/// gateway states when the allowance resets, and retrying inside that window
+/// only burns the retry budget. Real logs show whole runs spending eight
+/// attempts on "5 小时的使用上限" messages that could never succeed.
+fn is_exhausted_quota(message: &str) -> bool {
+    let lowered = message.to_ascii_lowercase();
+    if !lowered.contains("429") && !lowered.contains("quota") && !lowered.contains("usage limit") {
+        return false;
+    }
+    [
+        "insufficient_quota",
+        "exceeded your current quota",
+        "billing",
+        "使用上限",
+        "额度已用尽",
+        "余额不足",
+    ]
+    .iter()
+    .any(|needle| lowered.contains(needle))
 }
 
 fn terminal_failure(
@@ -550,5 +595,87 @@ mod tests {
             None,
         );
         assert!(body_number.retryable);
+    }
+
+    #[test]
+    fn an_exhausted_quota_is_not_retried() {
+        // Verbatim from the local database: the gateway states when the
+        // allowance resets, so no retry inside the window can succeed.
+        for message in [
+            "OpenAI Chat 429 Too Many Requests: {\"error\":{\"code\":\"1308\",\"message\":\
+             \"已达到 5 小时的使用上限。您的限额将在 2026-10-14 19:20:52 重置\"}}",
+            "OpenAI Chat 429 Too Many Requests: {\"error\":{\"code\":\"insufficient_quota\",\
+             \"message\":\"You exceeded your current quota, please check your plan and billing details\"}}",
+        ] {
+            let exhausted = failure(
+                RunFailure::Provider(message.into()),
+                String::new(),
+                String::new(),
+                None,
+            );
+            assert!(!exhausted.retryable, "{message}");
+        }
+        // A plain rate limit is still worth retrying.
+        let rate_limited = failure(
+            RunFailure::Provider(
+                "OpenAI Chat 429 Too Many Requests: {\"error\":{\"code\":\"1302\",\
+                 \"message\":\"您的账户已达到速率限制，请您控制请求频率\"}}"
+                    .into(),
+            ),
+            String::new(),
+            String::new(),
+            None,
+        );
+        assert!(rate_limited.retryable);
+    }
+
+    #[tokio::test]
+    async fn a_length_limited_answer_keeps_the_text_it_produced() {
+        let events = vec![
+            Ok(ModelEvent::Start {
+                model_call_id: "call".into(),
+            }),
+            Ok(ModelEvent::TextStart),
+            Ok(ModelEvent::TextDelta("half an ans".into())),
+            Ok(ModelEvent::TextEnd),
+            Ok(ModelEvent::Done(FinishReason::Length)),
+        ];
+        let stream = Box::pin(tokio_stream::iter(events));
+        let (event_tx, _event_rx) = tokio::sync::mpsc::channel(8);
+
+        let result = consume_model_cycle(stream, &event_tx, &CancellationToken::new())
+            .await
+            .expect("a truncated answer is a completed turn");
+        assert_eq!(result.text, "half an ans");
+        assert_eq!(result.finish_reason, FinishReason::Length);
+    }
+
+    #[tokio::test]
+    async fn a_length_limited_answer_with_tool_calls_still_fails() {
+        // A cut-off tool call has no complete arguments, so it cannot be
+        // executed; that case stays a failure.
+        let events = vec![
+            Ok(ModelEvent::Start {
+                model_call_id: "call".into(),
+            }),
+            Ok(ModelEvent::ToolCallStart {
+                index: 0,
+                call_id: "tool".into(),
+                name: "Read".into(),
+            }),
+            Ok(ModelEvent::ToolCallArgumentsDelta {
+                index: 0,
+                delta: "{\"path\":\"/a\"}".into(),
+            }),
+            Ok(ModelEvent::ToolCallEnd { index: 0 }),
+            Ok(ModelEvent::Done(FinishReason::Length)),
+        ];
+        let stream = Box::pin(tokio_stream::iter(events));
+        let (event_tx, _event_rx) = tokio::sync::mpsc::channel(8);
+
+        let error = consume_model_cycle(stream, &event_tx, &CancellationToken::new())
+            .await
+            .expect_err("a truncated tool round cannot run");
+        assert!(matches!(error.failure, RunFailure::Provider(_)));
     }
 }

@@ -194,7 +194,11 @@ impl PluginRuntime {
                     tracing::error!(%error, target = asset.target, "plugin runtime initialization failed");
                     let mut failed =
                         PluginRuntimeStatus::new(PluginRuntimeState::Failed, Some(asset));
-                    failed.error = Some("plugin runtime initialization failed".into());
+                    // The UI shows this string, so it must name the actual
+                    // failure; "initialization failed" left the user with a
+                    // retry button and no idea whether it was the network, the
+                    // checksum, or an unsupported platform.
+                    failed.error = Some(format!("plugin runtime initialization failed: {error}"));
                     failed
                 }
             };

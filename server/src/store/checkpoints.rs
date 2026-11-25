@@ -118,8 +118,18 @@ impl Store {
         }
 
         let current_messages = Self::load_checkpoint_messages_tx(&mut tx, current.0).await?;
-        let (parent, additions) = if messages.starts_with(&current_messages) {
-            (current, &messages[current_messages.len()..])
+        // Cursor re-encodes the history it sends back with its own root ids and
+        // its own tool-round grouping, so comparing message ids would make every
+        // turn look like a new branch off the root and re-insert the whole
+        // history. Compare what the provider actually sees instead.
+        let common = provider_prefix_len(&current_messages, messages)?;
+        if common == current_messages.len() && common == messages.len() {
+            tx.commit().await?;
+            session.committed();
+            return Ok(current);
+        }
+        let (parent, additions) = if common == current_messages.len() {
+            (current, &messages[common..])
         } else {
             let root: i64 = sqlx::query_scalar(
                 "SELECT checkpoint_id FROM conversation_checkpoints
@@ -373,4 +383,210 @@ pub(crate) fn message_digest(messages: &[CanonicalMessage]) -> Result<[u8; 32]> 
         hasher.update(bytes);
     }
     Ok(hasher.finalize().into())
+}
+
+/// Length of the canonical prefix of `stored` whose provider projection equals
+/// the projection of the same prefix of `incoming`.
+///
+/// Projection groups assistant tool calls with their results, so a message
+/// cannot be compared in isolation: the cut has to land on a projection
+/// boundary. Returns the canonical index just past the last matching group.
+fn provider_prefix_len(
+    stored: &[CanonicalMessage],
+    incoming: &[CanonicalMessage],
+) -> Result<usize> {
+    let stored_projection = crate::model::project_messages_with_ends(stored)?;
+    let incoming_projection = crate::model::project_messages_with_ends(incoming)?;
+    let mut cut = 0;
+    for ((left, stored_end), (right, _)) in stored_projection.iter().zip(incoming_projection.iter())
+    {
+        // `ProjectedMessage` carries the internal message id, which Cursor
+        // re-encodes on every turn; only the provider-visible body decides
+        // whether the histories agree.
+        if left.role != right.role || left.content != right.content {
+            break;
+        }
+        cut = *stored_end;
+    }
+    Ok(cut)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::model::{
+        CanonicalMessage, MessageContent, Origin, Role, ToolCallContent, ToolResultContent,
+        ToolRoundId,
+    };
+
+    use super::*;
+
+    async fn store() -> Store {
+        let directory = tempfile::tempdir().unwrap();
+        Store::connect(&format!(
+            "sqlite://{}",
+            directory.path().join("test.db").display()
+        ))
+        .await
+        .unwrap()
+    }
+
+    fn user(id: &str, text: &str) -> CanonicalMessage {
+        CanonicalMessage::text(id, Role::User, Origin::User, text)
+    }
+
+    fn assistant(id: &str, round: Option<&str>, call_id: Option<&str>) -> CanonicalMessage {
+        CanonicalMessage {
+            message_id: id.into(),
+            role: Role::Assistant,
+            origin: Origin::Assistant,
+            content: MessageContent::Assistant {
+                text: "answer".into(),
+                thinking: String::new(),
+                tool_round_id: round.map(ToolRoundId::new),
+                replay_state: None,
+                tool_calls: call_id
+                    .map(|call_id| {
+                        vec![ToolCallContent {
+                            index: 0,
+                            call_id: call_id.into(),
+                            name: "Read".into(),
+                            arguments: serde_json::json!({"path": "/a"}),
+                        }]
+                    })
+                    .unwrap_or_default(),
+            },
+            runtime_event_id: None,
+        }
+    }
+
+    fn tool_result(id: &str, call_id: &str) -> CanonicalMessage {
+        CanonicalMessage {
+            message_id: id.into(),
+            role: Role::Tool,
+            origin: Origin::Tool,
+            content: MessageContent::ToolResult(ToolResultContent {
+                call_id: call_id.into(),
+                name: "Read".into(),
+                content: "ok".into(),
+                is_error: false,
+                image: None,
+                provider_parts: Vec::new(),
+            }),
+            runtime_event_id: None,
+        }
+    }
+
+    async fn set_current(store: &Store, conversation: &ConversationId, checkpoint: CheckpointId) {
+        sqlx::query("UPDATE conversations SET current_checkpoint_id = ? WHERE conversation_id = ?")
+            .bind(checkpoint.0)
+            .bind(conversation.as_str())
+            .execute(store.pool())
+            .await
+            .unwrap();
+    }
+
+    async fn checkpoint_rows(store: &Store, conversation: &ConversationId) -> i64 {
+        sqlx::query_scalar(
+            "SELECT COUNT(*) FROM conversation_checkpoints WHERE conversation_id = ?",
+        )
+        .bind(conversation.as_str())
+        .fetch_one(store.pool())
+        .await
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn a_reencoded_history_appends_only_the_new_messages() {
+        let store = store().await;
+        let conversation = ConversationId::new("conversation");
+        store.ensure_conversation(&conversation).await.unwrap();
+        let first = store
+            .import_checkpoint(
+                &conversation,
+                &[user("cursor-root:0", "one"), assistant("a1", None, None)],
+            )
+            .await
+            .unwrap();
+        set_current(&store, &conversation, first).await;
+        let before = checkpoint_rows(&store, &conversation).await;
+
+        // Cursor sends the same conversation back with its own ids.
+        let second = store
+            .import_checkpoint(
+                &conversation,
+                &[
+                    user("cursor-root:0", "one"),
+                    assistant("cursor-root:1", None, None),
+                    user("cursor-root:2", "two"),
+                ],
+            )
+            .await
+            .unwrap();
+        assert_ne!(second, first);
+        let rows: Vec<(i64, i64)> = sqlx::query_as(
+            "SELECT checkpoint_id, parent_checkpoint_id FROM conversation_checkpoints
+             WHERE conversation_id = ? ORDER BY checkpoint_id",
+        )
+        .bind(conversation.as_str())
+        .fetch_all(store.pool())
+        .await
+        .unwrap();
+        assert_eq!(rows.len() as i64, before + 1, "one new checkpoint only");
+        let (_, parent) = *rows.last().unwrap();
+        assert_eq!(
+            parent, first.0,
+            "the new checkpoint extends the current head"
+        );
+        let added: Vec<String> = sqlx::query_scalar(
+            "SELECT message_id FROM checkpoint_messages WHERE checkpoint_id = ?
+             ORDER BY ordinal",
+        )
+        .bind(second.0)
+        .fetch_all(store.pool())
+        .await
+        .unwrap();
+        assert_eq!(added, ["cursor-root:2"]);
+    }
+
+    #[tokio::test]
+    async fn a_tool_round_is_compared_as_one_provider_group() {
+        let store = store().await;
+        let conversation = ConversationId::new("conversation");
+        store.ensure_conversation(&conversation).await.unwrap();
+        let first = store
+            .import_checkpoint(
+                &conversation,
+                &[
+                    user("cursor-root:0", "one"),
+                    assistant("assistant-1", Some("round-1"), Some("call-1")),
+                    tool_result("result-1", "call-1"),
+                ],
+            )
+            .await
+            .unwrap();
+        set_current(&store, &conversation, first).await;
+
+        // The same round arrives regrouped under Cursor's own ids.
+        let second = store
+            .import_checkpoint(
+                &conversation,
+                &[
+                    user("cursor-root:0", "one"),
+                    assistant("cursor-root:1", Some("cursor-round"), Some("call-1")),
+                    tool_result("cursor-root:2", "call-1"),
+                    user("cursor-root:3", "two"),
+                ],
+            )
+            .await
+            .unwrap();
+        let added: Vec<String> = sqlx::query_scalar(
+            "SELECT message_id FROM checkpoint_messages WHERE checkpoint_id = ?
+             ORDER BY ordinal",
+        )
+        .bind(second.0)
+        .fetch_all(store.pool())
+        .await
+        .unwrap();
+        assert_eq!(added, ["cursor-root:3"]);
+    }
 }

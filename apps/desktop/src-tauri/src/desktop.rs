@@ -157,6 +157,56 @@ pub(crate) fn open_main_window(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+/// Routes the macOS app-menu Quit item through `app.exit`, so ⌘Q takes the same
+/// graceful path as the tray's Quit.
+///
+/// The default menu's Quit item calls `NSApp.terminate:`, which ends the
+/// process without emitting `RunEvent::ExitRequested`; the server then never
+/// disables the Cursor proxy and Cursor keeps pointing at a dead port. Replacing
+/// the item with one that exits through Tauri keeps the cleanup.
+#[cfg(target_os = "macos")]
+fn install_quit_menu(app: &AppHandle) -> tauri::Result<()> {
+    use tauri::menu::{Menu, MenuItem};
+
+    const QUIT_MENU_ID: &str = "app-quit";
+    let menu = Menu::default(app)?;
+    let top_level = menu.items()?;
+    let Some(app_submenu) = top_level.first().and_then(|item| item.as_submenu()) else {
+        return Ok(());
+    };
+    // The app submenu is the one holding "About <name>"; the standard menu puts
+    // Quit last, after a separator.
+    let items = app_submenu.items()?;
+    let Some(quit_index) = items
+        .iter()
+        .position(|item| {
+            item.as_predefined_menuitem().is_some_and(|item| {
+                item.text()
+                    .is_ok_and(|text| text == "Quit" || text.starts_with("Quit "))
+            })
+        })
+        .or_else(|| items.len().checked_sub(1))
+    else {
+        return Ok(());
+    };
+    app_submenu.remove_at(quit_index)?;
+    let quit = MenuItem::with_id(
+        app,
+        QUIT_MENU_ID,
+        "Quit Cursor BYOK",
+        true,
+        Some("CmdOrCtrl+Q"),
+    )?;
+    app_submenu.insert(&quit, quit_index)?;
+    app.set_menu(menu)?;
+    app.on_menu_event(|app, event| {
+        if event.id().as_ref() == QUIT_MENU_ID {
+            app.exit(0);
+        }
+    });
+    Ok(())
+}
+
 pub fn run() -> ExitCode {
     let diagnostics = match StartupDiagnostics::initialize() {
         Ok(diagnostics) => diagnostics,
@@ -269,6 +319,8 @@ pub fn run() -> ExitCode {
                 open_main_window(app.handle())?;
             }
             tray::create(app)?;
+            #[cfg(target_os = "macos")]
+            install_quit_menu(app.handle())?;
             crate::update::signal_ready_if_requested()?;
             Ok(())
         })

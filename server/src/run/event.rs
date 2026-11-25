@@ -24,6 +24,17 @@ impl RunFailure {
             Self::Client(_) => "client",
         }
     }
+
+    /// The provider- or client-facing text of this failure.
+    pub fn message(&self) -> &str {
+        match self {
+            Self::Protocol(message)
+            | Self::Provider(message)
+            | Self::ProviderRefusal(message)
+            | Self::Store(message)
+            | Self::Client(message) => message,
+        }
+    }
 }
 
 impl From<crate::Error> for RunFailure {

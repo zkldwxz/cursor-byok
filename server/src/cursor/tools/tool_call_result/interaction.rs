@@ -110,9 +110,18 @@ pub(crate) fn from_interaction(
                 (rejected.reason.clone(), true)
             }
             pb::generate_image_request_response::Result::Approved(_) => {
-                return Err(Error::Provider(
-                    "GenerateImage requires a configured server-side image executor".into(),
-                ));
+                // This build has no server-side image executor. Report it as a
+                // failed tool so the model can continue the turn; a Provider
+                // error here aborts the whole run and every in-flight tool.
+                let error = "GenerateImage is unavailable: no image executor is configured";
+                tool.result = Some(pb::GenerateImageResult {
+                    result: Some(pb::generate_image_result::Result::Error(
+                        pb::GenerateImageError {
+                            error: error.into(),
+                        },
+                    )),
+                });
+                (error.into(), true)
             }
         },
         (Some(Tool::McpAuthToolCall(tool)), Some(Response::McpAuthRequestResponse(value))) => {

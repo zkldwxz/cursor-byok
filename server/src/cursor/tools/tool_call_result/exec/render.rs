@@ -223,21 +223,39 @@ pub(super) fn glob(result: &pb::GrepResult) -> Result<pb::GlobToolResult> {
     use pb::{glob_tool_result::Result as Output, grep_result::Result as Input};
     let result = match result.result.as_ref() {
         Some(Input::Success(success)) => {
-            let files = success
+            // A multi-root workspace answers once per root. Taking the first
+            // result silently dropped every other root's matches, and the
+            // winner depended on HashMap iteration order.
+            let mut roots = success
                 .active_editor_result
                 .iter()
                 .chain(success.workspace_results.values())
-                .find_map(|result| match result.result.as_ref() {
+                .filter_map(|result| match result.result.as_ref() {
                     Some(pb::grep_union_result::Result::Files(files)) => Some(files),
                     _ => None,
-                });
+                })
+                .collect::<Vec<_>>();
+            roots.sort_by(|left, right| left.files.cmp(&right.files));
+            let mut files = Vec::new();
+            for root in &roots {
+                for file in &root.files {
+                    if !files.contains(file) {
+                        files.push(file.clone());
+                    }
+                }
+            }
             Output::Success(pb::GlobToolSuccess {
                 pattern: success.pattern.clone(),
                 path: success.path.clone(),
-                files: files.map(|value| value.files.clone()).unwrap_or_default(),
-                total_files: files.map_or(0, |value| value.total_files),
-                client_truncated: files.is_some_and(|value| value.client_truncated),
-                ripgrep_truncated: files.is_some_and(|value| value.ripgrep_truncated),
+                total_files: roots
+                    .iter()
+                    .map(|root| root.total_files)
+                    .max()
+                    .unwrap_or(0)
+                    .max(i32::try_from(files.len()).unwrap_or(i32::MAX)),
+                client_truncated: roots.iter().any(|root| root.client_truncated),
+                ripgrep_truncated: roots.iter().any(|root| root.ripgrep_truncated),
+                files,
             })
         }
         Some(Input::Error(value)) => Output::Error(pb::GlobToolError {
@@ -252,4 +270,68 @@ pub(super) fn glob(result: &pb::GrepResult) -> Result<pb::GlobToolResult> {
 
 fn missing(name: &str) -> Error {
     Error::Protocol(format!("{name} returned no result"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::glob;
+    use crate::cursor::protocol::proto::agent::v1 as pb;
+    use std::collections::HashMap;
+
+    fn files(paths: &[&str], total: i32) -> pb::GrepUnionResult {
+        pb::GrepUnionResult {
+            result: Some(pb::grep_union_result::Result::Files(pb::GrepFilesResult {
+                files: paths.iter().map(|path| (*path).into()).collect(),
+                total_files: total,
+                ..Default::default()
+            })),
+        }
+    }
+
+    /// A multi-root workspace answers once per root. Returning only the first
+    /// answer dropped every other root's matches, and which root won depended
+    /// on map iteration order.
+    #[test]
+    fn glob_merges_every_workspace_root() {
+        let result = pb::GrepResult {
+            result: Some(pb::grep_result::Result::Success(pb::GrepSuccess {
+                pattern: "**/*.rs".into(),
+                workspace_results: HashMap::from([
+                    ("root-b".into(), files(&["b/one.rs", "b/two.rs"], 2)),
+                    ("root-a".into(), files(&["a/one.rs"], 1)),
+                ]),
+                ..Default::default()
+            })),
+        };
+        let glob = glob(&result).unwrap();
+        let Some(pb::glob_tool_result::Result::Success(success)) = glob.result else {
+            panic!("expected success")
+        };
+        assert_eq!(
+            success.files,
+            ["a/one.rs", "b/one.rs", "b/two.rs"],
+            "every root must contribute, in a stable order"
+        );
+        assert_eq!(success.total_files, 3);
+    }
+
+    #[test]
+    fn glob_keeps_a_single_root_unchanged() {
+        let result = pb::GrepResult {
+            result: Some(pb::grep_result::Result::Success(pb::GrepSuccess {
+                pattern: "**/*.rs".into(),
+                workspace_results: HashMap::from([(
+                    "root".into(),
+                    files(&["src/lib.rs", "src/main.rs"], 2),
+                )]),
+                ..Default::default()
+            })),
+        };
+        let glob = glob(&result).unwrap();
+        let Some(pb::glob_tool_result::Result::Success(success)) = glob.result else {
+            panic!("expected success")
+        };
+        assert_eq!(success.files, ["src/lib.rs", "src/main.rs"]);
+        assert_eq!(success.total_files, 2);
+    }
 }

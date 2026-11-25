@@ -5,16 +5,32 @@ use std::{ffi::c_void, io, ptr, slice};
 
 use windows_sys::Win32::Security::Cryptography::{
     CertCloseStore, CertEnumCertificatesInStore, CertOpenStore, CERT_STORE_OPEN_EXISTING_FLAG,
-    CERT_STORE_PROV_SYSTEM_W, CERT_STORE_READONLY_FLAG, CERT_SYSTEM_STORE_LOCAL_MACHINE,
+    CERT_STORE_PROV_SYSTEM_W, CERT_STORE_READONLY_FLAG, CERT_SYSTEM_STORE_CURRENT_USER,
+    CERT_SYSTEM_STORE_LOCAL_MACHINE,
 };
 
 use crate::{Error, Result};
 
 const ROOT_STORE: [u16; 5] = [b'R' as u16, b'O' as u16, b'O' as u16, b'T' as u16, 0];
 
+/// A trusted CA counts whether the admin installed it into the machine store
+/// or the user accepted it into their own store.
 pub(super) fn is_installed(cert: &str) -> Result<bool> {
     let der = certificate_der(cert)?;
-    let store = open_root_store()?;
+    Ok(
+        contains_certificate(der.as_slice(), CERT_SYSTEM_STORE_LOCAL_MACHINE)?
+            || contains_certificate(der.as_slice(), CERT_SYSTEM_STORE_CURRENT_USER)?,
+    )
+}
+
+fn certificate_der(cert: &str) -> Result<Vec<u8>> {
+    pem::parse(cert)
+        .map(|pem| pem.into_contents())
+        .map_err(|error| Error::Config(format!("parse CA PEM: {error}")))
+}
+
+fn contains_certificate(der: &[u8], store_flags: u32) -> Result<bool> {
+    let store = open_root_store(store_flags)?;
     let mut context = ptr::null();
     let mut found = false;
     loop {
@@ -37,15 +53,8 @@ pub(super) fn is_installed(cert: &str) -> Result<bool> {
     Ok(found)
 }
 
-fn certificate_der(cert: &str) -> Result<Vec<u8>> {
-    pem::parse(cert)
-        .map(|pem| pem.into_contents())
-        .map_err(|error| Error::Config(format!("parse CA PEM: {error}")))
-}
-
-fn open_root_store() -> Result<*mut c_void> {
-    let flags =
-        CERT_SYSTEM_STORE_LOCAL_MACHINE | CERT_STORE_OPEN_EXISTING_FLAG | CERT_STORE_READONLY_FLAG;
+fn open_root_store(store_flags: u32) -> Result<*mut c_void> {
+    let flags = store_flags | CERT_STORE_OPEN_EXISTING_FLAG | CERT_STORE_READONLY_FLAG;
     let store = unsafe {
         CertOpenStore(
             CERT_STORE_PROV_SYSTEM_W,
@@ -57,7 +66,7 @@ fn open_root_store() -> Result<*mut c_void> {
     };
     if store.is_null() {
         return Err(Error::Config(format!(
-            "open Windows LocalMachine Root store: {}",
+            "open Windows Root certificate store: {}",
             io::Error::last_os_error()
         )));
     }

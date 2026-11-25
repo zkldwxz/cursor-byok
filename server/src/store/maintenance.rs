@@ -6,6 +6,11 @@ use crate::Result;
 
 use super::{now_ms, Store};
 
+/// How often the resident desktop process repeats the prune. Startup alone
+/// leaves a tray-resident app growing for weeks; hourly is cheap because the
+/// prune is a few indexed deletes when nothing is dead.
+const PRUNE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60 * 60);
+
 /// Prune lineages that have been detached for at least this long, so a run in
 /// flight when the process last exited keeps its recovery window.
 pub(crate) const PRUNE_GRACE_MS: i64 = 24 * 60 * 60 * 1000;
@@ -20,6 +25,23 @@ pub(crate) const BLOB_GRACE_MS: i64 = 7 * 24 * 60 * 60 * 1000;
 pub(crate) const VACUUM_THRESHOLD_BYTES: i64 = 32 * 1024 * 1024;
 
 impl Store {
+    /// Runs the prune once now and then hourly for the life of the process.
+    pub(crate) fn spawn_periodic_prune(&self) {
+        let store = self.clone();
+        tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(PRUNE_INTERVAL);
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            // The first tick fires immediately; startup already pruned.
+            ticker.tick().await;
+            loop {
+                ticker.tick().await;
+                if let Err(error) = store.prune_dead_lineages().await {
+                    tracing::warn!(%error, "periodic lineage prune skipped");
+                }
+            }
+        });
+    }
+
     /// Removes checkpoints, messages, tool rounds, and wire blobs that no
     /// live lineage references, then rewrites the file when that is expected
     /// to free meaningful space.

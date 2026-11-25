@@ -30,14 +30,29 @@ pub struct ProjectedMessage {
 }
 
 pub fn project_messages(messages: &[CanonicalMessage]) -> Result<Vec<ProjectedMessage>> {
+    Ok(project_messages_with_ends(messages)?
+        .into_iter()
+        .map(|(message, _)| message)
+        .collect())
+}
+
+/// Projects the history and reports, for every projected message, the index in
+/// `messages` just past the canonical messages it was built from.
+///
+/// Import compares a client-provided history against the stored one by what the
+/// provider sees, so it needs to map a matching projected prefix back to a
+/// canonical cut without re-deriving the tool-round grouping.
+pub fn project_messages_with_ends(
+    messages: &[CanonicalMessage],
+) -> Result<Vec<(ProjectedMessage, usize)>> {
     let mut projected = Vec::new();
     let mut index = 0;
     while index < messages.len() {
         if let Some((group, next)) = project_tool_round(messages, index)? {
-            projected.extend(group);
+            projected.extend(group.into_iter().map(|message| (message, next)));
             index = next;
         } else {
-            projected.push(project_message(&messages[index]));
+            projected.push((project_message(&messages[index]), index + 1));
             index += 1;
         }
     }

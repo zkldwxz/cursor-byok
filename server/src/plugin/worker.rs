@@ -471,6 +471,7 @@ impl HostContext {
         &self,
         request_id: &str,
         params: &serde_json::Value,
+        record: bool,
     ) -> Result<(
         reqwest::RequestBuilder,
         CancellationToken,
@@ -522,7 +523,14 @@ impl HostContext {
             .as_ref()
             .map(|state| state.cancellation.clone())
             .unwrap_or_default();
-        let recorder = invocation.and_then(|state| state.claim_recorder());
+        // The SDK's model calls always go through `network.stream` (`fetch` is
+        // only used for side calls such as token refreshes), and the recorder
+        // describes one model call — so only the stream may claim it.
+        // Otherwise the token exchange would be recorded as the model request
+        // and the real request would go unrecorded.
+        let recorder = record
+            .then(|| invocation.as_ref().and_then(|state| state.claim_recorder()))
+            .flatten();
         if let Some(recorder) = &recorder {
             let (headers, body) = recorded_network_request(params)?;
             recorder.request(headers, &body).await?;
@@ -535,7 +543,7 @@ impl HostContext {
         request_id: &str,
         params: serde_json::Value,
     ) -> Result<serde_json::Value> {
-        let (request, cancellation, recorder) = self.request(request_id, &params).await?;
+        let (request, cancellation, recorder) = self.request(request_id, &params, false).await?;
         let request = request.timeout(Duration::from_secs(60));
         let response = tokio::select! {
             _ = cancellation.cancelled() => return Err(Error::Cancelled),
@@ -577,7 +585,7 @@ impl HostContext {
         request_id: &str,
         params: serde_json::Value,
     ) -> Result<serde_json::Value> {
-        let (request, cancellation, recorder) = self.request(request_id, &params).await?;
+        let (request, cancellation, recorder) = self.request(request_id, &params, true).await?;
         let response = tokio::select! {
             _ = cancellation.cancelled() => return Err(Error::Cancelled),
             response = request.send() => response?,
@@ -816,8 +824,8 @@ mod tests {
         let (_directory, store, recorder) = recorder(true, "detailed-plugin").await;
         let host = host_with_recorder(store.clone(), recorder.clone()).await;
         let params = network_params();
-        let (_, _, first_recorder) = host.request("invocation", &params).await.unwrap();
-        let (_, _, second_recorder) = host.request("invocation", &params).await.unwrap();
+        let (_, _, first_recorder) = host.request("invocation", &params, true).await.unwrap();
+        let (_, _, second_recorder) = host.request("invocation", &params, true).await.unwrap();
         let (_, body) = recorded_network_request(&params).unwrap();
 
         assert!(first_recorder.is_some());
@@ -869,7 +877,7 @@ mod tests {
         let request_bytes = serde_json::to_string(&body).unwrap().len() as i64;
         let response = b"data: [DONE]\n\n";
 
-        let (_, _, observed) = host.request("invocation", &params).await.unwrap();
+        let (_, _, observed) = host.request("invocation", &params, true).await.unwrap();
         assert!(observed.is_some());
         recorder.response_headers(204).await.unwrap();
         recorder.response_chunk(response).await.unwrap();
@@ -891,5 +899,32 @@ mod tests {
         assert_eq!(summary.response_bytes, response.len() as i64);
         assert_eq!(summary.stream_event_count, 1);
         assert!(!summary.detailed);
+    }
+
+    /// The SDK refreshes access tokens through `network.fetch` and sends the
+    /// model call through `network.stream`. The recorder describes one model
+    /// call, so a fetch must not claim it — otherwise detailed mode would
+    /// record the token exchange as the model request and the real call would
+    /// go unrecorded.
+    #[tokio::test]
+    async fn a_fetch_never_claims_the_call_recorder_but_a_stream_does() {
+        let (_directory, store, recorder) = recorder(true, "fetch-vs-stream").await;
+        let host = host_with_recorder(store.clone(), recorder.clone()).await;
+        let mut fetch_params = network_params();
+        fetch_params["url"] = serde_json::json!("https://example.com/oauth/token");
+
+        let (_, _, fetch_recorder) = host
+            .request("invocation", &fetch_params, false)
+            .await
+            .unwrap();
+        assert!(
+            fetch_recorder.is_none(),
+            "the token exchange must not claim the model call's recorder"
+        );
+        let (_, _, stream_recorder) = host
+            .request("invocation", &network_params(), true)
+            .await
+            .unwrap();
+        assert!(stream_recorder.is_some());
     }
 }
