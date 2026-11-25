@@ -12,7 +12,8 @@ use prost::Message;
 use super::{relay::Relay, RemoteSwitch};
 
 pub(crate) const PATH: &str = "/aiserver.v1.RemoteAgentHostPresenceService/";
-const ENABLED: i32 = 1;
+/// `RemoteControlV2RegistrationState`; 1 is `NOT_ENROLLED`.
+const ENABLED: i32 = 2;
 
 #[derive(Clone, PartialEq, Message)]
 struct UserSettings {
@@ -127,4 +128,29 @@ async fn connect(State(presence): State<Presence>, request: Request<Body>) -> Re
         Body::from_stream(outgoing),
     )
         .into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A Cursor that registered before reads this before it connects, and
+    /// stays away for half an hour when told it is not registered.
+    #[tokio::test]
+    async fn a_restarted_cursor_is_told_this_computer_is_still_registered() {
+        let switch = RemoteSwitch::default();
+        switch.turn(true);
+        let request = Request::post(format!("{PATH}GetSharedTargetRegistrationState"))
+            .body(Body::empty())
+            .unwrap();
+        let response = tower::ServiceExt::oneshot(router(Relay::default(), switch), request)
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), 1024)
+            .await
+            .unwrap();
+        // Field 1 is Cursor's own number for ENABLED, field 3 an explicit false.
+        assert_eq!(body.as_ref(), [0x08, 2, 0x18, 0]);
+    }
 }
