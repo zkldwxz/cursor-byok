@@ -97,8 +97,9 @@ impl SemanticPackage {
         }))
     }
 
-    pub(super) fn version(&self) -> &str {
-        &self.0.version
+    /// Names the installed program on the machine that holds the code.
+    pub(super) fn installation(&self) -> String {
+        installation(&self.0.version, option_env!("GITHUB_SHA"))
     }
 
     pub(super) async fn deliveries(
@@ -200,6 +201,15 @@ impl SemanticPackage {
     }
 }
 
+/// Test builds reuse a version before it is released, so a version alone would
+/// leave an older build's program in place.
+fn installation(version: &str, commit: Option<&str>) -> String {
+    match commit.and_then(|commit| commit.get(..8)) {
+        Some(commit) => format!("{version}-{commit}"),
+        None => version.into(),
+    }
+}
+
 fn program(vsix: &[u8], platform: &str) -> Result<Vec<u8>> {
     let path = format!("extension/bin/{platform}/byok-semantic");
     let failed = |error: String| Error::Provider(format!("the VSIX has no usable {path}: {error}"));
@@ -274,6 +284,13 @@ mod tests {
                 "{name} must come from the same place"
             );
         }
+    }
+
+    #[test]
+    fn two_builds_of_one_version_never_share_an_installed_program() {
+        let first = installation("1.1.1", Some("9edc1de0aa"));
+        assert_ne!(first, installation("1.1.1", Some("6c1db56f00")));
+        assert_ne!(first, installation("1.1.1", None));
     }
 
     #[test]

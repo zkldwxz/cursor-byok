@@ -297,10 +297,10 @@ fn exec_message(
     let hidden = |command| codec::hidden_shell(call, context, command);
     match stage {
         SearchStage::Search(_) => {
-            command::search(package.version(), &request(call, context)?).map(hidden)
+            command::search(&package.installation(), &request(call, context)?).map(hidden)
         }
         SearchStage::InstallAndSearch(install) => command::install_and_search(
-            package.version(),
+            &package.installation(),
             &request(call, context)?,
             &parts_folder(context)?,
             &install.files,
