@@ -40,7 +40,7 @@ const HTML: &str = "text/html; charset=utf-8";
 const CSS: &str = "text/css; charset=utf-8";
 const JS: &str = "text/javascript; charset=utf-8";
 const SVG: &str = "image/svg+xml; charset=utf-8";
-const CLIENT: [(&str, &str, &str); 17] = [
+const CLIENT: [(&str, &str, &str); 20] = [
     ("/", HTML, include_str!("client/index.html")),
     ("/style.css", CSS, include_str!("client/style.css")),
     ("/icon.svg", SVG, include_str!("client/icon.svg")),
@@ -58,7 +58,10 @@ const CLIENT: [(&str, &str, &str); 17] = [
         JS,
         include_str!("client/conversations.js"),
     ),
-    ("/home.js", JS, include_str!("client/home.js")),
+    ("/waiting.js", JS, include_str!("client/waiting.js")),
+    ("/brands.js", JS, include_str!("client/brands.js")),
+    ("/line.js", JS, include_str!("client/line.js")),
+    ("/feel.js", JS, include_str!("client/feel.js")),
     ("/settings.js", JS, include_str!("client/settings.js")),
     ("/segments.js", JS, include_str!("client/segments.js")),
     ("/views.js", JS, include_str!("client/views.js")),

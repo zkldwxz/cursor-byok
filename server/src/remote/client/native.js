@@ -12,9 +12,6 @@ export async function route() {
 
 export const version = () => tauri.app.getVersion();
 
-/** A tap that is felt as well as seen. */
-export const buzz = () => native && navigator.vibrate?.(8);
-
 /** The phone's own bars take the page's color. */
 export const paintBars = (color, light) => globalThis.Bars?.paint(color, light);
 

@@ -1,8 +1,11 @@
-// Keeps the page clear of the phone's bars and keyboard, and the bars in its color.
+// Keeps the page clear of the phone's bars and keyboard, the bars in its color, and its touches felt.
 package dev.cursorbyok.mobile
 
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
@@ -29,6 +32,7 @@ class MainActivity : TauriActivity() {
 
   override fun onWebViewCreate(webView: WebView) {
     webView.addJavascriptInterface(Bars(), "Bars")
+    webView.addJavascriptInterface(Feel(), "Feel")
   }
 
   inner class Bars {
@@ -39,6 +43,26 @@ class MainActivity : TauriActivity() {
       val bars = WindowCompat.getInsetsController(window, content)
       bars.isAppearanceLightStatusBars = light
       bars.isAppearanceLightNavigationBars = light
+    }
+  }
+
+  inner class Feel {
+    private val vibrator = getSystemService(Vibrator::class.java)
+
+    @JavascriptInterface
+    fun play(kind: String) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        val effect = when (kind) {
+          "send", "confirm" -> VibrationEffect.EFFECT_CLICK
+          "hold", "done" -> VibrationEffect.EFFECT_HEAVY_CLICK
+          "warn" -> VibrationEffect.EFFECT_DOUBLE_CLICK
+          else -> VibrationEffect.EFFECT_TICK
+        }
+        vibrator.vibrate(VibrationEffect.createPredefined(effect))
+      } else {
+        @Suppress("DEPRECATION")
+        vibrator.vibrate(if (kind == "tap" || kind == "toggle") 10L else 24L)
+      }
     }
   }
 }

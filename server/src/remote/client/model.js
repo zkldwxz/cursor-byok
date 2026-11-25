@@ -6,8 +6,10 @@ export const waitingCount = (workspaces) => everyChat(workspaces).filter((chat) 
 const latest = (workspace) => workspace.chats.reduce((time, chat) => Math.max(time, chat.updatedAt), 0);
 const byUse = (workspaces) => (workspaces ?? []).toSorted((a, b) => latest(b) - latest(a));
 
-/** Where a message from home goes: the project last chosen, else the one last worked in. */
-export const homeWorkspace = (workspaces, chosen) => (workspaces ?? []).find(({ id }) => id === chosen) ?? byUse(workspaces)[0] ?? null;
+/** Where a conversation can begin: not on an SSH host, which can only be read. */
+export const projectsOf = (workspaces) => byUse(workspaces).filter(({ host }) => !host);
+
+export const placeName = ({ title, host }) => (host ? `${title} (${host})` : title);
 
 /** Of the projects only the latest, and every other kind of group; unless `chosen` says otherwise. */
 export const groupOpen = (groups, group, chosen) => chosen.get(group.id) ?? (group.kind !== "project" || groups.find(({ kind }) => kind === "project")?.id === group.id);
@@ -22,7 +24,7 @@ export function buildThreads(workspaces, { current = null, open = null, pinned =
       id: chat.id,
       label: chat.label,
       workspace: workspace.id,
-      project: workspace.title,
+      project: placeName(workspace),
       current: chat.id === current,
       state: chat.id === current && open ? chatState(open) : chat.state,
       ageMinutes: Math.max(0, Math.floor((now - chat.updatedAt) / 60_000)),
@@ -72,7 +74,7 @@ export function groupThreads(workspaces, threads, mode = "project", now = Date.n
     bucketed(["today", "yesterday", "week", "earlier"], (item) => dateBucket(item.ageMinutes, now));
   } else if (mode === "status") bucketed(["waiting", "running", "idle"], (item) => item.state);
   // A project without conversations is still where one can begin.
-  else for (const { id, title } of byUse(workspaces)) groups.push({ id: `project:${id}`, kind: "project", workspace: id, title, items: rest.filter((item) => item.workspace === id) });
+  else for (const workspace of byUse(workspaces)) groups.push({ id: `project:${workspace.id}`, kind: "project", workspace: workspace.id, title: placeName(workspace), host: workspace.host ?? null, items: rest.filter((item) => item.workspace === workspace.id) });
   return groups;
 }
 
@@ -167,14 +169,28 @@ const humans = (rows) => rows.filter((row) => row.kind === "human").length;
 export const sendingAfter = (rows, text) => ({ text, after: humans(rows) });
 export const delivered = (rows, sending) => humans(rows) > sending.after;
 
+/**
+ * The way from here to the model, stretch by stretch, and `now`: the first that does not hold.
+ * `known` says that the computer was reached before; `reachable`, that it has Cursor, once it said so.
+ */
+export function lineOf({ online, known, slow, reachable, chat }) {
+  const phone = online ? (slow ? "slow" : "ok") : known ? "lost" : "connecting";
+  const cursor = !online || reachable === undefined ? "unknown" : reachable ? "ok" : "lost";
+  const model = cursor !== "ok" || chat?.retry === undefined ? "unknown" : chat.retry !== null ? "retrying" : chat.running ? "ok" : "idle";
+  const now = phone !== "ok" ? phone : cursor === "unknown" ? "connecting" : cursor === "lost" ? "unreachable" : model === "retrying" ? "retrying" : "ok";
+  return { phone, cursor, model, now, attempt: model === "retrying" ? chat.retry : null };
+}
+
 /** What the conversation is about to show, shown already: the message being sent, and Cursor at work on it. */
-export function shownRows(rows, chat, sending, quiet = false) {
+export function shownRows(rows, chat, sending, quiet = false, line = null) {
   const last = rows.at(-1);
   const writing = last?.status === "loading" || (last?.kind === "assistant" && !quiet);
-  const thinks = chat?.running ? !chat.asked.length && !writing : Boolean(sending);
+  // Work that seems to stand still says why.
+  const held = chat?.running && line && !["ok", "slow"].includes(line.now) ? { wait: line } : null;
+  const thinks = held || (chat?.running ? !chat.asked.length && !writing : Boolean(sending));
   return [
     ...rows,
     ...(sending ? [{ key: "sending", kind: "human", text: sending.text, status: "sending" }] : []),
-    ...(thinks ? [{ key: "thinking", kind: "thinking", status: "loading" }] : []),
+    ...(thinks ? [{ key: "thinking", kind: "thinking", status: "loading", ...held }] : []),
   ];
 }

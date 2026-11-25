@@ -1,4 +1,5 @@
 //! Below the transcript, in thumb's reach: what Cursor waits for, its mode and model, and the message box.
+import { logo } from "./brands.js";
 import { copy } from "./copy.js";
 import { h, icon, redraw } from "./dom.js";
 import { answersOf, toggleOption } from "./model.js";
@@ -89,7 +90,7 @@ export function drawPanel(root, chat) {
 const label = (chat, kind) => (kind === "mode" ? (copy.modes[chat?.mode] ?? chat?.mode) : chat?.model);
 
 export function drawChips(root, chat, menu) {
-  redraw(root, JSON.stringify([chat?.mode, chat?.model]), () =>
+  redraw(root, JSON.stringify([chat?.mode, chat?.model, chat?.modelName]), () =>
     ["mode", "model"].map((kind) =>
       label(chat, kind)
         ? h(
@@ -100,13 +101,19 @@ export function drawChips(root, chat, menu) {
               "aria-label": `${copy[kind]}: ${label(chat, kind)}`,
               onclick: () => menu(kind),
             },
-            icon(kind === "mode" ? "infinity" : "sparkles"),
+            kind === "mode" ? icon("infinity") : logo(chat.modelName, chat.model),
             h("span", {}, label(chat, kind)),
             icon("down"),
           )
         : null,
     ),
   );
+}
+
+/** In place of the message box, where Cursor lets nothing be sent. */
+export function drawReadOnly(root, chat) {
+  redraw(root, JSON.stringify([chat?.readOnly, chat?.model, chat?.modelName]), () => (chat?.readOnly ? [h("span", {}, copy.readOnly), chat.model ? h("span", { class: "chip chip-model" }, logo(chat.modelName, chat.model), h("span", {}, chat.model)) : null] : []));
+  root.hidden = !root.childElementCount;
 }
 
 /** The message box; it empties at once, and gets its text back if Cursor does not take it. */

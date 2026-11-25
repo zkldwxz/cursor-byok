@@ -48,6 +48,9 @@ jobs:
           npm run tauri -- android init --ci
           npm run tauri -- icon ../desktop/src-tauri/icons/linux-512x512.png
           cp src-tauri/android/MainActivity.kt src-tauri/gen/android/app/src/main/java/dev/cursorbyok/mobile/
+          manifest=src-tauri/gen/android/app/src/main/AndroidManifest.xml
+          sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|&\n    <uses-permission android:name="android.permission.VIBRATE" />|' "$manifest"
+          grep -q android.permission.VIBRATE "$manifest"
           npm run tauri -- android build --ci --apk --target aarch64
 
       - name: Sign

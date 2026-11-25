@@ -13,19 +13,15 @@
     <div id="gate"></div>
     <section id="home" class="page">
       <header class="page-head">
-        <div id="home-state" class="side-status" role="status"></div>
+        <h1 id="home-title"></h1>
+        <div class="page-actions">
+          <button id="home-line" class="line" type="button"></button>
+          <button id="home-group" class="plain" type="button"></button>
+          <button id="home-new" class="plain" type="button"></button>
+        </div>
       </header>
       <div class="page-body">
-        <h1 id="hello"></h1>
-        <form id="home-composer" class="composer" hidden>
-          <div class="field">
-            <textarea rows="2" enterkeyhint="enter"></textarea>
-            <button type="submit"></button>
-          </div>
-          <div class="chips"><div id="home-project"></div><div id="home-chips"></div></div>
-        </form>
         <section id="home-waiting" hidden></section>
-        <header id="home-title" hidden><h2 id="home-by"></h2></header>
         <div id="home-lists"></div>
       </div>
     </section>
@@ -42,6 +38,7 @@
           </button>
         </div>
         <div class="chat-actions">
+          <button id="line" class="line" type="button"></button>
           <button id="new" class="plain" type="button"></button>
         </div>
       </header>
@@ -56,6 +53,7 @@
         <div class="column">
           <section id="asked" aria-live="polite" hidden></section>
           <div id="panel" hidden></div>
+          <p id="read-only" hidden></p>
           <form id="composer" class="composer">
             <div class="field">
               <textarea rows="1" enterkeyhint="enter"></textarea>

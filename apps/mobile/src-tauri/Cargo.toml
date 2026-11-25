@@ -1,7 +1,7 @@
 # The phone app: the remote control page, and its own way to the computer.
 [package]
 name = "cursor-byok-mobile"
-version = "0.1.0"
+version = "0.1.0-beta"
 edition = "2021"
 publish = false
 

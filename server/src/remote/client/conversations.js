@@ -130,12 +130,12 @@ export class Conversations {
         h(
           "button",
           { type: "button", class: "folder-toggle", onclick: () => (total ? onFold(group.id, !groupOpen([...this.#shownGroups()], group, this.#last.folders)) : onNewChat(group.workspace)) },
-          h("span", { class: "folder-icon" }, icon({ pinned: "pin", project: "folder", date: "clock", status: "status" }[group.kind])),
+          h("span", { class: "folder-icon" }, icon(group.host ? "remote" : { pinned: "pin", project: "folder", date: "clock", status: "status" }[group.kind])),
           h("span", { class: "folder-names" }, h("span", { class: "folder-name" }, label), h("span", { class: "folder-note" })),
           stateMark(state),
           total ? icon("down") : null,
         ),
-        project ? h("button", { type: "button", class: "folder-add", title: copy.newChat, "aria-label": `${copy.newChat}: ${label}`, onclick: () => onNewChat(group.workspace) }, icon("plus")) : null,
+        project && !group.host ? h("button", { type: "button", class: "folder-add", title: copy.newChat, "aria-label": `${copy.newChat}: ${label}`, onclick: () => onNewChat(group.workspace) }, icon("plus")) : null,
       ),
       h("div", { class: "folder-fold" }, h("nav", { class: "thread-list", "aria-label": label }, rows, more)),
     );

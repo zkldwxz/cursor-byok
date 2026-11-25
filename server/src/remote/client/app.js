@@ -1,16 +1,19 @@
-//! Holds what is known about the computer and shows it: home, the conversations, one of them, or why none.
+//! Holds what is known about the computer and shows it: the conversations, one of them, or why none.
+import { logo } from "./brands.js";
 import { Transcript } from "./chat.js";
 import { Conversations, notice } from "./conversations.js";
 import { chinese, copy } from "./copy.js";
-import { Composer, drawAsked, drawChips, drawPanel } from "./dock.js";
+import { Composer, drawAsked, drawChips, drawPanel, drawReadOnly } from "./dock.js";
 import { h, icon, redraw } from "./dom.js";
-import { drawProject, drawWaiting } from "./home.js";
+import { feel, feelTouches, setFeel } from "./feel.js";
+import { drawLine, drawStretches } from "./line.js";
 import { Link, pair } from "./link.js";
-import { buildThreads, chatState, delivered, homeWorkspace, resolveTheme, sendingAfter, shownRows, spliceRows, waitingCount, workspaceOf } from "./model.js";
-import { buzz, native, paintBars, scan } from "./native.js";
+import { buildThreads, chatState, delivered, lineOf, placeName, projectsOf, resolveTheme, sendingAfter, shownRows, spliceRows, waitingCount, workspaceOf } from "./model.js";
+import { native, paintBars, scan } from "./native.js";
 import { Settings } from "./settings.js";
 import { Sidebar } from "./sidebar.js";
 import { Views } from "./views.js";
+import { drawWaiting } from "./waiting.js";
 
 const $ = (id) => document.getElementById(id);
 const NEAR_END = 80;
@@ -20,7 +23,6 @@ const THEME_KEY = "cursor-byok-remote-theme";
 const GROUP_KEY = "cursor-byok-remote-group";
 const PINNED_KEY = "cursor-byok-remote-pinned";
 const FOLDERS_KEY = "cursor-byok-remote-folders";
-const PROJECT_KEY = "cursor-byok-remote-project";
 const wide = matchMedia("(min-width: 900px)");
 const lightMedia = matchMedia("(prefers-color-scheme: light)");
 const themeColor = $("theme-color");
@@ -65,6 +67,8 @@ function savedGroupBy() {
 const state = {
   overview: null,
   online: false,
+  /** The computer was asked and has not answered yet. */
+  slow: false,
   /** The conversation on screen: `{ session }`, or `{ draft }` for one not begun in that workspace. */
   place: null,
   chat: null,
@@ -115,11 +119,15 @@ const link = new Link({
     draw();
   },
   closed() {
-    state.online = false;
+    Object.assign(state, { online: false, slow: false });
     draw();
   },
-  // A browser's page came from the computer, so only its address could be wrong.
-  away: () => native && gate(copy.away, "wifiOff"),
+  slow(slow) {
+    state.slow = slow;
+    draw();
+  },
+  // What was read stays in sight; its light says that the computer is away. A browser's page came from the computer, so only its address could be wrong.
+  away: () => native && !state.overview && gate(copy.away, "wifiOff"),
   unpaired: () => gate(native ? copy.scan : copy.gate, "link"),
   expired: () => gate(copy.expired, "link"),
   message(message) {
@@ -128,7 +136,6 @@ const link = new Link({
       state.overview = message;
       const newest = message.workspaces.flatMap((workspace) => workspace.chats)[0];
       if (wide.matches && !state.place && newest) open({ session: newest.id });
-      if (!wide.matches && views.now === "home") ready();
     } else if (message.type === "chat" && shown(message)) {
       hear(message);
     }
@@ -142,6 +149,11 @@ const shown = ({ session, draft }) => (state.place?.session ? session === state.
 function hear(message) {
   const ran = state.chat?.running;
   // While Cursor is still reading the conversation, what is on screen stays.
+  // Only what happens in sight is felt, not what an opened conversation brings along.
+  if (message.open && state.chat?.open) {
+    if (ran && !message.running) feel(message.error === null ? "done" : "warn");
+    else if (message.asked.length > state.chat.asked.length) feel("warn");
+  }
   if (message.open) state.rows = spliceRows(state.rows, message);
   state.chat = { ...message, open: message.open || Boolean(state.chat?.open) };
   if (state.sending && (delivered(state.rows, state.sending) || (ran && !message.running))) state.sending = null;
@@ -174,7 +186,10 @@ function enter() {
 const run = async (command) => {
   const { place } = state;
   const reply = await link.command(command);
-  if (reply.type === "refused") toast(copy.refused[reply.code] ?? copy.refused.failed);
+  if (reply.type === "refused") {
+    feel("warn");
+    toast(copy.refused[reply.code] ?? copy.refused.failed);
+  }
   // The first message made a conversation of the draft.
   if (place?.draft && reply.session && state.place === place) {
     state.place = { session: reply.session };
@@ -184,14 +199,11 @@ const run = async (command) => {
   return reply;
 };
 
+/** Kept up to date while its sheet is open. */
+const stretches = h("div", { class: "stretches" });
 const scroller = $("scroll");
 const transcript = new Transcript($("transcript"));
 const composer = new Composer($("composer"), send, () => run({ type: "stop" }));
-// Seen in its conversation from the first moment.
-const homeComposer = new Composer($("home-composer"), (text) => {
-  views.go("chat");
-  return send(text);
-});
 
 function open(place) {
   const known = seen.get(place.session);
@@ -207,33 +219,18 @@ function select({ id }) {
 
 const here = () => state.place?.draft ?? workspaceOf(state.overview?.workspaces, state.place?.session)?.id;
 
-/** Home always holds a conversation not begun, so its mode and model are there to choose. */
-function ready() {
-  const workspace = homeWorkspace(state.overview?.workspaces, readStorage(PROJECT_KEY, null));
-  if (workspace && state.place?.draft !== workspace.id) open({ draft: workspace.id });
-}
-
-function begin(workspace = here() ?? state.overview?.workspaces[0]?.id) {
-  if (!workspace) return;
-  if (state.place?.draft !== workspace) open({ draft: workspace });
-  views.go("chat");
-}
-
-function chooseProject() {
-  const { workspaces } = state.overview;
-  sheet(copy.project, workspaces.map(({ id, title }) => ({
-    label: title,
-    current: id === here(),
-    pick: () => {
-      writeStorage(PROJECT_KEY, id);
-      ready();
-      draw();
-    },
-  })));
+/** Where it begins is asked for only when that is not plain. */
+function begin(workspace) {
+  const projects = projectsOf(state.overview?.workspaces);
+  const project = projects.find(({ id }) => id === workspace) ?? (projects.length === 1 ? projects[0] : null);
+  if (project) {
+    if (state.place?.draft !== project.id) open({ draft: project.id });
+    views.go("chat");
+    draw();
+  } else if (projects.length) sheet(copy.newChatIn, projects.map(({ id, title }) => ({ label: title, pick: () => begin(id) })));
 }
 
 const views = new Views((view) => {
-  if (view === "home" && !wide.matches) ready();
   if (view === "settings") settings.opened();
   draw();
 });
@@ -251,7 +248,7 @@ function drawStatusBar(workspace, told) {
   const bar = $("statusbar");
   bar.hidden = !workspace;
   if (!workspace) return;
-  redraw($("status-left"), workspace.title, () => [h("span", { class: "status-project" }, icon("folder"), h("span", {}, workspace.title))]);
+  redraw($("status-left"), placeName(workspace), () => [h("span", { class: "status-project" }, icon("folder"), h("span", {}, placeName(workspace)))]);
   redraw($("status-right"), told, () => [
     h("span", { class: "status-pill", "data-state": told }, h("span", { class: "state", "data-state": told }), h("span", {}, copy.state[told] ?? copy.offline)),
   ]);
@@ -259,7 +256,7 @@ function drawStatusBar(workspace, told) {
 
 const actions = {
   onSelectThread: select,
-  onNewChat: begin,
+  onNewChat: (workspace = here()) => begin(workspace),
   onSettings: () => views.go("settings"),
   onGrouping: () =>
     sheet(copy.grouping, Object.entries(copy.groupOption).map(([mode, label]) => ({
@@ -282,7 +279,7 @@ const actions = {
     draw();
   },
   onThreadMenu: ({ id, label, pinned }) => {
-    buzz();
+    feel("hold");
     sheet(label || copy.untitled, [{ label: pinned ? copy.unpin : copy.pin, pick: () => actions.onTogglePin(id) }]);
   },
 };
@@ -293,10 +290,14 @@ wide.addEventListener("change", host);
 host();
 const settings = new Settings($("settings-body"), {
   onTheme: setTheme,
+  onFeel: (name, on) => {
+    setFeel(name, on);
+    draw();
+  },
   onPair: look,
   onLeave: () => {
     link.leave();
-    Object.assign(state, { overview: null, online: false, place: null, chat: null, rows: [] });
+    Object.assign(state, { overview: null, online: false, slow: false, place: null, chat: null, rows: [] });
     seen.clear();
     gate(native ? copy.scan : copy.gate, "link");
   },
@@ -314,10 +315,14 @@ function draw() {
   const threads = buildThreads(overview?.workspaces, { current: place?.session, open: chat, pinned });
   sidebar.draw({ overview, online, ...connection });
   conversations.draw({ overview, current: place?.session, groupBy, folders, threads });
-  redraw($("home-state"), JSON.stringify(connection), () => [h("span", { class: "state", "data-state": connection.told }), h("span", { class: "side-status-text" }, connection.status)]);
+  const line = lineOf({ online, known: Boolean(overview), slow: state.slow, reachable: overview?.reachable, chat });
+  document.body.dataset.line = line.now;
+  for (const id of ["line", "home-line"]) drawLine($(id), line);
+  drawStretches(stretches, line);
   drawWaiting($("home-waiting"), threads, actions);
-  $("home-title").hidden = !overview?.workspaces.length;
-  $("home-by").textContent = copy.groupTitle[groupBy];
+  const projects = projectsOf(overview?.workspaces);
+  $("home-new").hidden = !projects.length;
+  $("home-group").hidden = !overview?.workspaces.length;
   $("tabs").style.setProperty("--at", document.body.dataset.tab === "home" ? 0 : 1);
   for (const tab of $("tabs").children) tab.setAttribute("aria-current", String(tab.dataset.tab === document.body.dataset.tab));
   if (views.now === "settings") settings.draw(state);
@@ -327,49 +332,43 @@ function draw() {
   const told = reachable ? (chat ? chatState(chat) : (listed?.state ?? "idle")) : "offline";
   // The conversation's own title leads; the project is where it is.
   $("name").textContent = place ? (listed?.label || (place.draft ? copy.newChat : copy.untitled)) : "";
-  $("title").textContent = workspace?.title ?? "";
+  $("title").textContent = workspace ? placeName(workspace) : "";
   $("title").hidden = !workspace;
-  $("state").dataset.state = place ? told : "";
-  $("state").textContent = copy.state[told] ?? copy.offline;
+  // The light on the other side tells what is wrong with the connection.
+  $("state").dataset.state = place && reachable ? told : "";
+  $("state").textContent = copy.state[told] ?? "";
   $("chats").disabled = !workspace?.chats.length;
-  $("new").hidden = !workspace;
+  $("new").hidden = !projects.length;
 
   const wording = chatNotice(listed);
   $("notice").hidden = !wording;
   if (wording) $("notice").replaceChildren(notice(...wording));
   const following = state.follow;
-  transcript.draw(shownRows(state.rows, chat, state.sending, Date.now() - state.changed >= QUIET_MS));
+  transcript.draw(shownRows(state.rows, chat, state.sending, Date.now() - state.changed >= QUIET_MS, line));
   $("latest").hidden = !chat || following;
 
   $("dock").hidden = !chat?.open || !overview?.reachable;
   drawAsked($("asked"), chat, run);
   drawPanel($("panel"), chat);
   drawChips($("chips"), chat, menu);
-  drawHomeComposer(workspace);
+  drawReadOnly($("read-only"), chat);
+  $("composer").hidden = Boolean(chat?.readOnly);
   drawStatusBar(workspace, told);
   composer.update(place?.session ?? `draft ${place?.draft}`, Boolean(chat?.running));
   if (following) scroller.scrollTop = scroller.scrollHeight;
 }
 
-function drawHomeComposer(workspace) {
-  const { overview, place, chat } = state;
-  $("home-composer").hidden = !overview?.reachable || !overview.workspaces.length;
-  if (!place?.draft) return;
-  drawProject($("home-project"), workspace, chooseProject);
-  drawChips($("home-chips"), chat, menu);
-  homeComposer.update(`home ${place.draft}`, false);
-}
-
 // ---- sheets
 
-function sheet(title, items) {
+function openSheet(title, content) {
   const dialog = $("sheet");
-  const close = () => dialog.close();
-  dialog.replaceChildren(
-    h("div", { class: "sheet-head" }, h("h2", {}, title), h("button", { type: "button", class: "plain", "aria-label": copy.close, onclick: close }, icon("cross"))),
-    h("div", { class: "sheet-items" }, items.map(({ label, current, pick }) => h("button", { type: "button", "aria-current": current ? "true" : undefined, onclick: () => (close(), pick()) }, h("span", {}, label), current ? icon("check") : null))),
-  );
+  dialog.replaceChildren(h("div", { class: "sheet-head" }, h("h2", {}, title), h("button", { type: "button", class: "plain", "aria-label": copy.close, onclick: () => dialog.close() }, icon("cross"))), content);
   if (!dialog.open) dialog.showModal();
+}
+
+function sheet(title, items) {
+  const item = ({ label, mark, current, pick }) => h("button", { type: "button", "aria-current": current ? "true" : undefined, onclick: () => ($("sheet").close(), pick()) }, mark, h("span", {}, label), current ? icon("check") : null);
+  openSheet(title, h("div", { class: "sheet-items" }, items.map(item)));
 }
 
 async function menu(kind) {
@@ -377,12 +376,12 @@ async function menu(kind) {
   const now = state.chat?.[kind];
   const pick = async (id) => {
     const item = menus[kind].find((other) => other.id === id);
-    state.chat = { ...state.chat, [kind]: item.label ?? id };
+    state.chat = { ...state.chat, [kind]: item.label ?? id, ...(kind === "model" ? { modelName: item.name ?? null } : null) };
     draw();
     const taken = await run({ type: "pick", kind, id });
     if (taken.type === "done") picks.set(place, { ...picks.get(place), [kind]: id });
   };
-  const show = () => sheet(copy[kind], menus[kind].map(({ id, label = copy.modes[id] ?? id }) => ({ label, current: now === id || now === label, pick: () => pick(id) })));
+  const show = () => sheet(copy[kind], menus[kind].map(({ id, name, label = copy.modes[id] ?? id }) => ({ label, mark: kind === "model" ? (logo(name, label) ?? h("span", { class: "logo" })) : null, current: now === id || now === label, pick: () => pick(id) })));
   const known = menus[kind];
   if (known) show();
   const reply = await run({ type: "menu", kind });
@@ -397,10 +396,13 @@ $("toggle-side").addEventListener("click", () => {
 });
 lightMedia.addEventListener("change", () => state.theme === "auto" && applyTheme());
 $("chats").addEventListener("click", () => {
-  const { title, chats } = state.overview.workspaces.find((item) => item.id === here());
-  sheet(title, chats.map(({ id, label }) => ({ label: label || copy.untitled, current: id === state.place.session, pick: () => select({ id }) })));
+  const workspace = state.overview.workspaces.find((item) => item.id === here());
+  sheet(placeName(workspace), workspace.chats.map(({ id, label }) => ({ label: label || copy.untitled, current: id === state.place.session, pick: () => select({ id }) })));
 });
-$("new").addEventListener("click", () => begin());
+$("new").addEventListener("click", () => begin(here()));
+$("home-new").addEventListener("click", () => begin());
+$("home-group").addEventListener("click", actions.onGrouping);
+for (const id of ["line", "home-line"]) $(id).addEventListener("click", () => openSheet(copy.line.title, stretches));
 for (const id of ["back", "settings-back"]) $(id).addEventListener("click", () => views.back());
 $("latest").addEventListener("click", () => {
   state.follow = true;
@@ -454,18 +456,18 @@ for (const [id, name, label] of [
   ["back", "back", copy.back],
   ["toggle-side", "sidebar", copy.toggleSidebar],
   ["new", "compose", copy.newChat],
+  ["home-new", "compose", copy.newChat],
+  ["home-group", "sortGroup", copy.grouping],
   ["settings-back", "back", copy.back],
 ]) {
   $(id).append(icon(name));
   $(id).setAttribute("aria-label", label);
   $(id).title = label;
 }
-$("hello").textContent = copy.hello;
+$("home-title").textContent = copy.homeTab;
 $("settings-title").textContent = copy.settings;
-$("home-title").append(h("button", { type: "button", class: "plain", "aria-label": copy.grouping, title: copy.grouping, onclick: actions.onGrouping }, icon("sortGroup")));
-$("tabs").append(...[["home", "home", copy.homeTab], ["settings", "gear", copy.settings]].map(([view, name, label]) => h("button", { type: "button", "data-tab": view, onclick: () => views.go(view) }, icon(name), h("span", {}, label))));
-// Felt where something is set off, not on every touch.
-document.addEventListener("click", (event) => event.target.closest?.("#tabs button, .segments button, .go, .quiet, button[type=submit]") && buzz());
+$("tabs").append(...[["home", "chat", copy.homeTab], ["settings", "gear", copy.settings]].map(([view, name, label]) => h("button", { type: "button", "data-tab": view, onclick: () => views.go(view) }, icon(name), h("span", {}, label))));
+feelTouches(document);
 $("chats").setAttribute("aria-label", copy.chats);
 $("chats").append(icon("down"));
 $("latest").append(icon("down"), copy.latest);
