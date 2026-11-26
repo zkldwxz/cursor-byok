@@ -27,6 +27,14 @@ const LOCAL_LOOP_GATE: &str = "agent_host_local_loop";
 const LONG_RUNNING_JOBS_GATE: &str = "long_running_jobs";
 // Cursor serves remote control from its Agents Window only with both on.
 const REMOTE_GATES: [&str; 2] = ["cursor_agent_host", "remote_agent_host_glass"];
+// Remote control leaves out conversations of SSH workspaces; Cursor's desktop
+// bridge sends to them in the SSH window that holds them. Cursor reads this gate
+// when it starts, and still waits on the user's own Beta setting.
+const DESKTOP_BRIDGE_GATE: &str = "desktop_bridge";
+// On, it holds Cursor's self-hosted worker switch on whatever the user sets, so a
+// cloud worker that skips BYOK runs for every workspace. Remote control itself
+// does not read it.
+const SELF_HOSTED_WORKERS_GATE: &str = "internal_cloud_project_remote_control";
 
 #[derive(Clone, PartialEq, Message)]
 struct BootstrapStatsigResponse {
@@ -75,6 +83,8 @@ fn patch_gates(config: &mut Value) -> Result<()> {
     }
     force_gate(config, AGENT_RETRIES_GATE, true)?;
     force_gate(config, LONG_RUNNING_JOBS_GATE, true)?;
+    force_gate(config, DESKTOP_BRIDGE_GATE, true)?;
+    force_gate(config, SELF_HOSTED_WORKERS_GATE, false)?;
     force_gate(config, LOCAL_LOOP_GATE, false)
 }
 
@@ -304,6 +314,46 @@ mod tests {
                 json!(true),
                 "{name}"
             );
+        }
+    }
+
+    #[test]
+    /// SSH conversations live in their SSH window, which only the desktop bridge reaches.
+    fn statsig_bootstrap_opens_the_desktop_bridge_to_ssh_windows() {
+        for hash_used in ["djb2", "sha256", "none"] {
+            let mut config = json!({ "hash_used": hash_used, "feature_gates": {} });
+            patch_gates(&mut config).expect("patch config");
+            let key = statsig_key(&config, DESKTOP_BRIDGE_GATE);
+            assert_eq!(
+                config["feature_gates"][&key]["value"],
+                json!(true),
+                "{hash_used}"
+            );
+        }
+    }
+
+    #[test]
+    /// Cursor ramps this gate on for some accounts, which pins the self-hosted
+    /// worker switch on and respawns a worker per workspace that bypasses BYOK.
+    fn statsig_bootstrap_lets_self_hosted_workers_be_turned_off() {
+        for hash_used in ["djb2", "sha256", "none"] {
+            let mut config = json!({ "hash_used": hash_used, "feature_gates": {} });
+            let key = statsig_key(&config, SELF_HOSTED_WORKERS_GATE);
+            config["feature_gates"][&key] = gate(&key, true);
+            patch_gates(&mut config).expect("patch config");
+            assert_eq!(
+                config["feature_gates"][&key]["value"],
+                json!(false),
+                "{hash_used}"
+            );
+            for name in REMOTE_GATES {
+                let key = statsig_key(&config, name);
+                assert_eq!(
+                    config["feature_gates"][&key]["value"],
+                    json!(true),
+                    "{name}"
+                );
+            }
         }
     }
 }
