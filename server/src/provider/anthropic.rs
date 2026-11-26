@@ -146,6 +146,7 @@ impl Provider for AnthropicProvider {
             let mut finish = None;
             let mut saw_tool = false;
             let mut refused = false;
+            let mut wrote = false;
             let mut terminal = false;
             let mut final_usage = None::<Usage>;
             while let Some(event) = tokio::select! {
@@ -167,6 +168,7 @@ impl Provider for AnthropicProvider {
                         merge_usage(final_usage.get_or_insert_default(), anthropic_usage(usage));
                     },
                     "content_block_start" => {
+                        wrote = true;
                         let index = required_u64(&value, "index")? as usize;
                         let block = value.get("content_block").unwrap_or(&Value::Null);
                         let kind = required_string(block, "type")?;
@@ -191,6 +193,7 @@ impl Provider for AnthropicProvider {
                         }
                     }
                     "content_block_delta" => {
+                        wrote = true;
                         let index = required_u64(&value, "index")? as usize;
                         let delta = value.get("delta").unwrap_or(&Value::Null);
                         let delta_kind = required_string(delta, "type")?;
@@ -235,6 +238,13 @@ impl Provider for AnthropicProvider {
                             merge_usage(final_usage.get_or_insert_default(), anthropic_usage(usage));
                         }
                         let reason = value.pointer("/delta/stop_reason").and_then(Value::as_str);
+                        // With nothing written the prompt itself did not fit: a
+                        // failure the engine compacts for, not an empty answer.
+                        if reason == Some("model_context_window_exceeded") && !wrote {
+                            Err(Error::Provider(
+                                "Anthropic stopped with model_context_window_exceeded before writing anything: the prompt does not fit the model's context window".into(),
+                            ))?;
+                        }
                         refused |= reason == Some("refusal");
                         finish = match reason {
                             Some("tool_use") => Some(FinishReason::ToolUse),
@@ -730,6 +740,75 @@ mod tests {
             .any(|block| {
                 block.get("cache_control") == Some(&json!({"type":"ephemeral","ttl":"1h"}))
             }));
+    }
+
+    async fn stream_reply(events: Vec<Value>) -> Vec<Result<ModelEvent>> {
+        let app = Router::new().route(
+            "/v1/messages",
+            post(move || {
+                let events = events.clone();
+                async move { ([("content-type", "text/event-stream")], sse(&events)) }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/v1/messages", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let replies = fixture_provider(url)
+            .stream(fixture_invocation(), CancellationToken::new())
+            .collect::<Vec<_>>()
+            .await;
+        server.abort();
+        replies
+    }
+
+    /// A gateway that cannot fit the prompt answers 200 with no content and
+    /// this stop reason (GLM through Magpie does). Read as a truncated answer,
+    /// the run failed with nothing to show, Cursor resumed it with the same
+    /// prompt, and the conversation was wedged; read as an overflow, the engine
+    /// compacts and tries again.
+    #[tokio::test]
+    async fn a_prompt_the_window_cannot_hold_is_reported_as_an_overflow() {
+        let replies = stream_reply(vec![
+            json!({"type":"message_start","message":{"usage":{"input_tokens":0}}}),
+            json!({"type":"message_delta","delta":{"stop_reason":"model_context_window_exceeded"},"usage":{"output_tokens":0}}),
+            json!({"type":"message_stop"}),
+        ])
+        .await;
+        let error = replies
+            .into_iter()
+            .find_map(Result::err)
+            .expect("an empty overflow stop must fail the call");
+        // The run engine compacts on a provider failure naming this reason.
+        let Error::Provider(message) = &error else {
+            panic!("overflow must be a provider failure, got {error:?}");
+        };
+        assert!(
+            message.contains("model_context_window_exceeded"),
+            "the reason must reach the engine: {message}"
+        );
+    }
+
+    /// Hitting the window after some output is a truncated answer: the text
+    /// already shown stays, as with `max_tokens`.
+    #[tokio::test]
+    async fn an_answer_cut_off_by_the_window_keeps_what_was_written() {
+        let replies = stream_reply(vec![
+            json!({"type":"message_start","message":{"usage":{"input_tokens":5}}}),
+            json!({"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}),
+            json!({"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"partial"}}),
+            json!({"type":"content_block_stop","index":0}),
+            json!({"type":"message_delta","delta":{"stop_reason":"model_context_window_exceeded"},"usage":{"output_tokens":1}}),
+            json!({"type":"message_stop"}),
+        ])
+        .await;
+        let done = replies
+            .into_iter()
+            .map(|reply| reply.expect("a truncated answer is not an error"))
+            .find_map(|event| match event {
+                ModelEvent::Done(reason) => Some(reason),
+                _ => None,
+            });
+        assert_eq!(done, Some(FinishReason::Length));
     }
 
     /// Gateways that do not understand `ttl` must degrade to the five minute
