@@ -31,6 +31,11 @@ const REMOTE_GATES: [&str; 2] = ["cursor_agent_host", "remote_agent_host_glass"]
 // cloud worker that skips BYOK runs for every workspace. Remote control itself
 // does not read it.
 const SELF_HOSTED_WORKERS_GATE: &str = "internal_cloud_project_remote_control";
+// Cursor filters indexed Grep matches through every `.gitignore` up to the
+// filesystem root. Its own `~/.cursor/.gitignore` ignores everything but a few
+// subfolders, not `worktrees/`, so every match in a Cursor worktree is dropped
+// and the empty answer is final. Off, Grep and Glob always run ripgrep.
+const INDEXED_GREP_GATE: &str = "instant_grep_indexing";
 
 #[derive(Clone, PartialEq, Message)]
 struct BootstrapStatsigResponse {
@@ -80,6 +85,7 @@ fn patch_gates(config: &mut Value) -> Result<()> {
     force_gate(config, AGENT_RETRIES_GATE, true)?;
     force_gate(config, LONG_RUNNING_JOBS_GATE, true)?;
     force_gate(config, SELF_HOSTED_WORKERS_GATE, false)?;
+    force_gate(config, INDEXED_GREP_GATE, false)?;
     force_gate(config, LOCAL_LOOP_GATE, false)
 }
 
@@ -267,6 +273,23 @@ mod tests {
             assert_eq!(
                 config["feature_gates"][&key]["value"],
                 json!(true),
+                "{hash_used}"
+            );
+        }
+    }
+
+    /// Cursor's indexed Grep drops every match under `~/.cursor/worktrees`, so an
+    /// agent working in a Cursor worktree finds nothing; ripgrep finds them.
+    #[test]
+    fn statsig_bootstrap_keeps_grep_on_ripgrep() {
+        for hash_used in ["djb2", "sha256", "none"] {
+            let mut config = json!({ "hash_used": hash_used, "feature_gates": {} });
+            let key = statsig_key(&config, INDEXED_GREP_GATE);
+            config["feature_gates"][&key] = gate(&key, true);
+            patch_gates(&mut config).expect("patch config");
+            assert_eq!(
+                config["feature_gates"][&key]["value"],
+                json!(false),
                 "{hash_used}"
             );
         }
