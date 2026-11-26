@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
 use crate::{
-    remote::RemoteSwitch,
     store::{Store, TabMode, TabSettings},
     Error, Result,
 };
@@ -83,13 +82,12 @@ struct Inner {
     ca_initialization: Mutex<()>,
     backend_addr: RwLock<Option<SocketAddr>>,
     tab_mode: Arc<RwLock<TabMode>>,
-    remote: RemoteSwitch,
     proxy: Mutex<ProxyRuntime>,
     workspace_extensions: workspace_extension::WorkspaceExtensions,
 }
 
 impl CursorHarness {
-    pub fn new(store: Store, app_version: String, remote: RemoteSwitch) -> Result<Self> {
+    pub fn new(store: Store, app_version: String) -> Result<Self> {
         Ok(Self {
             inner: Arc::new(Inner {
                 store: store.clone(),
@@ -97,7 +95,6 @@ impl CursorHarness {
                 ca_initialization: Mutex::new(()),
                 backend_addr: RwLock::new(None),
                 tab_mode: Arc::new(RwLock::new(TabMode::default())),
-                remote,
                 proxy: Mutex::new(ProxyRuntime::default()),
                 workspace_extensions: workspace_extension::WorkspaceExtensions::managed(
                     store,
@@ -244,7 +241,6 @@ impl CursorHarness {
                 ca,
                 requested_port,
                 self.inner.tab_mode.clone(),
-                self.inner.remote.clone(),
             )
             .await?;
         if let Err(error) = self.inner.store.set_proxy_port(actual_port).await {

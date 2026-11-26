@@ -208,7 +208,7 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 84,
+          "line": 73,
           "column": 84
         }
       ]
@@ -361,7 +361,7 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 60,
+          "line": 57,
           "column": 29
         }
       ]
@@ -525,12 +525,12 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 64,
+          "line": 61,
           "column": 20
         },
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 67,
+          "line": 64,
           "column": 24
         }
       ]
@@ -1151,7 +1151,7 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 60,
+          "line": 57,
           "column": 170
         }
       ]
@@ -1406,7 +1406,7 @@
         },
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 95,
+          "line": 84,
           "column": 86
         },
         {
@@ -1659,6 +1659,18 @@
           "file": "features/home/metrics/HomeMetrics.tsx",
           "line": 139,
           "column": 66
+        }
+      ]
+    },
+    "30b1607cf0c59c0c": {
+      "source": "配对的手机可以让 Cursor 在这台电脑上运行命令。Cursor BYOK 接管 Cursor 期间，Cursor 自带的远程控制一直由 Cursor BYOK 应答。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 86,
+          "column": 8
         }
       ]
     },
@@ -2105,6 +2117,11 @@
           "file": "features/plugins/PluginResourcePanels.tsx",
           "line": 497,
           "column": 82
+        },
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 127,
+          "column": 34
         }
       ]
     },
@@ -2141,6 +2158,18 @@
           "file": "features/settings/SettingsPage.tsx",
           "line": 281,
           "column": 52
+        }
+      ]
+    },
+    "413068f0bf1ee31d": {
+      "source": "手机和电脑不在同一网络时，由 BaoCode 的公共中继转发，它读不到对话内容。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 112,
+          "column": 13
         }
       ]
     },
@@ -2199,18 +2228,6 @@
           "file": "features/settings/ProxySettingsCard.tsx",
           "line": 55,
           "column": 59
-        }
-      ]
-    },
-    "43df615707f5a036": {
-      "source": "手机和电脑不在同一网络时，由这台 iroh 中继转发，它读不到内容。默认用 BaoCode 的公共中继，也可以填自己的；留空则 App 只能在同一网络使用。",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/settings/RemoteControlCard.tsx",
-          "line": 70,
-          "column": 44
         }
       ]
     },
@@ -2549,6 +2566,11 @@
           "file": "features/settings/ProxySettingsCard.tsx",
           "line": 46,
           "column": 166
+        },
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 126,
+          "column": 37
         },
         {
           "file": "features/settings/TabSettingsCard.tsx",
@@ -3050,7 +3072,7 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 92,
+          "line": 81,
           "column": 86
         }
       ]
@@ -3148,7 +3170,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 636,
+          "line": 637,
           "column": 43
         }
       ]
@@ -3406,6 +3428,23 @@
         }
       ]
     },
+    "715ce81251a45319": {
+      "source": "中继",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 120,
+          "column": 18
+        },
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 124,
+          "column": 28
+        }
+      ]
+    },
     "719cac6836412de5": {
       "source": "Token 构成",
       "kind": "text",
@@ -3560,7 +3599,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 631,
+          "line": 632,
           "column": 43
         }
       ]
@@ -3584,7 +3623,7 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 79,
+          "line": 68,
           "column": 59
         }
       ]
@@ -3834,7 +3873,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 569,
+          "line": 570,
           "column": 21
         }
       ]
@@ -4194,7 +4233,7 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 95,
+          "line": 84,
           "column": 109
         }
       ]
@@ -4643,6 +4682,18 @@
         }
       ]
     },
+    "9d75415fec61c71d": {
+      "source": "关掉再打开手机遥控后生效。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 121,
+          "column": 47
+        }
+      ]
+    },
     "9db205c6055bacc4": {
       "source": "插件运行时初始化失败",
       "kind": "text",
@@ -4829,8 +4880,8 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 70,
-          "column": 27
+          "line": 132,
+          "column": 25
         }
       ]
     },
@@ -4900,8 +4951,8 @@
         },
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 76,
-          "column": 71
+          "line": 138,
+          "column": 85
         },
         {
           "file": "features/settings/SettingsPage.tsx",
@@ -4972,6 +5023,30 @@
           "file": "features/calls/CallList.tsx",
           "line": 34,
           "column": 95
+        }
+      ]
+    },
+    "a421b6c30b03e85a": {
+      "source": "用你自己的 iroh 中继转发，它读不到对话内容。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 113,
+          "column": 13
+        }
+      ]
+    },
+    "a46928d3ed8de668": {
+      "source": "不用中继，App 只能和电脑在同一网络时使用。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 114,
+          "column": 10
         }
       ]
     },
@@ -5451,7 +5526,7 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 78,
+          "line": 67,
           "column": 75
         }
       ]
@@ -5513,7 +5588,7 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 65,
+          "line": 62,
           "column": 19
         }
       ]
@@ -5749,6 +5824,18 @@
         }
       ]
     },
+    "bb2f248839c6f64b": {
+      "source": "还没有连上 Cursor。在 Cursor 里打开 Agents Window，可以最小化，不要关闭；还连不上就重启一次 Cursor。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 70,
+          "column": 10
+        }
+      ]
+    },
     "bb4e1ee4a6ae46df": {
       "source": "调用记录 {calls} 条 · 追踪记录 {traces} 条",
       "kind": "template",
@@ -5895,18 +5982,6 @@
         }
       ]
     },
-    "c4234d5423d35969": {
-      "source": "还没有连上 Cursor。在 Cursor 里打开 Agents Window，可以最小化，不要关闭。首次开启后要重启两次 Cursor。",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/settings/RemoteControlCard.tsx",
-          "line": 81,
-          "column": 10
-        }
-      ]
-    },
     "c5090637ff56ae34": {
       "source": "缓存输入占比",
       "kind": "text",
@@ -5967,8 +6042,8 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 73,
-          "column": 27
+          "line": 135,
+          "column": 25
         }
       ]
     },
@@ -6119,6 +6194,18 @@
           "file": "features/models/CursorSettingsPage.tsx",
           "line": 421,
           "column": 27
+        }
+      ]
+    },
+    "cd438b6e6a8d2cec": {
+      "source": "默认（BaoCode）",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 125,
+          "column": 37
         }
       ]
     },
@@ -6414,7 +6501,7 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 95,
+          "line": 84,
           "column": 45
         }
       ]
@@ -6811,18 +6898,6 @@
         }
       ]
     },
-    "dfa5826fa1f76b7d": {
-      "source": "配对的手机可以让 Cursor 在这台电脑上运行命令。开启期间，Cursor 自带的远程控制由 Cursor BYOK 代为应答。",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/settings/RemoteControlCard.tsx",
-          "line": 97,
-          "column": 8
-        }
-      ]
-    },
     "dfb802238b38fbd4": {
       "source": "已启用",
       "kind": "text",
@@ -6938,7 +7013,7 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 85,
+          "line": 74,
           "column": 51
         }
       ]
@@ -7260,7 +7335,7 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 85,
+          "line": 74,
           "column": 106
         }
       ]
@@ -7772,7 +7847,7 @@
       "refs": [
         {
           "file": "features/settings/RemoteControlCard.tsx",
-          "line": 104,
+          "line": 145,
           "column": 72
         }
       ]

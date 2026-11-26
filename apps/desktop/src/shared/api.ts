@@ -215,6 +215,7 @@ export interface RemoteStatus {
   cursor: boolean;
   devices: { id: string; name: string; paired_at_ms: number }[];
   relay: RelaySettings;
+  public_relay: string;
   error: string | null;
 }
 

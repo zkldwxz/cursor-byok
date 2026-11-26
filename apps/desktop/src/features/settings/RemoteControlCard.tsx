@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, type PairingLink, type PairingQr, type RelaySettings, type RemoteStatus } from "../../shared/api";
 import { Button } from "../../shared/ui/Button";
 import { FormField, SecretTextInput, TextInput } from "../../shared/ui/FormControls";
+import { Select } from "../../shared/ui/Select";
 import { ConfirmDialog } from "../../shared/ui/ConfirmDialog";
 import { Switch } from "../../shared/ui/Switch";
 import { Tabs } from "../../shared/ui/Tabs";
@@ -16,7 +17,6 @@ export function RemoteControlCard() {
   const message = useMessage();
   const [status, setStatus] = useState<RemoteStatus | null>(null);
   const [pairing, setPairing] = useState<PairingLink | null>(null);
-  const [relay, setRelay] = useState<RelaySettings | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const report = useCallback((cause: unknown) => message(cause instanceof Error ? cause.message : String(cause)), [message]);
@@ -48,10 +48,7 @@ export function RemoteControlCard() {
     }
   };
   const turn = (next: boolean) => run(async () => setStatus(await api.setRemote(next)));
-  const saveRelay = (next: RelaySettings) => run(async () => {
-    setStatus(await api.setRemoteRelay(next));
-    setRelay(null);
-  });
+  const saveRelay = (next: RelaySettings) => run(async () => setStatus(await api.setRemoteRelay(next)));
   const remove = (id: string) => run(async () => {
     await api.removeRemoteDevice(id);
     setStatus(await api.remote());
@@ -66,19 +63,11 @@ export function RemoteControlCard() {
         </div>
         <Switch label={t("开启手机遥控")} checked={enabled} disabled={!status || busy} onChange={(next) => next ? setConfirming(true) : void turn(false)} />
       </div>
-      {status && !enabled && <form className={styles.relay} onSubmit={(event) => { event.preventDefault(); if (relay) void saveRelay(relay); }}>
-        <FormField label={t("中继地址")} hint={t("手机和电脑不在同一网络时，由这台 iroh 中继转发，它读不到内容。默认用 BaoCode 的公共中继，也可以填自己的；留空则 App 只能在同一网络使用。")}>
-          <TextInput value={(relay ?? status.relay).address} placeholder="https://relay.example.com" spellCheck={false} onChange={(event) => setRelay({ ...(relay ?? status.relay), address: event.target.value })} />
-        </FormField>
-        <FormField label={t("中继令牌")}>
-          <SecretTextInput value={(relay ?? status.relay).token} autoComplete="off" onChange={(event) => setRelay({ ...(relay ?? status.relay), token: event.target.value })} />
-        </FormField>
-        <Button size="small" type="submit" disabled={busy || !relay}>{t("保存")}</Button>
-      </form>}
+      {status && <RelayChoice status={status} busy={busy} onSave={saveRelay} />}
       {status && !status.cloudflared && <small className={styles.notice}>{t("没有找到 cloudflared，只能用 App 连接。要用浏览器请先安装。macOS：brew install cloudflared")}</small>}
       {status?.error && <small className={styles.notice}>{t("浏览器用的隧道没有连上，App 不受影响。要用浏览器请重新开启。")}</small>}
       {enabled && !status?.cursor && <small className={styles.notice}>
-        {t("还没有连上 Cursor。在 Cursor 里打开 Agents Window，可以最小化，不要关闭。首次开启后要重启两次 Cursor。")}
+        {t("还没有连上 Cursor。在 Cursor 里打开 Agents Window，可以最小化，不要关闭；还连不上就重启一次 Cursor。")}
       </small>}
       {pairing && <Tabs items={[
         { value: "app", label: "App", content: <PairingCode qr={pairing.app} hint={t("在 Cursor BYOK App 里扫码。10 分钟内有效，只能配对一台手机；拿到它的人可以操作你的 Cursor，不要转发。")} /> },
@@ -94,9 +83,61 @@ export function RemoteControlCard() {
     </div>
     <ConfirmDialog open={confirming} title={t("要开启手机遥控吗？")} busy={busy} cancelLabel={t("取消")} confirmLabel={t("开启")}
       onCancel={() => setConfirming(false)} onConfirm={() => void turn(true).then(() => setConfirming(false))}>
-      {t("配对的手机可以让 Cursor 在这台电脑上运行命令。开启期间，Cursor 自带的远程控制由 Cursor BYOK 代为应答。")}
+      {t("配对的手机可以让 Cursor 在这台电脑上运行命令。Cursor BYOK 接管 Cursor 期间，Cursor 自带的远程控制一直由 Cursor BYOK 应答。")}
     </ConfirmDialog>
   </TitledCard>;
+}
+
+type RelayMode = "public" | "custom" | "off";
+
+const NO_RELAY: RelaySettings = { address: "", token: "" };
+
+function modeOf(relay: RelaySettings, publicRelay: string): RelayMode {
+  if (!relay.address) return "off";
+  return relay.address === publicRelay && !relay.token ? "public" : "custom";
+}
+
+/** The public relay, one of the user's own, or none; a change counts from the next time remote control is turned on. */
+function RelayChoice({ status, busy, onSave }: { status: RemoteStatus; busy: boolean; onSave: (relay: RelaySettings) => Promise<void> }) {
+  const saved = modeOf(status.relay, status.public_relay);
+  // What is typed for a relay of one's own, until it is saved.
+  const [draft, setDraft] = useState<RelaySettings | null>(null);
+  const mode = draft ? "custom" : saved;
+  const choose = (next: string) => {
+    if (next === "custom") return setDraft(saved === "custom" ? status.relay : NO_RELAY);
+    setDraft(null);
+    void onSave(next === "off" ? NO_RELAY : { address: status.public_relay, token: "" });
+  };
+  const notes: Record<RelayMode, string> = {
+    public: t("手机和电脑不在同一网络时，由 BaoCode 的公共中继转发，它读不到对话内容。"),
+    custom: t("用你自己的 iroh 中继转发，它读不到对话内容。"),
+    off: t("不用中继，App 只能和电脑在同一网络时使用。"),
+  };
+  const shown = draft ?? status.relay;
+  return <>
+    <div className={styles.row}>
+      <div className={styles.details}>
+        <strong>{t("中继")}</strong>
+        <small>{notes[mode]}{status.enabled ? t("关掉再打开手机遥控后生效。") : ""}</small>
+      </div>
+      <div className={styles.control}>
+        <Select ariaLabel={t("中继")} value={mode} disabled={busy} onChange={choose} options={[
+          { value: "public", label: t("默认（BaoCode）") },
+          { value: "custom", label: t("自定义") },
+          { value: "off", label: t("关闭") },
+        ]} />
+      </div>
+    </div>
+    {mode === "custom" && <form className={styles.relay} onSubmit={(event) => { event.preventDefault(); if (draft?.address.trim()) void onSave(draft).then(() => setDraft(null)); }}>
+      <FormField label={t("中继地址")}>
+        <TextInput value={shown.address} placeholder="https://relay.example.com" spellCheck={false} onChange={(event) => setDraft({ ...shown, address: event.target.value })} />
+      </FormField>
+      <FormField label={t("中继令牌")}>
+        <SecretTextInput value={shown.token} autoComplete="off" onChange={(event) => setDraft({ ...shown, token: event.target.value })} />
+      </FormField>
+      <Button size="small" type="submit" disabled={busy || !draft?.address.trim()}>{t("保存")}</Button>
+    </form>}
+  </>;
 }
 
 function PairingCode({ qr, hint }: { qr: PairingQr; hint: string }) {

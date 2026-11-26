@@ -12,11 +12,8 @@ use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use parking_lot::RwLock;
 
 use crate::{
-    api::cursor::proxy::UPSTREAM_URL_HEADER,
-    cursor::services::tab::is_tab_path,
-    remote::{presence, RemoteSwitch},
-    store::TabMode,
-    Error, Result,
+    api::cursor::proxy::UPSTREAM_URL_HEADER, cursor::services::tab::is_tab_path, remote::presence,
+    store::TabMode, Error, Result,
 };
 
 use super::ca::LoadedCa;
@@ -50,7 +47,6 @@ impl ProxyRuntime {
         ca: LoadedCa,
         requested_port: u16,
         tab_mode: Arc<RwLock<TabMode>>,
-        remote: RemoteSwitch,
     ) -> Result<(String, u16)> {
         if let Some(url) = self.url() {
             return Ok((url, self.port.unwrap_or_default()));
@@ -63,11 +59,7 @@ impl ProxyRuntime {
             .with_listener(listener)
             .with_ca(authority)
             .with_rustls_connector(aws_lc_rs::default_provider())
-            .with_http_handler(CursorRelay {
-                backend,
-                tab_mode,
-                remote,
-            })
+            .with_http_handler(CursorRelay { backend, tab_mode })
             .with_graceful_shutdown(async move {
                 let _ = done.await;
             })
@@ -112,7 +104,6 @@ async fn bind_proxy_listener(requested_port: u16) -> Result<TcpListener> {
 struct CursorRelay {
     backend: SocketAddr,
     tab_mode: Arc<RwLock<TabMode>>,
-    remote: RemoteSwitch,
 }
 
 impl HttpHandler for CursorRelay {
@@ -122,8 +113,7 @@ impl HttpHandler for CursorRelay {
         mut request: Request<Body>,
     ) -> RequestOrResponse {
         let original = request.uri().clone();
-        let locally_routed =
-            should_route_locally(original.path(), *self.tab_mode.read(), self.remote.is_on());
+        let locally_routed = should_route_locally(original.path(), *self.tab_mode.read());
         if is_cursor_host(original.host().unwrap_or_default()) && locally_routed {
             if let Ok(value) = original.to_string().parse() {
                 request.headers_mut().insert(UPSTREAM_URL_HEADER, value);
@@ -201,10 +191,12 @@ fn is_local_path(path: &str) -> bool {
     )
 }
 
-fn should_route_locally(path: &str, tab_mode: TabMode, remote_on: bool) -> bool {
+/// Cursor's remote control stays here while BYOK is in front of Cursor: handed
+/// back to Cursor's own service, it is told it is not registered and stays away.
+fn should_route_locally(path: &str, tab_mode: TabMode) -> bool {
     is_local_path(path)
         || (is_tab_path(path) && tab_mode != TabMode::Direct)
-        || (remote_on && path.starts_with(presence::PATH))
+        || path.starts_with(presence::PATH)
 }
 
 #[cfg(test)]
@@ -212,10 +204,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn cursor_remote_control_stays_with_cursor_unless_turned_on_here() {
+    fn cursor_remote_control_is_answered_here_whether_or_not_phones_are_let_in() {
         let path = "/aiserver.v1.RemoteAgentHostPresenceService/ConnectTarget";
-        assert!(!should_route_locally(path, TabMode::Direct, false));
-        assert!(should_route_locally(path, TabMode::Direct, true));
+        assert!(should_route_locally(path, TabMode::Direct));
     }
 
     /// Cursor answers over the body it opened the connection with, long after the response began.
@@ -250,11 +241,9 @@ mod tests {
         let ca = LoadedCa {
             issuer: Issuer::new(params, key),
         };
-        let remote = RemoteSwitch::default();
-        remote.turn(true);
         let mut proxy = ProxyRuntime::default();
         let mode = Arc::new(RwLock::new(TabMode::Direct));
-        let (_, port) = proxy.start(address, ca, 0, mode, remote).await.unwrap();
+        let (_, port) = proxy.start(address, ca, 0, mode).await.unwrap();
 
         let mut tunnel = tokio::net::TcpStream::connect(("127.0.0.1", port))
             .await

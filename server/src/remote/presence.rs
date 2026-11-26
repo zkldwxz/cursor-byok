@@ -1,15 +1,15 @@
-//! Answers Cursor's remote control service while remote control is on.
+//! Answers Cursor's remote control service in place of Cursor's own.
 use axum::{
     body::Body,
     extract::State,
-    http::{header, HeaderName, HeaderValue, Request, Response, StatusCode},
+    http::{header, HeaderName, HeaderValue, Request, Response},
     response::IntoResponse,
     routing::post,
     Router,
 };
 use prost::Message;
 
-use super::{relay::Relay, RemoteSwitch};
+use super::relay::Relay;
 
 pub(crate) const PATH: &str = "/aiserver.v1.RemoteAgentHostPresenceService/";
 /// `RemoteControlV2RegistrationState`; 1 is `NOT_ENROLLED`.
@@ -55,13 +55,7 @@ struct Enrollment {
     generation: u64,
 }
 
-#[derive(Clone)]
-struct Presence {
-    relay: Relay,
-    switch: RemoteSwitch,
-}
-
-pub(super) fn router(relay: Relay, switch: RemoteSwitch) -> Router {
+pub(super) fn router(relay: Relay) -> Router {
     let settings = UserSettingsResponse {
         settings: Some(UserSettings {
             automatic_registration_enabled: Some(true),
@@ -93,33 +87,20 @@ pub(super) fn router(relay: Relay, switch: RemoteSwitch) -> Router {
         ("ListControllers", Vec::new()),
     ] {
         let answer = axum::body::Bytes::from(answer);
-        router = router.route(
-            &format!("{PATH}{method}"),
-            post(move |State(presence): State<Presence>| async move { presence.unary(answer) }),
-        );
+        router = router.route(&format!("{PATH}{method}"), post(move || unary(answer)));
     }
     router
         .route(&format!("{PATH}ConnectTarget"), post(connect))
-        .with_state(Presence { relay, switch })
+        .with_state(relay)
 }
 
-impl Presence {
-    fn unary(&self, answer: axum::body::Bytes) -> Response<Body> {
-        if !self.switch.is_on() {
-            return StatusCode::SERVICE_UNAVAILABLE.into_response();
-        }
-        let content_type = HeaderValue::from_static("application/proto");
-        ([(header::CONTENT_TYPE, content_type)], answer).into_response()
-    }
+async fn unary(answer: axum::body::Bytes) -> Response<Body> {
+    let content_type = HeaderValue::from_static("application/proto");
+    ([(header::CONTENT_TYPE, content_type)], answer).into_response()
 }
 
-async fn connect(State(presence): State<Presence>, request: Request<Body>) -> Response<Body> {
-    if !presence.switch.is_on() {
-        return StatusCode::SERVICE_UNAVAILABLE.into_response();
-    }
-    let outgoing = presence
-        .relay
-        .accept(request.into_body().into_data_stream());
+async fn connect(State(relay): State<Relay>, request: Request<Body>) -> Response<Body> {
+    let outgoing = relay.accept(request.into_body().into_data_stream());
     (
         [
             (header::CONTENT_TYPE, "application/connect+proto"),
@@ -133,17 +114,16 @@ async fn connect(State(presence): State<Presence>, request: Request<Body>) -> Re
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::http::StatusCode;
 
     /// A Cursor that registered before reads this before it connects, and
     /// stays away for half an hour when told it is not registered.
     #[tokio::test]
     async fn a_restarted_cursor_is_told_this_computer_is_still_registered() {
-        let switch = RemoteSwitch::default();
-        switch.turn(true);
         let request = Request::post(format!("{PATH}GetSharedTargetRegistrationState"))
             .body(Body::empty())
             .unwrap();
-        let response = tower::ServiceExt::oneshot(router(Relay::default(), switch), request)
+        let response = tower::ServiceExt::oneshot(router(Relay::default()), request)
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);

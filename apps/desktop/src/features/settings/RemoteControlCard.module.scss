@@ -33,6 +33,11 @@
   font-size: type.$font-size-xs;
 }
 
+.control {
+  width: min(240px, 45%);
+  flex-shrink: 0;
+}
+
 .relay {
   display: grid;
   grid-template-columns: 1fr 1fr auto;

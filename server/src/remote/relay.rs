@@ -105,6 +105,8 @@ impl Relay {
             }))
     }
 
+    /// As if Cursor went away.
+    #[cfg(test)]
     pub fn close(&self) {
         self.drop_connection(None);
     }

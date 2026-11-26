@@ -13,14 +13,7 @@ mod tunnel;
 mod web;
 mod wire;
 
-use std::{
-    future::IntoFuture,
-    path::PathBuf,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-};
+use std::{future::IntoFuture, path::PathBuf, sync::Arc};
 
 use remote_link::{Host, Identity, Ticket};
 use serde::Serialize;
@@ -43,27 +36,12 @@ use sessions::Sessions;
 use ssh::SshChats;
 use tunnel::Tunnel;
 
-/// Whether this server, rather than Cursor's own, answers Cursor's remote control.
-#[derive(Clone, Default)]
-pub struct RemoteSwitch(Arc<AtomicBool>);
-
-impl RemoteSwitch {
-    pub fn is_on(&self) -> bool {
-        self.0.load(Ordering::Relaxed)
-    }
-
-    pub(crate) fn turn(&self, on: bool) {
-        self.0.store(on, Ordering::Relaxed);
-    }
-}
-
 #[derive(Clone)]
 pub struct RemoteControl {
     inner: Arc<Inner>,
 }
 
 struct Inner {
-    switch: RemoteSwitch,
     relay: Relay,
     sessions: Sessions,
     models: Models,
@@ -95,6 +73,8 @@ pub struct RemoteStatus {
     pub cursor: bool,
     pub devices: Vec<PairedDevice>,
     pub relay: RelaySettings,
+    /// What the relay is unless another is chosen.
+    pub public_relay: &'static str,
     pub error: Option<String>,
 }
 
@@ -150,7 +130,6 @@ impl RemoteControl {
     ) -> Self {
         Self {
             inner: Arc::new(Inner {
-                switch: RemoteSwitch::default(),
                 sessions,
                 relay,
                 models: Models::new(store.clone(), plugins),
@@ -161,13 +140,11 @@ impl RemoteControl {
         }
     }
 
-    pub fn switch(&self) -> RemoteSwitch {
-        self.inner.switch.clone()
-    }
-
-    /// What Cursor calls instead of its own remote control service.
+    /// What Cursor calls instead of its own remote control service, whether or
+    /// not phones are let in: Cursor told even once that this computer is not
+    /// registered stays away for half an hour, or until a window is reopened.
     pub fn presence_router(&self) -> axum::Router {
-        presence::router(self.inner.relay.clone(), self.inner.switch.clone())
+        presence::router(self.inner.relay.clone())
     }
 
     pub async fn status(&self) -> Result<RemoteStatus> {
@@ -181,6 +158,7 @@ impl RemoteControl {
             cursor,
             devices: devices.into_iter().map(Into::into).collect(),
             relay,
+            public_relay: crate::store::PUBLIC_RELAY_URL,
             error: state.error.clone(),
         })
     }
@@ -219,7 +197,6 @@ impl RemoteControl {
             self.inner.sessions.clone(),
             self.inner.models.clone(),
         );
-        self.inner.switch.turn(true);
         state.active = Some(Active {
             host: host.clone(),
             url: None,
@@ -271,7 +248,6 @@ impl RemoteControl {
         state.error = None;
         if let Some(active) = state.active.take() {
             active.stop.cancel();
-            self.inner.leave();
         }
     }
 
@@ -356,12 +332,6 @@ impl Inner {
             result = server.into_future() => Ok(result?),
             () = tunnel.closed() => Err(Error::Config("the tunnel closed".into())),
         }
-    }
-
-    /// Cursor goes back to its own remote control.
-    fn leave(&self) {
-        self.switch.turn(false);
-        self.relay.close();
     }
 }
 
@@ -538,7 +508,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn cursor_is_answered_and_kept_connected_only_while_remote_control_is_on() {
+    async fn cursor_is_answered_and_stays_connected_whether_or_not_phones_are_let_in() {
         let remote = remote(lasting).await;
         let ask = || async {
             let request = axum::http::Request::post(format!(
@@ -552,15 +522,13 @@ mod tests {
                 .unwrap()
                 .status()
         };
-        assert_eq!(ask().await, axum::http::StatusCode::SERVICE_UNAVAILABLE);
-        remote.enable().await.unwrap();
-        assert!(remote.switch().is_on());
         assert_eq!(ask().await, axum::http::StatusCode::OK);
         let _cursor = relay::testing::FakeCursor::connect(&remote.inner.relay);
         assert!(remote.status().await.unwrap().cursor);
+        remote.enable().await.unwrap();
         remote.disable().await.unwrap();
-        assert!(!remote.switch().is_on());
-        assert!(!remote.status().await.unwrap().cursor);
+        assert_eq!(ask().await, axum::http::StatusCode::OK);
+        assert!(remote.status().await.unwrap().cursor);
     }
 
     #[tokio::test]

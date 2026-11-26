@@ -13,7 +13,7 @@ use prost::Message;
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 
-use crate::{api::cursor::proxy, remote::RemoteSwitch, Error, Result};
+use crate::{api::cursor::proxy, Error, Result};
 
 pub const BOOTSTRAP_STATSIG_PATH: &str = "/aiserver.v1.AnalyticsService/BootstrapStatsig";
 const AGENT_RETRIES_GATE: &str = "nal_agent_retries";
@@ -38,44 +38,40 @@ struct BootstrapStatsigResponse {
 
 pub async fn bootstrap_statsig(
     Extension(upstream): Extension<proxy::CursorProxy>,
-    Extension(remote): Extension<RemoteSwitch>,
     request: Request<Body>,
 ) -> Result<Response<Body>> {
-    let remote = remote.is_on();
     let user = account_id(request.headers());
     match proxy::forward_buffered(&upstream, request).await {
-        Ok(response) if response.status.is_success() => match patch_upstream(response, remote) {
+        Ok(response) if response.status.is_success() => match patch_upstream(response) {
             Ok(response) => Ok(response),
             Err(error) => {
                 tracing::warn!(%error, "Cursor Statsig bootstrap was invalid; using local bootstrap");
-                local_response(&user, remote)
+                local_response(&user)
             }
         },
         Ok(response) => {
             tracing::warn!(status = %response.status, "Cursor Statsig bootstrap was rejected; using local bootstrap");
-            local_response(&user, remote)
+            local_response(&user)
         }
         Err(error) => {
             tracing::warn!(%error, "Cursor Statsig bootstrap was unavailable; using local bootstrap");
-            local_response(&user, remote)
+            local_response(&user)
         }
     }
 }
 
-fn patch_upstream(response: proxy::BufferedResponse, remote: bool) -> Result<Response<Body>> {
+fn patch_upstream(response: proxy::BufferedResponse) -> Result<Response<Body>> {
     let (framed, payload) = unary_payload(&response.body)?;
     let mut message = BootstrapStatsigResponse::decode(payload)?;
     let mut config = serde_json::from_str::<Value>(&message.config)?;
-    patch_gates(&mut config, remote)?;
+    patch_gates(&mut config)?;
     message.config = serde_json::to_string(&config)?;
     Ok(response.with_body(encode_unary(&message, framed)))
 }
 
-fn patch_gates(config: &mut Value, remote: bool) -> Result<()> {
-    if remote {
-        for name in REMOTE_GATES {
-            force_gate(config, name, true)?;
-        }
+fn patch_gates(config: &mut Value) -> Result<()> {
+    for name in REMOTE_GATES {
+        force_gate(config, name, true)?;
     }
     force_gate(config, AGENT_RETRIES_GATE, true)?;
     force_gate(config, LONG_RUNNING_JOBS_GATE, true)?;
@@ -108,7 +104,7 @@ fn account_id(headers: &header::HeaderMap) -> String {
     subject().unwrap_or_else(|| "local_ultra".into())
 }
 
-fn local_response(user: &str, remote: bool) -> Result<Response<Body>> {
+fn local_response(user: &str) -> Result<Response<Body>> {
     let generated_at_ms = chrono::Utc::now().timestamp_millis() as u64;
     let mut config = json!({
         "feature_gates": {},
@@ -126,7 +122,7 @@ fn local_response(user: &str, remote: bool) -> Result<Response<Body>> {
         },
         "time": generated_at_ms
     });
-    patch_gates(&mut config, remote)?;
+    patch_gates(&mut config)?;
     let message = BootstrapStatsigResponse {
         config: serde_json::to_string(&config)?,
         generated_at_ms,
@@ -287,7 +283,7 @@ mod tests {
         let mut headers = header::HeaderMap::new();
         let token = crate::local_app::local_cursor_authorization();
         headers.insert(header::AUTHORIZATION, token.parse().unwrap());
-        let response = local_response(&account_id(&headers), false).unwrap();
+        let response = local_response(&account_id(&headers)).unwrap();
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .unwrap();
@@ -297,14 +293,17 @@ mod tests {
     }
 
     #[test]
-    fn statsig_bootstrap_opens_remote_control_only_while_it_is_on() {
-        for remote in [false, true] {
-            let mut config = json!({ "hash_used": "none", "feature_gates": {} });
-            patch_gates(&mut config, remote).expect("patch config");
-            for name in REMOTE_GATES {
-                let value = config["feature_gates"].get(name).map(|gate| &gate["value"]);
-                assert_eq!(value, remote.then_some(&json!(true)), "{name}");
-            }
+    /// Cursor reads these as its window opens; turning remote control on later
+    /// must not wait for the next window.
+    fn statsig_bootstrap_always_opens_remote_control() {
+        let mut config = json!({ "hash_used": "none", "feature_gates": {} });
+        patch_gates(&mut config).expect("patch config");
+        for name in REMOTE_GATES {
+            assert_eq!(
+                config["feature_gates"][name]["value"],
+                json!(true),
+                "{name}"
+            );
         }
     }
 }
