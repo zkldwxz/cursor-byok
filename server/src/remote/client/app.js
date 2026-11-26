@@ -10,7 +10,7 @@ import { feel, feelTouches, setFeel } from "./feel.js";
 import { drawLine, drawStretches } from "./line.js";
 import { Link, pair } from "./link.js";
 import { buildThreads, chatState, delivered, hostsOf, lineOf, placeName, projectsOf, resolveTheme, scoped, sendingAfter, shownRows, spliceRows, waitingCount, workspaceOf } from "./model.js";
-import { native, paintBars, scan } from "./native.js";
+import { alert, alertOpened, native, paintBars, scan } from "./native.js";
 import { Settings } from "./settings.js";
 import { Sidebar } from "./sidebar.js";
 import { drawTune } from "./tune.js";
@@ -142,6 +142,8 @@ const link = new Link(computers, {
     if (views.now === "gate") views.reset("home");
     if (message.type === "overview") {
       state.overview = message;
+      alert(message.workspaces);
+      if (!document.hidden) showOpened();
       const newest = message.workspaces.flatMap((workspace) => workspace.chats)[0];
       if (wide.matches && !state.place && newest) open({ session: newest.id });
     } else if (message.type === "chat" && shown(message)) {
@@ -317,6 +319,7 @@ const settings = new Settings($("settings-body"), {
 /** Nothing of one computer is shown as another's. */
 function clear() {
   Object.assign(state, { overview: null, online: false, slow: false, place: null, chat: null, rows: [], sending: null });
+  alert(null);
   seen.clear();
   for (const kind of Object.keys(menus)) delete menus[kind];
 }
@@ -408,6 +411,15 @@ function draw() {
   drawStatusBar(workspace, told);
   composer.update(place?.session ?? `draft ${place?.draft}`, Boolean(chat?.running));
   if (following) scroller.scrollTop = scroller.scrollHeight;
+}
+
+/** A touched alert brings its conversation, once the computer has told of it. */
+let touched = null;
+function showOpened() {
+  touched = alertOpened() ?? touched;
+  if (!touched || !workspaceOf(state.overview?.workspaces, touched)) return;
+  select({ id: touched });
+  touched = null;
 }
 
 // ---- sheets
@@ -548,6 +560,7 @@ $("chats").append(icon("down"));
 $("latest").append(icon("down"), copy.latest);
 
 setInterval(() => document.hidden || draw(), 60_000);
+document.addEventListener("visibilitychange", () => document.hidden || showOpened());
 applyTheme();
 gate(copy.joining, "link");
 const paired = await pair(computers);

@@ -899,17 +899,10 @@ summary::-webkit-details-marker { display: none; }
 .bars i { flex: 1; min-width: 2px; height: calc(30% + 70% * var(--level)); border-radius: 1px; background: currentColor; opacity: 0.28; transition: opacity 0.16s, background-color 0.16s; }
 .bars i[data-on] { opacity: 1; }
 .chip .bars { flex: none; color: var(--text); }
-.tune { display: grid; gap: 22px; padding: 6px 10px 8px; }
-.tune-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; color: var(--muted); font-size: var(--f-small); }
-.tune-head strong { font-size: 20px; font-weight: 650; letter-spacing: -0.015em; color: var(--title); }
-.meter { display: flex; height: 76px; padding: 12px; border-radius: 16px; background: var(--ground); box-shadow: inset 0 0 0 1px var(--line); touch-action: none; cursor: pointer; }
-.meter .bars { flex: 1; height: 100%; gap: 5px; }
-.meter .bars i { border-radius: 6px; opacity: 1; background: var(--chip-bg); }
-.meter .bars i[data-on] { background: var(--title); }
-.meter-ends { display: flex; justify-content: space-between; margin: 6px 4px 0; font-size: 12px; color: var(--faint); }
-.pills { display: grid; grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); gap: 6px; }
-.pills button { min-height: 44px; border-radius: 12px; background: var(--ground); box-shadow: inset 0 0 0 1px var(--line); color: var(--muted); font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; text-align: center; }
-.pills button[aria-checked="true"] { background: var(--send); box-shadow: none; color: var(--send-icon); font-weight: 600; }
+.tune h3:first-child { margin-top: 4px; }
+.tune .bars { flex: none; width: 16px; color: var(--muted); }
+.tune [aria-checked="true"] { background: var(--raised-mark); font-weight: 500; }
+.tune [aria-checked="true"] .bars { color: var(--title); }
 .pill.other { margin: 8px auto 0; }
 
 /* Bottom status bar (desktop) */
@@ -967,7 +960,7 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.42); backdrop-filter: blur(2px); 
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
-.sheet-items button > span:not(.logo) { flex: 1; min-width: 0; }
+.sheet-items button > span:not(.logo, .bars) { flex: 1; min-width: 0; }
 .sheet-items button[aria-current] { background: var(--raised-mark); font-weight: 500; }
 .sheet-items .icon { width: 16px; height: 16px; color: var(--accent); }
 

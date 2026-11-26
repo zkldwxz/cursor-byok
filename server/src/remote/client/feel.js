@@ -34,34 +34,46 @@ function vibrate(kind) {
   else globalThis.navigator?.vibrate?.(VIBRATIONS[kind]);
 }
 
-/** Tones that slide: from and to (Hz), start and length (ms), loudness, wave. */
+/**
+ * Tones that slide: from and to (Hz), start and length (ms), loudness, wave.
+ * A phone's speaker barely gives back what is shorter than about 50 ms or quieter than a fifth.
+ */
 const SOUNDS = {
-  tap: [[1900, 1100, 0, 28, 0.05, "triangle"]],
-  toggle: [[900, 1300, 0, 34, 0.05, "triangle"], [1500, 1700, 38, 30, 0.035, "sine"]],
-  hold: [[220, 140, 0, 90, 0.09, "sine"]],
-  send: [[380, 1150, 0, 120, 0.06, "sine"], [760, 2100, 30, 90, 0.02, "triangle"]],
-  confirm: [[660, 660, 0, 90, 0.05, "sine"], [990, 990, 70, 140, 0.05, "sine"]],
-  warn: [[330, 300, 0, 90, 0.06, "triangle"], [247, 220, 90, 130, 0.06, "triangle"]],
-  done: [[784, 784, 0, 120, 0.045, "sine"], [1175, 1175, 90, 220, 0.045, "sine"]],
+  tap: [[1300, 950, 0, 60, 0.22, "sine"]],
+  toggle: [[880, 1100, 0, 60, 0.22, "sine"], [1320, 1320, 55, 80, 0.18, "sine"]],
+  hold: [[300, 200, 0, 130, 0.3, "sine"]],
+  send: [[520, 1040, 0, 150, 0.25, "sine"]],
+  confirm: [[660, 660, 0, 110, 0.25, "sine"], [990, 990, 90, 180, 0.25, "sine"]],
+  warn: [[440, 415, 0, 130, 0.26, "triangle"], [330, 311, 130, 170, 0.26, "triangle"]],
+  done: [[784, 784, 0, 150, 0.26, "sine"], [1175, 1175, 120, 260, 0.26, "sine"]],
 };
 
-let audio;
+/** Android closes the speaker after a quiet spell and takes about 90 ms to open it again; a tone played sooner is lost. */
+const LEAD = 0.05;
 
-function sound(kind) {
-  audio ??= new AudioContext({ latencyHint: "interactive" });
+let audio;
+let out;
+
+async function sound(kind) {
+  if (!audio) {
+    audio = new AudioContext({ latencyHint: "interactive" });
+    // Tones that meet are kept from clipping.
+    out = new DynamicsCompressorNode(audio, { threshold: -12, ratio: 4 });
+    out.connect(audio.destination);
+  }
   // Browsers keep it silent until a touch.
-  if (audio.state === "suspended") audio.resume();
+  if (audio.state !== "running") await audio.resume();
   for (const [from, to, start, length, loudness, wave] of SOUNDS[kind]) {
-    const at = audio.currentTime + start / 1_000;
+    const at = audio.currentTime + LEAD + start / 1_000;
     const end = at + length / 1_000;
     const tone = new OscillatorNode(audio, { type: wave, frequency: from });
     const volume = new GainNode(audio, { gain: 0 });
     tone.frequency.setValueAtTime(from, at);
     tone.frequency.exponentialRampToValueAtTime(to, end);
     volume.gain.setValueAtTime(0.0001, at);
-    volume.gain.exponentialRampToValueAtTime(loudness, at + 0.004);
+    volume.gain.exponentialRampToValueAtTime(loudness, at + 0.008);
     volume.gain.exponentialRampToValueAtTime(0.0001, end);
-    tone.connect(volume).connect(audio.destination);
+    tone.connect(volume).connect(out);
     tone.start(at);
     tone.stop(end);
   }
@@ -78,7 +90,7 @@ const TOUCHES = [
   [".composer button[type=submit]", "send"],
   [".go", "confirm"],
   [".quiet, .danger", "warn"],
-  [".segments button, .pills button, [role=switch], #tabs button, .folder-toggle, .option, .thread-pin, summary", "toggle"],
+  [".segments button, .tune button, [role=switch], #tabs button, .folder-toggle, .option, .thread-pin, summary", "toggle"],
   ["button", "tap"],
 ];
 

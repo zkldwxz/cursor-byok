@@ -9,6 +9,8 @@ import { ICONS } from '../../../server/src/remote/client/dom.js';
 import {
   answersOf,
   buildThreads,
+  busyCount,
+  changesOf,
   chatState,
   dateBucket,
   delivered,
@@ -496,4 +498,20 @@ test('the app pairs with the link it was given, then comes back with its token',
   link.leave();
   assert.deepEqual(computers.list, []);
   assert.equal(calls.at(-1)[0], 'hang_up');
+});
+
+test('a conversation that stops or starts to wait is told once, and nothing is told of a first look', () => {
+  const at = (...chats) => [{ id: 'w', title: 'W', chats: chats.map(([id, state]) => ({ id, label: id.toUpperCase(), state, updatedAt: 1 })) }];
+  const before = at(['a', 'running'], ['b', 'running'], ['c', 'idle'], ['d', 'waiting']);
+  assert.deepEqual(changesOf(null, before), []);
+  const after = at(['a', 'idle'], ['b', 'waiting'], ['c', 'idle'], ['d', 'waiting'], ['e', 'waiting']);
+  assert.deepEqual(changesOf(before, after), [
+    { id: 'a', label: 'A', kind: 'done' },
+    { id: 'b', label: 'B', kind: 'waiting' },
+    { id: 'e', label: 'E', kind: 'waiting' },
+  ]);
+  assert.deepEqual(changesOf(after, after), []);
+  assert.equal(busyCount(before), 3);
+  assert.equal(busyCount(after), 3);
+  assert.equal(busyCount(null), 0);
 });

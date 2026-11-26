@@ -1,0 +1,10 @@
+<!-- The status bar shows only the shape of an alert's icon: the chat bubble of the remote control page. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="20"
+    android:viewportHeight="20">
+  <path
+      android:pathData="M3.5 5.5A1.5 1.5 0 0 1 5 4h10a1.5 1.5 0 0 1 1.5 1.5v6A1.5 1.5 0 0 1 15 13H8.2L5 16v-3A1.5 1.5 0 0 1 3.5 11.5Z"
+      android:fillColor="#FFFFFFFF" />
+</vector>

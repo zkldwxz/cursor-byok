@@ -3,6 +3,21 @@ const everyChat = (workspaces) => (workspaces ?? []).flatMap((workspace) => work
 
 export const waitingCount = (workspaces) => everyChat(workspaces).filter((chat) => chat.state === "waiting").length;
 
+/** Conversations still running or waiting for an answer. */
+export const busyCount = (workspaces) => everyChat(workspaces).filter((chat) => chat.state !== "idle").length;
+
+/** What finished or began to wait between two overviews; nothing on the first, which only shows what already was. */
+export function changesOf(before, after) {
+  if (!before) return [];
+  const was = new Map(everyChat(before).map((chat) => [chat.id, chat.state]));
+  return everyChat(after).flatMap(({ id, label, state }) => {
+    const then = was.get(id);
+    if (state === "waiting" && then !== "waiting") return [{ id, label, kind: "waiting" }];
+    if (state === "idle" && then === "running") return [{ id, label, kind: "done" }];
+    return [];
+  });
+}
+
 const latest = (workspace) => workspace.chats.reduce((time, chat) => Math.max(time, chat.updatedAt), 0);
 const byUse = (workspaces) => (workspaces ?? []).toSorted((a, b) => latest(b) - latest(a));
 
