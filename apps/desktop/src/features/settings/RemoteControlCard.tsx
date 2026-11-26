@@ -67,7 +67,7 @@ export function RemoteControlCard() {
         <Switch label={t("开启手机遥控")} checked={enabled} disabled={!status || busy} onChange={(next) => next ? setConfirming(true) : void turn(false)} />
       </div>
       {status && !enabled && <form className={styles.relay} onSubmit={(event) => { event.preventDefault(); if (relay) void saveRelay(relay); }}>
-        <FormField label={t("中继地址")} hint={t("手机和电脑不在同一网络时，由这台 iroh 中继转发，它读不到内容。留空则 App 只能在同一网络使用。")}>
+        <FormField label={t("中继地址")} hint={t("手机和电脑不在同一网络时，由这台 iroh 中继转发，它读不到内容。默认用 BaoCode 的公共中继，也可以填自己的；留空则 App 只能在同一网络使用。")}>
           <TextInput value={(relay ?? status.relay).address} placeholder="https://relay.example.com" spellCheck={false} onChange={(event) => setRelay({ ...(relay ?? status.relay), address: event.target.value })} />
         </FormField>
         <FormField label={t("中继令牌")}>

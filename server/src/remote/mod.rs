@@ -401,6 +401,8 @@ mod tests {
         let directory = tempfile::tempdir().unwrap().keep();
         let url = format!("sqlite://{}", directory.join("state.db").display());
         let store = Store::connect(&url).await.unwrap();
+        // No test waits on a relay across the internet.
+        store.set_relay_settings(&no_relay()).await.unwrap();
         let relay = Relay::default();
         let sessions = Sessions::new(
             relay.clone(),
@@ -409,6 +411,27 @@ mod tests {
             UpstreamRetries::default(),
         );
         RemoteControl::build(store, None, relay, sessions, cloudflared)
+    }
+
+    fn no_relay() -> RelaySettings {
+        RelaySettings {
+            address: String::new(),
+            token: String::new(),
+        }
+    }
+
+    #[tokio::test]
+    async fn a_computer_that_never_chose_a_relay_uses_the_public_one_and_none_once_cleared() {
+        let directory = tempfile::tempdir().unwrap();
+        let url = format!("sqlite://{}", directory.path().join("state.db").display());
+        let store = Store::connect(&url).await.unwrap();
+        let first = store.relay_settings().await.unwrap();
+        assert_eq!(first.address, crate::store::PUBLIC_RELAY_URL);
+        assert!(first.token.is_empty());
+        assert!(relay_of(&first).unwrap().check().is_ok());
+        store.set_relay_settings(&no_relay()).await.unwrap();
+        let cleared = store.relay_settings().await.unwrap();
+        assert!(relay_of(&cleared).is_none());
     }
 
     /// The browser's link, once cloudflared has opened its tunnel.

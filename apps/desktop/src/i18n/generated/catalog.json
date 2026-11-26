@@ -2202,6 +2202,18 @@
         }
       ]
     },
+    "43df615707f5a036": {
+      "source": "手机和电脑不在同一网络时，由这台 iroh 中继转发，它读不到内容。默认用 BaoCode 的公共中继，也可以填自己的；留空则 App 只能在同一网络使用。",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/settings/RemoteControlCard.tsx",
+          "line": 70,
+          "column": 44
+        }
+      ]
+    },
     "461d6a57900c2ed7": {
       "source": "连通性测试失败：{error}",
       "kind": "template",
@@ -6928,18 +6940,6 @@
           "file": "features/settings/RemoteControlCard.tsx",
           "line": 85,
           "column": 51
-        }
-      ]
-    },
-    "e21403ecd4b9ea46": {
-      "source": "手机和电脑不在同一网络时，由这台 iroh 中继转发，它读不到内容。留空则 App 只能在同一网络使用。",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/settings/RemoteControlCard.tsx",
-          "line": 70,
-          "column": 44
         }
       ]
     },

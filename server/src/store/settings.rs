@@ -37,11 +37,24 @@ pub struct ExternalApiSettings {
     pub api_key: String,
 }
 
+/// An open iroh relay anyone may use; it forwards encrypted traffic it cannot read.
+pub const PUBLIC_RELAY_URL: &str = "https://relay-hk1.baocode.dev";
+
 /// The server that connects phones which cannot reach this computer; none when empty.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub struct RelaySettings {
     pub address: String,
     pub token: String,
+}
+
+/// A phone on mobile data reaches a computer that never set a relay up.
+impl Default for RelaySettings {
+    fn default() -> Self {
+        Self {
+            address: PUBLIC_RELAY_URL.into(),
+            token: String::new(),
+        }
+    }
 }
 
 /// What makes this computer the one its phones paired with.
