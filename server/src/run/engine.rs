@@ -117,7 +117,7 @@ impl RunEngine {
         let mut usage = None;
         let mut context_usage_anchor = match self
             .store
-            .latest_context_usage(prepared.conversation_id.as_str())
+            .latest_context_usage(prepared.conversation_id.as_str(), &prepared.model.model_id)
             .await
         {
             Ok(anchor) => anchor,
