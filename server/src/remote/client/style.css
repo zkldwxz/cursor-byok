@@ -39,7 +39,6 @@
   --send: #f4f4f5;
   --send-icon: #18181b;
   --inline: rgba(255, 255, 255, 0.08);
-  --inline-line: rgba(255, 255, 255, 0.08);
   --inline-text: #e4e4e7;
   --table-line: rgba(255, 255, 255, 0.08);
   --table-head: rgba(255, 255, 255, 0.03);
@@ -114,7 +113,6 @@
     --send: #18181b;
     --send-icon: #ffffff;
     --inline: #f1f2f5;
-    --inline-line: rgba(0, 0, 0, 0.065);
     --inline-text: #232329;
     --table-line: rgba(0, 0, 0, 0.08);
     --table-head: #f8f8fa;
@@ -172,7 +170,6 @@
   --send: #18181b;
   --send-icon: #ffffff;
   --inline: #f1f2f5;
-  --inline-line: rgba(0, 0, 0, 0.065);
   --inline-text: #232329;
   --table-line: rgba(0, 0, 0, 0.08);
   --table-head: #f8f8fa;
@@ -556,13 +553,16 @@ body:is([data-line="lost"], [data-line="connecting"], [data-line="unreachable"])
 }
 .prose p, .prose blockquote { white-space: pre-line; }
 .prose strong { font-weight: 600; color: var(--title); }
+/* Inside a sentence: no taller than its line, and broken where the line ends. */
 .prose code {
-  font: 0.875em/1.4 var(--mono);
+  font: 0.85em/1 var(--mono);
   color: var(--inline-text);
   background: var(--inline);
-  border: 1px solid var(--inline-line);
-  border-radius: 5px;
-  padding: 1px 5.5px;
+  border-radius: 4px;
+  padding: 0.15em 0.35em;
+  overflow-wrap: anywhere;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 .prose blockquote {
   border-inline-start: 3px solid var(--line-strong);
@@ -581,26 +581,29 @@ body:is([data-line="lost"], [data-line="connecting"], [data-line="unreachable"])
   border-radius: var(--r-block);
   background: var(--code);
 }
+/* A phone has no room to slide code sideways: it wraps, clear of the copy button. */
 .code pre {
-  padding: 14px 16px;
+  padding: 12px 40px 12px 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   max-height: 420px;
   overflow: auto;
   color: var(--text);
 }
+/* An icon in the corner: the words stay for screen readers. */
 .copy {
-  display: inline-flex;
-  width: fit-content;
-  align-items: center;
-  gap: 5px;
-  margin: -4px 4px 4px auto;
-  min-height: 30px;
-  padding: 0 10px;
-  border-radius: 7px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 500;
+  position: absolute;
+  inset: 4px 4px auto auto;
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--code);
+  color: var(--faint);
+  font-size: 0;
 }
-.copy .icon { width: 13px; height: 13px; }
+.copy .icon { width: 14px; height: 14px; }
 
 .table {
   border: 1px solid var(--table-line);
@@ -1067,12 +1070,10 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.42); backdrop-filter: blur(2px); 
   #scroll { scrollbar-gutter: stable both-edges; }
   #scroll .column { padding-block: 18px 28px; }
   .human { max-width: 76%; padding: 9px 15px; border-radius: 18px; }
+  .code pre { padding-inline-end: 14px; white-space: pre; overflow-wrap: normal; }
   .code .copy {
-    position: absolute;
-    inset: 8px 8px auto auto;
-    margin: 0;
-    min-height: 24px;
-    padding: 0 8px;
+    width: 26px;
+    height: 26px;
     border-radius: 6px;
     background: var(--ground);
     border: 1px solid var(--line-strong);
