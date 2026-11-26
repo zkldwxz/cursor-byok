@@ -228,7 +228,7 @@ mod tests {
                 }
             }
         });
-        patch_gates(&mut config, false).expect("patch djb2 config");
+        patch_gates(&mut config).expect("patch djb2 config");
         let gate = &config["feature_gates"][&djb2(LOCAL_LOOP_GATE)];
         assert_eq!(gate["value"], json!(false), "local loop must stay off");
     }
@@ -240,7 +240,7 @@ mod tests {
                 "hash_used": hash_used,
                 "feature_gates": {},
             });
-            patch_gates(&mut config, false).expect("patch config");
+            patch_gates(&mut config).expect("patch config");
             let key = statsig_key(&config, LOCAL_LOOP_GATE);
             assert_eq!(
                 config["feature_gates"][&key]["value"],
@@ -258,7 +258,7 @@ mod tests {
             let mut config = json!({ "hash_used": hash_used, "feature_gates": {} });
             let key = statsig_key(&config, LONG_RUNNING_JOBS_GATE);
             config["feature_gates"][&key] = gate(&key, false);
-            patch_gates(&mut config, false).expect("patch config");
+            patch_gates(&mut config).expect("patch config");
             assert_eq!(
                 config["feature_gates"][&key]["value"],
                 json!(true),
@@ -273,7 +273,7 @@ mod tests {
             "hash_used": "djb2",
             "feature_gates": {},
         });
-        patch_gates(&mut config, false).expect("patch config");
+        patch_gates(&mut config).expect("patch config");
         let key = statsig_key(&config, AGENT_RETRIES_GATE);
         assert_eq!(config["feature_gates"][&key]["value"], json!(true));
     }
