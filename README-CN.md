@@ -37,6 +37,8 @@ API Key 和设置只存在本机。模型流量仍会发往你选择的上游。
 
 ## 快速开始
 
+需要 Cursor 3.31 或更新版本，已在 Cursor 3.31.15 和 3.32.4 上测试；更早的版本不支持，用不了时请先升级 Cursor。
+
 1. 从 [GitHub Releases](https://github.com/zkldwxz/cursor-byok/releases/latest) 下载对应系统的安装包。
 2. 打开 cursor-byok → **Cursor 配置**，按提示初始化本地 CA。
 3. 在模型设置中添加模型（服务地址、API Key、模型名称），保存并运行 **测试**。

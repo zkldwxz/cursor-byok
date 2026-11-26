@@ -37,6 +37,8 @@ This repository, [zkldwxz/cursor-byok](https://github.com/zkldwxz/cursor-byok), 
 
 ## Quick start
 
+Requires Cursor 3.31 or later; releases are tested on Cursor 3.31.15 and 3.32.4. Earlier versions are not supported. Upgrade Cursor first if it does not work.
+
 1. Download the latest build for your OS from [GitHub Releases](https://github.com/zkldwxz/cursor-byok/releases/latest).
 2. Open cursor-byok → **Cursor**, and initialize the local CA when prompted.
 3. Open **Model Settings**, add a model (server URL, API key, model ID), save, and run **Test**.
