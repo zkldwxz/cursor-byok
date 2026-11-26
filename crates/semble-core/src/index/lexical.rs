@@ -96,14 +96,25 @@ struct Definition {
     symbol: String,
     parts: Vec<String>,
     chunk: usize,
+    /// Source line of the definition's name, 1-based.
+    line: usize,
     implementation: bool,
     member: bool,
+}
+
+/// A chunk holding a definition of the looked-up name, at the name's own line.
+pub(crate) struct SymbolHit {
+    pub chunk: usize,
+    pub score: f32,
+    pub line: usize,
 }
 
 /// A definition whose name shares words with a question.
 pub(crate) struct InferredSymbol {
     pub chunk: usize,
     pub score: f32,
+    /// Source line of the definition's name, 1-based.
+    pub line: usize,
     /// Share of the question's words that the name accounts for.
     pub share: f32,
     /// The name is made of several words, so matching it is not one shared word.
@@ -131,6 +142,7 @@ impl SymbolIndex {
                     symbol: symbol.clone(),
                     parts,
                     chunk: chunk_offset + indexed.chunk,
+                    line: indexed.line,
                     implementation: indexed.implementation,
                     member: indexed.member,
                 });
@@ -147,7 +159,12 @@ impl SymbolIndex {
         }
     }
 
-    pub fn exact_symbol(&self, query: &str, chunks: &[Chunk], limit: usize) -> Vec<(usize, f32)> {
+    pub(crate) fn exact_symbol(
+        &self,
+        query: &str,
+        chunks: &[Chunk],
+        limit: usize,
+    ) -> Vec<SymbolHit> {
         let name = query.trim().to_ascii_lowercase().replace("::", ".");
         // A member is known as `Enum.Member`, however far its path is spelled out.
         let start = name
@@ -232,7 +249,12 @@ impl SymbolIndex {
         symbols.truncate(limit.min(6));
         let mut output = Vec::new();
         for (symbol, (symbol_score, share, compound)) in symbols {
-            for (chunk, source_score) in self.rank_symbol(symbol, chunks, 1) {
+            for SymbolHit {
+                chunk,
+                score: source_score,
+                line,
+            } in self.rank_symbol(symbol, chunks, 1)
+            {
                 let path_matches = tokenize(&chunks[chunk].file_path)
                     .into_iter()
                     .map(|term| normalize_term(&term))
@@ -247,6 +269,7 @@ impl SymbolIndex {
                     chunk,
                     score: (symbol_score * 10.0 + path_matches as f32 * 2.0) * source_weight
                         + source_score,
+                    line,
                     share,
                     compound,
                 });
@@ -263,7 +286,16 @@ impl SymbolIndex {
         output
     }
 
-    fn rank_symbol(&self, symbol: &str, chunks: &[Chunk], limit: usize) -> Vec<(usize, f32)> {
+    fn rank_symbol(&self, symbol: &str, chunks: &[Chunk], limit: usize) -> Vec<SymbolHit> {
+        // One chunk can hold several same-named definitions; show the earliest.
+        let mut earliest = HashMap::<usize, usize>::new();
+        for &position in self.definitions_by_symbol.get(symbol).into_iter().flatten() {
+            let definition = &self.definitions[position];
+            earliest
+                .entry(definition.chunk)
+                .and_modify(|line| *line = (*line).min(definition.line))
+                .or_insert(definition.line);
+        }
         let mut output = self
             .definitions_by_symbol
             .get(symbol)
@@ -278,17 +310,29 @@ impl SymbolIndex {
                     (false, true) => 1.5,
                 };
                 let score = kind * source_priority(&chunk.file_path, symbol);
-                (definition.chunk, score)
+                SymbolHit {
+                    chunk: definition.chunk,
+                    score,
+                    line: earliest[&definition.chunk],
+                }
             })
             .collect::<Vec<_>>();
         output.sort_by(|left, right| {
             right
-                .1
-                .total_cmp(&left.1)
-                .then_with(|| chunks[left.0].file_path.cmp(&chunks[right.0].file_path))
-                .then_with(|| chunks[right.0].start_line.cmp(&chunks[left.0].start_line))
+                .score
+                .total_cmp(&left.score)
+                .then_with(|| {
+                    chunks[left.chunk]
+                        .file_path
+                        .cmp(&chunks[right.chunk].file_path)
+                })
+                .then_with(|| {
+                    chunks[right.chunk]
+                        .start_line
+                        .cmp(&chunks[left.chunk].start_line)
+                })
         });
-        output.dedup_by_key(|item| item.0);
+        output.dedup_by_key(|item| item.chunk);
         output.truncate(limit);
         output
     }
@@ -326,9 +370,13 @@ pub fn extract_definitions(chunks: &[Chunk]) -> Vec<IndexedDefinition> {
             let Some(matched) = captures.get(1) else {
                 continue;
             };
+            // The name's own offset, not the match start: `^\s*` may begin on an
+            // earlier line than the definition.
+            let line = chunk.start_line + chunk.content[..matched.start()].matches('\n').count();
             definitions.push(IndexedDefinition {
                 symbol: matched.as_str().to_owned(),
                 chunk: index,
+                line,
                 implementation: chunk.content[matched.end()..]
                     .lines()
                     .take(12)
@@ -515,7 +563,7 @@ mod tests {
             chunks: chunks.to_vec(),
             vectors: vec![0; chunks.len()],
         }]);
-        assert_eq!(index.exact_symbol("useState", &chunks, 3)[0].0, 2);
+        assert_eq!(index.exact_symbol("useState", &chunks, 3)[0].chunk, 2);
     }
 
     #[test]

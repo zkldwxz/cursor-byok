@@ -16,6 +16,10 @@ use semble_core::{
 use serde::Deserialize;
 use serde_json::json;
 
+/// Same cap as `apps/semantic-mcp/src/search.rs` MAX_SNIPPET_CHARS, which bounds
+/// what a model actually sees of each snippet in the product.
+const MAX_SNIPPET_CHARS: usize = 2_000;
+
 #[derive(Deserialize)]
 struct Query {
     root: PathBuf,
@@ -93,17 +97,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         request.top_k = query
             .top_k
             .unwrap_or(if query.audit.is_some() { 100 } else { 10 });
-        request.max_snippet_lines = Some(0);
         let started = Instant::now();
         let result = engine.search(request)?;
         let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
-        let hits = result
-            .results
-            .into_iter()
-            .map(|hit| (hit.file_path, hit.start_line, hit.end_line))
-            .collect::<Vec<_>>();
+        let mut hits = Vec::new();
+        let mut shown = Vec::new();
+        for hit in result.results {
+            hits.push((hit.file_path.clone(), hit.start_line, hit.end_line));
+            // The snippet range the model sees: content capped at MAX_SNIPPET_CHARS,
+            // then counted in lines, opening at the reported start line.
+            let visible_lines = hit
+                .content
+                .as_deref()
+                .map(|content| {
+                    content
+                        .chars()
+                        .take(MAX_SNIPPET_CHARS)
+                        .collect::<String>()
+                        .lines()
+                        .count()
+                })
+                .unwrap_or(0);
+            let end = if visible_lines == 0 {
+                hit.start_line - 1
+            } else {
+                hit.start_line + visible_lines - 1
+            };
+            shown.push((hit.file_path, hit.start_line, end));
+        }
         report.insert("ms".into(), json!(elapsed_ms));
         report.insert("hits".into(), json!(hits));
+        report.insert("shown".into(), json!(shown));
         writeln!(out, "{}", json!(report))?;
         out.flush()?;
     }

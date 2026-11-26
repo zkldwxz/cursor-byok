@@ -192,7 +192,7 @@ fn every_prompt_mode_loads_the_captured_tool_set() {
             "WebSearch",
             "Write",
         ],
-        "f7bd6382107e0b15d0f8bb5890f6032c02fca76b8deaeb09e5555c50354360d8",
+        "14bc3fb74e21d71dba71dc787c5b68cfcfe78cba6278014951cd4190a515a736",
     );
     assert_mode(
         &assets,
@@ -213,7 +213,7 @@ fn every_prompt_mode_loads_the_captured_tool_set() {
             "FetchMcpResource",
             "CallMcpTool",
         ],
-        "ac5c6b2e614e05ce744af1593f89891969c85d8e6ad76bab6366fbdda88c5a55",
+        "d7babcde3f5b2964fe4b4cdd71b1f503fcb145432e4bc4a5d807164453642619",
     );
     assert_mode(
         &assets,
@@ -236,7 +236,7 @@ fn every_prompt_mode_loads_the_captured_tool_set() {
             "WebSearch",
             "Write",
         ],
-        "f7bd6382107e0b15d0f8bb5890f6032c02fca76b8deaeb09e5555c50354360d8",
+        "14bc3fb74e21d71dba71dc787c5b68cfcfe78cba6278014951cd4190a515a736",
     );
     assert_mode(
         &assets,
@@ -261,7 +261,7 @@ fn every_prompt_mode_loads_the_captured_tool_set() {
             "Write",
             "GenerateImage",
         ],
-        "755f818483aa4a167e5cf41b869604b368ce61ff00740e389f49f0d36e56e4d1",
+        "d091d777ec20c7142d1b625a7cdef1ad9b775fe7dec9ecb9aa86812e560bbb23",
     );
     assert_mode(
         &assets,
@@ -287,11 +287,11 @@ fn every_prompt_mode_loads_the_captured_tool_set() {
             "UpdateCurrentStep",
             "CallMcpTool",
         ],
-        "d9ca8c7138f4f4205e45fc4996469ef716581f442a2aaaee00fa310ca5b552d6",
+        "40cf1e60a798e8e9bef5ba2ff687848524376eab00ed98b36504adfff1a0af31",
     );
     assert_eq!(
         schema_digest(&assets.mode(Mode::Agent).tools),
-        "04bfb7b6384aa01cde523fab930809605fad3693adfa4dc340fb4fe8833fd59a"
+        "e9bbe1580bed30b1f940ce92d95fc9884199220674efc76ba0f1545801209516"
     );
     let task = assets
         .mode(Mode::Agent)

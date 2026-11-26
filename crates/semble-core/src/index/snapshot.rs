@@ -36,6 +36,8 @@ pub struct IndexedTermFrequency {
 pub struct IndexedDefinition {
     pub symbol: String,
     pub chunk: usize,
+    /// Source line of the definition's name, 1-based.
+    pub line: usize,
     pub implementation: bool,
     /// An enum member, plain or as `Enum.Member`: looked up by name, never guessed.
     pub member: bool,
@@ -91,6 +93,15 @@ impl IndexSnapshot {
                     "definition chunk is out of bounds in {}",
                     file.path
                 )));
+            }
+            for definition in &file.definitions {
+                let chunk = &file.chunks[definition.chunk];
+                if !(chunk.start_line..=chunk.end_line).contains(&definition.line) {
+                    return Err(Error::CorruptIndex(format!(
+                        "definition {} line {} is outside its chunk in {}",
+                        definition.symbol, definition.line, file.path
+                    )));
+                }
             }
             if file
                 .declarations
@@ -271,6 +282,45 @@ mod tests {
     use crate::source::FileStamp;
 
     use super::*;
+
+    #[test]
+    fn a_definition_outside_its_chunk_is_rejected() {
+        let snapshot = IndexSnapshot {
+            format_version: INDEX_FORMAT_VERSION,
+            source_identity: "source".into(),
+            model_id: "model".into(),
+            dimensions: 2,
+            desired_chunk_bytes: 100,
+            content: vec![ContentType::Code],
+            files: vec![IndexedFile {
+                path: "lib.py".into(),
+                stamp: FileStamp {
+                    modified_ns: 1,
+                    size: 1,
+                },
+                content_type: ContentType::Code,
+                chunks: vec![Chunk {
+                    file_path: "lib.py".into(),
+                    start_line: 1,
+                    end_line: 2,
+                    language: Some("python".into()),
+                    content: String::new(),
+                }],
+                definitions: vec![IndexedDefinition {
+                    symbol: "wanted".into(),
+                    chunk: 0,
+                    line: 9,
+                    implementation: false,
+                    member: false,
+                }],
+                declarations: Vec::new(),
+                function_anchors: vec![None],
+                lexical_documents: vec![super::super::lexical_document("def wanted")],
+                vectors: vec![1, 2],
+            }],
+        };
+        assert!(matches!(snapshot.validate(), Err(Error::CorruptIndex(_))));
+    }
 
     #[test]
     fn validation_rejects_vector_shape_mismatches() {

@@ -125,9 +125,17 @@ impl SearchEngine {
                 .lexical
                 .exact_symbol(&request.query, &index.chunks, request.top_k);
             if !exact.is_empty() {
+                let anchors = exact
+                    .iter()
+                    .map(|hit| (hit.chunk, hit.line))
+                    .collect::<HashMap<usize, usize>>();
                 return response(
                     &request.query,
-                    exact,
+                    exact
+                        .into_iter()
+                        .map(|hit| (hit.chunk, hit.score))
+                        .collect::<Vec<_>>(),
+                    &anchors,
                     &index,
                     &root,
                     request.max_snippet_lines,
@@ -187,6 +195,7 @@ impl SearchEngine {
             }
         }
         let mut definitions = Vec::new();
+        let mut anchors = HashMap::<usize, usize>::new();
         if !symbol_query {
             let inferred =
                 index
@@ -197,6 +206,7 @@ impl SearchEngine {
                     symbol.share >= LEADING_NAME_SHARE
                         && (symbol.compound || fused.contains_key(&symbol.chunk))
                 });
+            anchors.extend(leading.iter().map(|symbol| (symbol.chunk, symbol.line)));
             definitions.extend(
                 leading
                     .into_iter()
@@ -232,6 +242,7 @@ impl SearchEngine {
         response(
             &request.query,
             ranked,
+            &anchors,
             &index,
             &root,
             request.max_snippet_lines,
@@ -286,6 +297,7 @@ impl SearchEngine {
         response(
             &format!("Chunks related to {}:{}", request.file_path, request.line),
             ranked,
+            &HashMap::new(),
             &index,
             &root,
             request.max_snippet_lines,
@@ -554,6 +566,7 @@ fn quantize_query(vector: Vec<f32>) -> Vec<i8> {
 fn response(
     query: &str,
     ranked: Vec<(usize, f32)>,
+    anchors: &HashMap<usize, usize>,
     index: &LoadedIndex,
     root: &Path,
     max_lines: Option<usize>,
@@ -564,16 +577,48 @@ fn response(
             .into_iter()
             .map(|(position, score)| {
                 let chunk = &index.chunks[position];
+                // A definition hit opens on the definition's own line, not the
+                // chunk's first line, so the model sees the name it asked for.
+                let anchor = anchors
+                    .get(&position)
+                    .copied()
+                    .filter(|line| chunk.start_line <= *line && *line <= chunk.end_line);
+                let (start_line, content) = match anchor {
+                    Some(line) => (line, anchored_content(root, chunk, line, max_lines)?),
+                    None => (chunk.start_line, chunk_content(root, chunk, max_lines)?),
+                };
                 Ok(SearchResult {
                     file_path: chunk.file_path.clone(),
-                    start_line: chunk.start_line,
+                    start_line,
                     end_line: chunk.end_line,
                     score,
-                    content: chunk_content(root, chunk, max_lines)?,
+                    content,
                 })
             })
             .collect::<Result<Vec<_>>>()?,
     })
+}
+
+fn anchored_content(
+    root: &Path,
+    chunk: &crate::Chunk,
+    anchor: usize,
+    lines: Option<usize>,
+) -> Result<Option<String>> {
+    if lines == Some(0) {
+        return Ok(None);
+    }
+    if !chunk.content.is_empty() {
+        let skip = anchor.saturating_sub(chunk.start_line);
+        let from_anchor = chunk
+            .content
+            .lines()
+            .skip(skip)
+            .collect::<Vec<_>>()
+            .join("\n");
+        return Ok(snippet(&from_anchor, lines));
+    }
+    source_span(&root.join(&chunk.file_path), anchor, chunk.end_line, lines)
 }
 
 fn chunk_content(
@@ -1223,6 +1268,101 @@ mod tests {
             ),
             ["src/renderer.rs"]
         );
+    }
+
+    #[test]
+    fn an_exact_name_search_shows_the_definition_line() {
+        let source = tempfile::tempdir().unwrap();
+        let cache = tempfile::tempdir().unwrap();
+        fs::write(
+            source.path().join("lib.py"),
+            concat!(
+                "def small(): return 1\n",
+                "def large(\n",
+                "    first,\n",
+                "    second,\n",
+                "):\n",
+                "    alpha = first\n",
+                "    beta = second\n",
+                "    gamma = alpha + beta\n",
+                "    delta = gamma * 2\n",
+                "    epsilon = delta - 1\n",
+                "    zeta = epsilon + 2\n",
+                "    eta = zeta * 3\n",
+                "    theta = eta - 4\n",
+                "    iota = theta + 5\n",
+                "    return iota\n",
+            ),
+        )
+        .unwrap();
+        let mut config = SembleConfig::new(cache.path());
+        config.desired_chunk_bytes = 120;
+        let prepared = SearchEngine::with_embedder(config.clone(), Arc::new(KeywordEmbedder));
+        prepared
+            .prepare(source.path(), &[ContentType::Code])
+            .unwrap();
+        drop(prepared);
+        for engine in [
+            SearchEngine::with_embedder(config.clone(), Arc::new(KeywordEmbedder)),
+            SearchEngine::with_embedder(config, Arc::new(KeywordEmbedder)),
+        ] {
+            let mut request = SearchRequest::new("large", source.path());
+            request.top_k = 1;
+            let results = engine.search(request).unwrap().results;
+            assert_eq!(results[0].start_line, 2);
+            assert!(
+                results[0]
+                    .content
+                    .as_deref()
+                    .unwrap_or_default()
+                    .starts_with("def large("),
+                "the snippet must open on the definition, got:\n{}",
+                results[0].content.as_deref().unwrap_or_default()
+            );
+        }
+    }
+
+    #[test]
+    fn an_exact_name_search_shows_a_later_definition_in_a_shared_chunk() {
+        let source = tempfile::tempdir().unwrap();
+        let cache = tempfile::tempdir().unwrap();
+        fs::write(
+            source.path().join("lib.py"),
+            concat!(
+                "def alpha():\n",
+                "    return 1\n",
+                "\n",
+                "def beta():\n",
+                "    return 2\n",
+                "\n",
+                "def gamma():\n",
+                "    return 3\n",
+                "\n",
+                "def delta():\n",
+                "    return 4\n",
+            ),
+        )
+        .unwrap();
+        for engine in [
+            SearchEngine::with_embedder(SembleConfig::new(cache.path()), Arc::new(KeywordEmbedder)),
+            SearchEngine::with_embedder(SembleConfig::new(cache.path()), Arc::new(KeywordEmbedder)),
+        ] {
+            let mut request = SearchRequest::new("delta", source.path());
+            request.top_k = 1;
+            let results = engine.search(request).unwrap().results;
+            assert_eq!(results[0].start_line, 10);
+            assert_eq!(
+                results[0]
+                    .content
+                    .as_deref()
+                    .unwrap_or_default()
+                    .lines()
+                    .next(),
+                Some("def delta():"),
+                "the snippet must open on the fourth definition, got:\n{}",
+                results[0].content.as_deref().unwrap_or_default()
+            );
+        }
     }
 
     #[test]

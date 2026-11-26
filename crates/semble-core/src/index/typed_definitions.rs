@@ -30,12 +30,13 @@ pub(super) fn extend(
         if let Some(declaration) = scoped_declaration(language, node, source) {
             declarations.push(declaration);
         }
-        if let Some((name, qualified)) = enum_member(node, source) {
+        if let Some((name, qualified, line)) = enum_member(node, source) {
             if let Some(chunk) = chunk_of(chunks, node, name) {
                 for symbol in [name.to_owned(), qualified] {
                     definitions.push(IndexedDefinition {
                         symbol,
                         chunk,
+                        line,
                         implementation: false,
                         member: true,
                     });
@@ -57,6 +58,7 @@ pub(super) fn extend(
                         definitions.push(IndexedDefinition {
                             symbol: name.to_owned(),
                             chunk: index,
+                            line: position.start_position().row + 1,
                             implementation: node.child_by_field_name("body").is_some(),
                             member: false,
                         });
@@ -86,8 +88,11 @@ fn chunk_of(chunks: &[Chunk], node: Node<'_>, name: &str) -> Option<usize> {
     Some(index + offset)
 }
 
-/// The member's own name and `Enum.Member`.
-fn enum_member<'source>(node: Node<'_>, source: &'source str) -> Option<(&'source str, String)> {
+/// The member's own name and `Enum.Member`, at the member's own line.
+fn enum_member<'source>(
+    node: Node<'_>,
+    source: &'source str,
+) -> Option<(&'source str, String, usize)> {
     let name = match node.kind() {
         "enum_variant" | "enum_constant" | "enumerator" | "enum_assignment" => {
             node.child_by_field_name("name")?
@@ -107,7 +112,7 @@ fn enum_member<'source>(node: Node<'_>, source: &'source str) -> Option<(&'sourc
         || name.to_owned(),
         |owner| format!("{}.{name}", &source[owner.byte_range()]),
     );
-    Some((name, qualified))
+    Some((name, qualified, node.start_position().row + 1))
 }
 
 fn scoped_declaration(language: &str, node: Node<'_>, source: &str) -> Option<IndexedDeclaration> {
