@@ -35,9 +35,6 @@ const DESKTOP_BRIDGE_GATE: &str = "desktop_bridge";
 // cloud worker that skips BYOK runs for every workspace. Remote control itself
 // does not read it.
 const SELF_HOSTED_WORKERS_GATE: &str = "internal_cloud_project_remote_control";
-// An SSH window runs its agent host as a daemon on the remote machine only with
-// this on; the daemon's socket is what remote control can reach over SSH.
-const MOVE_EXEC_GATE: &str = "cursor_agent_host_move_exec";
 
 #[derive(Clone, PartialEq, Message)]
 struct BootstrapStatsigResponse {
@@ -88,7 +85,6 @@ fn patch_gates(config: &mut Value) -> Result<()> {
     force_gate(config, LONG_RUNNING_JOBS_GATE, true)?;
     force_gate(config, DESKTOP_BRIDGE_GATE, true)?;
     force_gate(config, SELF_HOSTED_WORKERS_GATE, false)?;
-    force_gate(config, MOVE_EXEC_GATE, true)?;
     force_gate(config, LOCAL_LOOP_GATE, false)
 }
 
@@ -328,23 +324,6 @@ mod tests {
             let mut config = json!({ "hash_used": hash_used, "feature_gates": {} });
             patch_gates(&mut config).expect("patch config");
             let key = statsig_key(&config, DESKTOP_BRIDGE_GATE);
-            assert_eq!(
-                config["feature_gates"][&key]["value"],
-                json!(true),
-                "{hash_used}"
-            );
-        }
-    }
-
-    #[test]
-    /// Only as a daemon does an SSH window's agent host serve a socket this
-    /// server can reach; in-process it answers its own window alone.
-    fn statsig_bootstrap_runs_ssh_agent_hosts_as_daemons() {
-        for hash_used in ["djb2", "sha256", "none"] {
-            let mut config = json!({ "hash_used": hash_used, "feature_gates": {} });
-            let key = statsig_key(&config, MOVE_EXEC_GATE);
-            config["feature_gates"][&key] = gate(&key, false);
-            patch_gates(&mut config).expect("patch config");
             assert_eq!(
                 config["feature_gates"][&key]["value"],
                 json!(true),
