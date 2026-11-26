@@ -172,6 +172,17 @@ impl Overview {
     }
 }
 
+/// Cursor leaves out a session's title and time when they did not change, as it
+/// does once the session is opened; without them it would list as untitled and
+/// as old as 1970. The rest is taken as sent: a missing running turn means none.
+fn keep(sessions: &mut BTreeMap<String, pb::AgentHostSession>, mut session: pb::AgentHostSession) {
+    if let Some(known) = sessions.get(&session.session_id) {
+        session.title = session.title.or_else(|| known.title.clone());
+        session.updated_at = session.updated_at.or(known.updated_at);
+    }
+    sessions.insert(session.session_id.clone(), session);
+}
+
 fn workspace_path(workspace: Option<&pb::AgentHostWorkspace>) -> Option<&str> {
     workspace?.workspace_paths.first().map(String::as_str)
 }
@@ -263,7 +274,7 @@ impl Sessions {
                             | Event::Updated(pb::AgentHostSessionUpdated { session }),
                         ) => {
                             if let Some(session) = session {
-                                open.sessions.insert(session.session_id.clone(), session);
+                                keep(&mut open.sessions, session);
                             }
                         }
                         Some(Event::Deleted(deleted)) => {
@@ -555,4 +566,44 @@ fn answer(asked: &pb::AgentHostTurnAwaitingInput, verdict: Verdict) -> Result<An
 
 fn unanswerable() -> Error {
     Error::Protocol("this question can be answered only on the computer".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn session(
+        title: Option<&str>,
+        seconds: Option<i64>,
+        running: Option<&str>,
+    ) -> pb::AgentHostSession {
+        pb::AgentHostSession {
+            session_id: "s".into(),
+            title: title.map(Into::into),
+            updated_at: seconds.map(|seconds| prost_types::Timestamp { seconds, nanos: 0 }),
+            running_turn_id: running.map(Into::into),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn an_update_without_title_or_time_keeps_the_known_ones_and_takes_the_rest() {
+        let mut sessions = BTreeMap::new();
+        keep(
+            &mut sessions,
+            session(Some("General chat"), Some(100), Some("turn")),
+        );
+        keep(&mut sessions, session(None, None, None));
+        let kept = &sessions["s"];
+        assert_eq!(kept.title.as_deref(), Some("General chat"));
+        assert_eq!(updated_ms(kept), 100_000);
+        assert_eq!(
+            kept.running_turn_id, None,
+            "a turn that ended is not kept running"
+        );
+
+        keep(&mut sessions, session(Some("Renamed"), Some(200), None));
+        assert_eq!(sessions["s"].title.as_deref(), Some("Renamed"));
+        assert_eq!(updated_ms(&sessions["s"]), 200_000);
+    }
 }
