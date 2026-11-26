@@ -17,7 +17,7 @@ class Work : Service() {
   override fun onBind(intent: Intent?): IBinder? = null
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-    val note = note(this, WORKING, "Cursor BYOK", intent?.getStringExtra(TEXT).orEmpty(), null)
+    val note = note(this, WORKING, "Cnod", intent?.getStringExtra(TEXT).orEmpty(), null)
     // Android freezes an app soon after it is left; only a foreground service keeps its connection open.
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
       startForeground(WORKING_ID, note, ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING)
@@ -60,7 +60,7 @@ class Work : Service() {
     /** Shows the text of the running service again, without starting it from the background. */
     fun update(context: Context, text: String) {
       context.getSystemService(NotificationManager::class.java)
-        .notify(WORKING_ID, note(context, WORKING, "Cursor BYOK", text, null))
+        .notify(WORKING_ID, note(context, WORKING, "Cnod", text, null))
     }
 
     /** One alert per conversation: a later one about it takes the place of the earlier. */

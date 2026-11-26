@@ -357,7 +357,7 @@ function draw() {
   const { overview, online, place, chat, sidebarCollapsed, groupBy, pinned, folders } = state;
   document.body.dataset.sidebar = sidebarCollapsed ? "collapsed" : "open";
   const waiting = waitingCount(overview?.workspaces);
-  document.title = waiting ? `(${waiting}) Cursor` : "Cursor";
+  document.title = waiting ? `(${waiting}) Cnod` : "Cnod";
   const connection = {
     told: online ? (waiting ? "waiting" : "online") : "offline",
     status: online ? (waiting ? copy.waitingTitle(waiting) : copy.nothingWaiting) : overview ? copy.offline : copy.connecting,

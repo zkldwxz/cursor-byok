@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Cursor BYOK",
+  "productName": "Cnod",
   "version": "0.1.0-beta",
   "identifier": "dev.cursorbyok.mobile",
   "build": {
@@ -8,7 +8,7 @@
   },
   "app": {
     "withGlobalTauri": true,
-    "windows": [{ "title": "Cursor BYOK", "width": 420, "height": 860 }],
+    "windows": [{ "title": "Cnod", "width": 420, "height": 860 }],
     "security": {
       "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src ipc: http://ipc.localhost; base-uri 'none'; form-action 'none'"
     }

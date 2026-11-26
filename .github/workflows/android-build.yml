@@ -46,7 +46,7 @@ jobs:
           export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
           npm ci
           npm run tauri -- android init --ci
-          npm run tauri -- icon ../desktop/src-tauri/icons/linux-512x512.png
+          npm run tauri -- icon src-tauri/icons/cnod.svg
           cp src-tauri/android/MainActivity.kt src-tauri/android/Work.kt src-tauri/gen/android/app/src/main/java/dev/cursorbyok/mobile/
           cp -R src-tauri/android/res/. src-tauri/gen/android/app/src/main/res/
           manifest=src-tauri/gen/android/app/src/main/AndroidManifest.xml
