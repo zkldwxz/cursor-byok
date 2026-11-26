@@ -15,7 +15,9 @@ use crate::{
     store::Store,
 };
 
-use super::{CompiledMessages, MessageDelivery, PendingMessages, TransportCommand};
+use super::{
+    CompiledMessages, MessageDelivery, PendingMessages, TransportCommand, UpstreamRetries,
+};
 
 #[derive(Clone)]
 pub struct ConversationRegistry {
@@ -29,6 +31,7 @@ pub(crate) struct ConversationDependencies {
     pub provider: Arc<dyn Provider>,
     pub compiler: PromptCompiler,
     pub web_cache: WebCache,
+    pub semantic: crate::cursor::tools::semantic_search::SemanticPackage,
     /// 本地 rules 服务的 md 存储目录;编译请求上下文时合并其中的规则。
     pub local_rules_dir: Option<std::path::PathBuf>,
 }
@@ -37,6 +40,7 @@ struct RegistryInner {
     current: Mutex<HashMap<ConversationId, ActiveRun>>,
     pending: Mutex<HashMap<ConversationId, PendingMessages>>,
     changed: Notify,
+    upstream_retries: UpstreamRetries,
     pub dependencies: ConversationDependencies,
 }
 
@@ -53,6 +57,7 @@ impl ConversationRegistry {
         provider: Arc<dyn Provider>,
         compiler: PromptCompiler,
         web_cache: WebCache,
+        semantic: crate::cursor::tools::semantic_search::SemanticPackage,
         local_rules_dir: Option<std::path::PathBuf>,
         plugins: Option<crate::plugin::PluginRegistry>,
     ) -> Self {
@@ -61,16 +66,22 @@ impl ConversationRegistry {
                 current: Mutex::new(HashMap::new()),
                 pending: Mutex::new(HashMap::new()),
                 changed: Notify::new(),
+                upstream_retries: UpstreamRetries::default(),
                 dependencies: ConversationDependencies {
                     store,
                     provider,
                     plugins,
                     compiler,
                     web_cache,
+                    semantic,
                     local_rules_dir,
                 },
             }),
         }
+    }
+
+    pub fn upstream_retries(&self) -> &UpstreamRetries {
+        &self.inner.upstream_retries
     }
 
     pub(crate) fn dependencies(&self) -> &ConversationDependencies {

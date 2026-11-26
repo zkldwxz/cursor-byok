@@ -20,6 +20,7 @@ use crate::{
 use super::{
     compat,
     runtime::{CursorToolRuntime, ExecContext, PendingInteraction},
+    semantic_search::{self, SemanticPackage},
     tool_call_result::{ToolCompletion, ToolResultSender},
 };
 
@@ -37,9 +38,11 @@ impl ToolStart {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn start(
     runtime: &CursorToolRuntime,
     results: &ToolResultSender,
+    package: &SemanticPackage,
     call: &ToolCall,
     message_index: usize,
     dynamic_mcp: &BTreeMap<String, pb::McpToolDefinition>,
@@ -68,6 +71,18 @@ pub(super) async fn start(
         | "callmcptool" | "fetchmcpresource" | "getmcptools" => {
             exec::start(runtime, call, context).await
         }
+        "semanticsearch" => Ok(
+            match semantic_search::start(runtime, package, call, context).await? {
+                Ok(message) => ToolStart {
+                    messages: vec![message],
+                    completion: None,
+                },
+                Err(completion) => ToolStart {
+                    messages: Vec::new(),
+                    completion: Some(completion),
+                },
+            },
+        ),
         "write" | "strreplace" | "editnotebook" => edit::start(runtime, call, context).await,
         "askquestion" | "websearch" | "webfetch" | "switchmode" | "createplan"
         | "generateimage" => interaction::start(runtime, call).await,

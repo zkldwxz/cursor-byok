@@ -1,4 +1,5 @@
-//! `byok-semantic <absolute workspace root>` serves semantic search over MCP stdio.
+//! `byok-semantic <absolute workspace root>` serves semantic search over MCP stdio;
+//! `byok-semantic search <base64 request>` answers one search and exits.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -32,8 +33,33 @@ fn workspace_root(arguments: impl Iterator<Item = String>) -> Result<PathBuf, St
     Ok(root)
 }
 
+fn main() -> ExitCode {
+    let arguments = std::env::args().skip(1).collect::<Vec<_>>();
+    // A workspace root is always absolute, so `search` can never be one.
+    if let [command, request] = arguments.as_slice() {
+        if command == "search" {
+            return search(request);
+        }
+    }
+    serve_workspace()
+}
+
+// Runs outside the async runtime: the engine's model client is blocking.
+fn search(request: &str) -> ExitCode {
+    match byok_semantic::search::run(request) {
+        Ok(line) => {
+            println!("{line}");
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("byok-semantic: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
 #[tokio::main(flavor = "current_thread")]
-async fn main() -> ExitCode {
+async fn serve_workspace() -> ExitCode {
     let root = match workspace_root(std::env::args().skip(1)) {
         Ok(root) => root,
         Err(error) => {

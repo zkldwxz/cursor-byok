@@ -25,7 +25,7 @@ use crate::{
         },
         transport::{TransportParent, TransportRegistry},
     },
-    remote::{RemoteControl, RemoteSwitch},
+    remote::RemoteControl,
     Result,
 };
 
@@ -36,17 +36,13 @@ pub fn router(
 ) -> Result<Router> {
     let proxy = CursorProxy::cursor(clients);
     let knowledge = knowledge::KnowledgeService::managed()?;
-    Ok(
-        router_with_proxy(registry, proxy, knowledge, remote.switch())
-            .merge(remote.presence_router()),
-    )
+    Ok(router_with_proxy(registry, proxy, knowledge).merge(remote.presence_router()))
 }
 
 fn router_with_proxy(
     registry: TransportRegistry,
     proxy: CursorProxy,
     knowledge_service: knowledge::KnowledgeService,
-    remote: RemoteSwitch,
 ) -> Router {
     let web_cache = registry.web_cache().router();
     let free_entitlements = FreeEntitlementCache::default();
@@ -167,7 +163,6 @@ fn router_with_proxy(
         .fallback(proxy::forward)
         .method_not_allowed_fallback(proxy::forward)
         .layer(Extension(proxy))
-        .layer(Extension(remote))
         .layer(Extension(knowledge_service))
         .layer(Extension(free_entitlements))
         .with_state(registry)
@@ -479,7 +474,6 @@ mod routing_tests {
             registry,
             proxy,
             knowledge::KnowledgeService::with_root(temp.path().join("rules")).unwrap(),
-            RemoteSwitch::default(),
         );
         let frame = agent::BidiRequestId {
             request_id: "first-append-did-not-arrive".into(),
@@ -534,7 +528,7 @@ mod routing_tests {
             format!("http://{addr}"),
         );
         let knowledge = knowledge::KnowledgeService::with_root(temp.path().join("rules")).unwrap();
-        let router = router_with_proxy(registry, proxy, knowledge, RemoteSwitch::default());
+        let router = router_with_proxy(registry, proxy, knowledge);
         for (idx, model) in [
             "000000abcdeffabc",
             "byok-ff8d2b90-0156-41ec-a2e3-06741280209a",

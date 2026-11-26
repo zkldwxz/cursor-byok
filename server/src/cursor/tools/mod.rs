@@ -14,6 +14,7 @@ pub(crate) mod edit;
 pub(crate) mod registry;
 pub mod runtime;
 mod schedule;
+pub mod semantic_search;
 pub(crate) mod stream;
 mod tool_call_dispatch;
 pub(crate) mod tool_call_result;
@@ -26,9 +27,11 @@ use crate::{
 };
 
 use self::schedule::{DeferredEdit, EditSchedule};
-use self::tool_call_result::{ToolCompletion, ToolResultSender};
+use self::tool_call_result::ToolResultSender;
+pub use self::tool_call_result::{ToolCompletion, ToolResultReceiver};
 use super::protocol::proto::agent::v1 as pb;
 use runtime::{CursorToolRuntime, ExecContext};
+use semantic_search::{SearchReply, SemanticPackage, Step};
 
 #[derive(Clone)]
 pub struct ToolDispatcher {
@@ -36,6 +39,7 @@ pub struct ToolDispatcher {
     results: ToolResultSender,
     search: WebSearch,
     fetch: WebFetch,
+    semantic: SemanticPackage,
     edit_schedule: Arc<Mutex<EditSchedule>>,
 }
 
@@ -62,14 +66,26 @@ pub struct ToolBatchState<'a> {
 
 impl ToolDispatcher {
     pub fn new(runtime: CursorToolRuntime) -> Self {
-        let (results, _) = tool_call_result::tool_result_channel();
-        Self {
+        Self::observed(runtime).0
+    }
+
+    /// Also hands out the results of work that finishes in the background.
+    pub fn observed(runtime: CursorToolRuntime) -> (Self, ToolResultReceiver) {
+        let (results, receiver) = tool_call_result::tool_result_channel();
+        let dispatcher = Self {
             runtime,
             results,
             search: WebSearch::built_in(),
             fetch: WebFetch::built_in(),
+            semantic: SemanticPackage::built_in(),
             edit_schedule: Arc::new(Mutex::new(EditSchedule::default())),
-        }
+        };
+        (dispatcher, receiver)
+    }
+
+    pub fn with_semantic(mut self, semantic: SemanticPackage) -> Self {
+        self.semantic = semantic;
+        self
     }
 
     pub fn with_results(
@@ -77,12 +93,14 @@ impl ToolDispatcher {
         results: ToolResultSender,
         store: Store,
         web_cache: WebCache,
+        semantic: SemanticPackage,
     ) -> Self {
         Self {
             runtime,
             results,
             search: WebSearch::managed(store.clone()),
             fetch: WebFetch::managed(store, web_cache),
+            semantic,
             edit_schedule: Arc::new(Mutex::new(EditSchedule::default())),
         }
     }
@@ -185,6 +203,28 @@ impl ToolDispatcher {
         self.runtime.interrupt_for_message().await
     }
 
+    /// Continues a search beside the conversation, which must stay responsive
+    /// while the program downloads.
+    pub fn continue_search(
+        &self,
+        reply: SearchReply,
+        emit: impl FnOnce(pb::AgentServerMessage) + Send + 'static,
+    ) {
+        let (runtime, results, semantic) = (
+            self.runtime.clone(),
+            self.results.clone(),
+            self.semantic.clone(),
+        );
+        tokio::spawn(async move {
+            match semantic_search::advance(reply, &runtime, &semantic).await {
+                Ok(Step::Send(message)) => emit(*message),
+                Ok(Step::Complete(completion)) => results.send(*completion),
+                Ok(Step::Interrupted) => {}
+                Err(error) => results.send_error(error),
+            }
+        });
+    }
+
     async fn start(
         &self,
         call: &ToolCall,
@@ -202,6 +242,7 @@ impl ToolDispatcher {
         let started = tool_call_dispatch::start(
             &self.runtime,
             &self.results,
+            &self.semantic,
             &call,
             message_index,
             dynamic_mcp,

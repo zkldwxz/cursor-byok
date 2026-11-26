@@ -28,7 +28,8 @@ pub async fn remove_injected() -> Result<()> {
     remove_injected_at(&state_db_path()?).await
 }
 
-fn state_db_path() -> Result<PathBuf> {
+/// Where Cursor keeps its account and names its conversations.
+pub(crate) fn state_db_path() -> Result<PathBuf> {
     let home = dirs::home_dir()
         .ok_or_else(|| Error::Config("cannot resolve user home directory".into()))?;
     match std::env::consts::OS {

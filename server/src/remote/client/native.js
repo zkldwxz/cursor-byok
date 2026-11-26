@@ -1,4 +1,7 @@
-//! Reaches the computer through the app: its encrypted connection, and the camera that pairs.
+//! Reaches the computer through the app: its encrypted connection, the camera that pairs, and the phone's alerts.
+import { copy } from "./copy.js";
+import { busyCount, changesOf } from "./model.js";
+
 const tauri = globalThis.__TAURI__;
 
 /** Whether this page is the app's, rather than one a browser loaded from the computer. */
@@ -12,11 +15,30 @@ export async function route() {
 
 export const version = () => tauri.app.getVersion();
 
-/** A tap that is felt as well as seen. */
-export const buzz = () => native && navigator.vibrate?.(8);
-
 /** The phone's own bars take the page's color. */
 export const paintBars = (color, light) => globalThis.Bars?.paint(color, light);
+
+const phone = globalThis.Alerts;
+let lastOverview = null;
+let working = "";
+
+/** Out of sight, what finished or waits is told by the phone; while anything runs, the phone keeps the app awake to hear of it. */
+export function alert(workspaces) {
+  if (!phone) return;
+  const changes = changesOf(lastOverview, workspaces);
+  lastOverview = workspaces;
+  if (document.hidden) for (const { id, label, kind } of changes) phone.tell(id, label || copy.untitled, copy.alerts[kind]);
+  const busy = busyCount(workspaces);
+  const now = busy ? copy.alerts.working(busy) : "";
+  if (now !== working) phone.working((working = now));
+}
+
+/** The conversation whose alert was touched, once; null otherwise. */
+export function alertOpened() {
+  if (!phone) return null;
+  phone.clear();
+  return phone.opened() || null;
+}
 
 /** Resolves to what the QR code says; null when the person went back. Fails without a camera. */
 export async function scan() {

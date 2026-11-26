@@ -1,13 +1,7 @@
-//! Home's own parts: where a message from there goes, and what waits for an answer.
+//! What waits for an answer, ahead of every conversation.
 import { threadRow } from "./conversations.js";
 import { copy } from "./copy.js";
-import { h, icon, redraw } from "./dom.js";
-
-export function drawProject(root, workspace, choose) {
-  redraw(root, JSON.stringify([workspace?.id, workspace?.title]), () =>
-    workspace ? [h("button", { type: "button", class: "chip chip-project", "aria-label": `${copy.project}: ${workspace.title}`, onclick: choose }, icon("folder"), h("span", {}, workspace.title), icon("down"))] : [],
-  );
-}
+import { h, redraw } from "./dom.js";
 
 /** A folded folder must not hide that Cursor waits. */
 export function drawWaiting(root, threads, actions) {

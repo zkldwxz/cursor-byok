@@ -68,12 +68,21 @@ impl Bm25Index {
     }
 
     pub(crate) fn search(&self, query: &str, limit: usize) -> Vec<Bm25Match> {
+        self.search_terms(tokenize(query), limit)
+    }
+
+    /// Documents that hold this one identifier whole, not merely its words.
+    pub(crate) fn search_identifier(&self, identifier: &str, limit: usize) -> Vec<Bm25Match> {
+        self.search_terms(vec![identifier.to_ascii_lowercase()], limit)
+    }
+
+    fn search_terms(&self, terms: Vec<String>, limit: usize) -> Vec<Bm25Match> {
         if limit == 0 || self.document_lengths.is_empty() {
             return Vec::new();
         }
         // Accumulate floating-point scores in the same term order every time.
         let mut query_terms = BTreeMap::<String, u32>::new();
-        for term in tokenize(query) {
+        for term in terms {
             *query_terms.entry(term).or_default() += 1;
         }
         let corpus_size = self.document_lengths.len() as f32;

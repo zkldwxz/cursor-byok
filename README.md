@@ -37,6 +37,8 @@ This repository, [zkldwxz/cursor-byok](https://github.com/zkldwxz/cursor-byok), 
 
 ## Quick start
 
+Requires Cursor 3.31 or later; releases are tested on Cursor 3.31.15 and 3.32.4. Earlier versions are not supported. Upgrade Cursor first if it does not work.
+
 1. Download the latest build for your OS from [GitHub Releases](https://github.com/zkldwxz/cursor-byok/releases/latest).
 2. Open cursor-byok → **Cursor**, and initialize the local CA when prompted.
 3. Open **Model Settings**, add a model (server URL, API key, model ID), save, and run **Test**.
@@ -76,6 +78,8 @@ If you search a lot, add your own search MCP in Cursor's MCP settings, for examp
 Any other search MCP works as well. It is available next to the built-in tool and does not replace it.
 
 ## Local and Remote SSH workspace search
+
+**SemanticSearch is a built-in tool** in every mode and needs no extension. It runs one fixed search command through Cursor, without asking, on the machine that holds the code (local or over SSH). On first use there, the desktop app delivers and verifies the program and its model; later searches use them directly. macOS and Linux are supported; use Grep in Windows workspaces.
 
 Cursor executes Grep, Glob and Read in the workspace. [BYOK Workspace Symbols](apps/workspace-symbols/README.md) ships a single VSIX that bundles the `byok-semantic` binary for every supported platform, so no `cargo install` is needed. When Cursor takeover is enabled the desktop app shows a banner on the Cursor page to install or update the extension in one click (or save the VSIX to Downloads); installing reloads the window's extension on next window reload. Each trusted root then registers `semantic-…` for finding code by name or behavior and `symbols-…` for definitions, implementations and references. `byok-semantic` embeds and indexes locally on the host that holds the files; `symbols-…` answers from the language extensions already loaded in that Cursor window and needs no extra install. For SSH remote hosts: install the VSIX locally first, then click **Install in SSH: …** on it in Cursor's Extensions view — the same VSIX is copied to the remote and picks the right bundled binary there.
 

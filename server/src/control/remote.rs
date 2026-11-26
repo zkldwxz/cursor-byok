@@ -38,7 +38,7 @@ pub async fn set_enabled(
     if input.enabled {
         service.remote().enable().await?;
     } else {
-        service.remote().disable().await;
+        service.remote().disable().await?;
     }
     Ok(Json(service.remote().status().await?))
 }

@@ -7,11 +7,11 @@ use std::{
     },
 };
 
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, OwnedMutexGuard};
 
 use crate::{cursor::protocol::proto::agent::v1 as pb, model::ToolCall, Error, Result};
 
-use super::edit::EditWrite;
+use super::{edit::EditWrite, semantic_search::SearchStage};
 
 #[derive(Clone, Default)]
 pub struct CursorToolRuntime {
@@ -20,6 +20,7 @@ pub struct CursorToolRuntime {
     interactions: Arc<Mutex<HashMap<u32, PendingInteraction>>>,
     completed: Arc<Mutex<HashMap<u32, String>>>,
     interrupted: Arc<Mutex<HashSet<u32>>>,
+    search_install: Arc<Mutex<()>>,
 }
 
 pub(crate) struct PendingExec {
@@ -36,6 +37,16 @@ pub(crate) enum ExecStage {
     DynamicMcp(pb::McpToolDefinition),
     EditRead,
     EditWrite(EditWrite),
+    Search(SearchStage),
+}
+
+impl ExecStage {
+    pub(crate) fn into_search(self) -> Option<SearchStage> {
+        match self {
+            Self::Search(stage) => Some(stage),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -47,6 +58,9 @@ pub struct ExecContext {
     pub allow_subagents: bool,
     pub subagents_disabled: bool,
     pub terminals_folder: String,
+    pub os_version: String,
+    pub project_folder: String,
+    pub workspace_paths: Vec<String>,
     pub admin_command_denylist: Vec<String>,
     pub mcp_routes: HashMap<(String, String), McpRoute>,
 }
@@ -126,6 +140,7 @@ impl CursorToolRuntime {
             interactions: Arc::new(Mutex::new(HashMap::new())),
             completed: Arc::new(Mutex::new(HashMap::new())),
             interrupted: self.interrupted.clone(),
+            search_install: self.search_install.clone(),
         }
     }
 
@@ -172,6 +187,33 @@ impl CursorToolRuntime {
             Some(started_at_ms),
         )
         .await
+    }
+
+    pub(crate) async fn reserve_search(
+        &self,
+        call: &ToolCall,
+        context: &ExecContext,
+        stage: SearchStage,
+        started_at_ms: u64,
+    ) -> Result<u32> {
+        self.reserve_exec_stage(call, context, ExecStage::Search(stage), Some(started_at_ms))
+            .await
+    }
+
+    pub(crate) async fn is_search(&self, id: u32) -> bool {
+        self.execs
+            .lock()
+            .await
+            .get(&id)
+            .is_some_and(|entry| matches!(entry.stage, ExecStage::Search(_)))
+    }
+
+    pub(crate) fn try_install_turn(&self) -> Option<OwnedMutexGuard<()>> {
+        self.search_install.clone().try_lock_owned().ok()
+    }
+
+    pub(crate) async fn install_turn(&self) -> OwnedMutexGuard<()> {
+        self.search_install.clone().lock_owned().await
     }
 
     async fn reserve_exec_stage(

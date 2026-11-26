@@ -1,6 +1,7 @@
 //! The transcript: prose, steps, to-dos, and what was asked.
 import { copy } from "./copy.js";
 import { h, icon } from "./dom.js";
+import { lineText } from "./line.js";
 import { foldSteps, groupRows, stepKind } from "./model.js";
 
 const runs = (list) =>
@@ -52,18 +53,21 @@ const stepVerb = (tool) => {
   return tool.kind === "run" ? copy.ran : null;
 };
 
-const thought = (row) => (row.status === "loading" || row.seconds === undefined ? copy.thinking : copy.thought(copy.duration(row.seconds)));
+const thought = (row) => (row.wait ? lineText(row.wait) : row.status === "loading" || row.seconds === undefined ? copy.thinking : copy.thought(copy.duration(row.seconds)));
 
 const KIND_ICONS = {
   edit: "edit",
   run: "terminal",
-  thinking: "sparkles",
   read: "file",
   search: "search",
   tool: "wrench",
 };
 
+/** Thinking is words alone: it moves by itself. */
+export const leadOf = (row) => (stepState(row) === "failed" ? "alert" : (KIND_ICONS[stepKind(row)] ?? null));
+
 const stepIcon = (name) => {
+  if (!name) return null;
   const element = icon(name);
   element.classList.add("step-icon");
   return element;
@@ -143,7 +147,7 @@ export class Transcript {
     const counted = ["read", "searched", "ran", "used"].filter((name) => tally[name]);
     const phrase = (name, index) => [index ? copy.tally.separator : "", copy.tally[name][0], h("b", {}, String(tally[name])), copy.tally[name][1]];
     const line = [
-      stepIcon("layers"),
+      stepIcon(counted.length ? "layers" : null),
       h("span", { class: "step-detail" }, counted.flatMap(phrase), tally.seconds ? h("span", { class: "faint" }, counted.length ? " · " : "", copy.tally.thought(tally.seconds)) : null),
       icon("right"),
     ];
@@ -155,10 +159,9 @@ export class Transcript {
     const state = stepState(row);
     const kind = stepKind(row);
     const verb = stepVerb(tool);
-    const lead = state === "failed" ? "alert" : KIND_ICONS[kind];
     const title = kind === "thinking" ? thought(row) : (copy.tools[tool.title] ?? tool.title ?? "");
     const line = (more) => [
-      stepIcon(lead),
+      stepIcon(leadOf(row)),
       verb ? h("span", { class: "step-verb" }, verb) : null,
       h("span", { class: verb ? "step-detail" : "step-name" }, title),
       tool.detail ? h("span", { class: "step-detail" }, tool.detail) : null,

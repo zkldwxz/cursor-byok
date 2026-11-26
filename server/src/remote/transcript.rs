@@ -34,24 +34,24 @@ pub(super) struct Row {
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub(super) struct ToolView {
     /// What the step does: run, edit, read, search or tool.
-    kind: &'static str,
-    title: String,
+    pub kind: &'static str,
+    pub title: String,
     #[serde(skip_serializing_if = "String::is_empty")]
-    detail: String,
+    pub detail: String,
     #[serde(skip_serializing_if = "String::is_empty")]
-    command: String,
+    pub command: String,
     #[serde(skip_serializing_if = "String::is_empty")]
-    output: String,
+    pub output: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    added: Option<i32>,
+    pub added: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    removed: Option<i32>,
+    pub removed: Option<i32>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub(super) struct Todo {
-    text: String,
-    state: &'static str,
+    pub text: String,
+    pub state: &'static str,
 }
 
 #[derive(Default)]
@@ -117,6 +117,34 @@ impl Transcript {
 
     pub fn state(&mut self, state: &pb::ConversationStateStructure) {
         self.mode = Some(state.mode()).filter(|mode| *mode != pb::AgentMode::Unspecified);
+    }
+
+    /// A whole message from the person.
+    pub fn said(&mut self, text: &str) {
+        self.push("human").text = text.into();
+    }
+
+    pub fn thought(&mut self, text: &str) {
+        if !text.trim().is_empty() {
+            self.push("thinking").text = text.into();
+        }
+    }
+
+    pub fn wrote(&mut self, text: &str) {
+        let blocks = markdown::blocks(text);
+        if !blocks.is_empty() {
+            self.push("assistant").blocks = blocks;
+        }
+    }
+
+    pub fn used(&mut self, tool: ToolView, todos: Vec<Todo>, status: Option<&'static str>) {
+        let row = self.push("tool");
+        (row.tool, row.todos, row.status) = (Some(tool), todos, status);
+    }
+
+    /// Whether a turn runs that only this server can name.
+    pub fn run(&mut self, running: bool) {
+        self.running = running.then(String::new);
     }
 
     pub fn rows(&self) -> &[Row] {
@@ -192,10 +220,7 @@ impl Transcript {
         use pb::conversation_step::Message;
         match step.message {
             Some(Message::AssistantMessage(message)) => {
-                let blocks = markdown::blocks(&message.text);
-                if !blocks.is_empty() {
-                    self.push("assistant").blocks = blocks;
-                }
+                self.wrote(&message.text);
             }
             Some(Message::ThinkingMessage(thinking)) => {
                 let row = self.push("thinking");
@@ -287,11 +312,11 @@ fn seconds(milliseconds: u32) -> u32 {
     milliseconds.div_ceil(1_000)
 }
 
-fn file_name(path: &str) -> String {
+pub(super) fn file_name(path: &str) -> String {
     path.rsplit(['/', '\\']).next().unwrap_or(path).into()
 }
 
-fn tail(text: &str) -> String {
+pub(super) fn tail(text: &str) -> String {
     let skip = text.chars().count().saturating_sub(MAX_OUTPUT_CHARS);
     text.chars().skip(skip).collect()
 }

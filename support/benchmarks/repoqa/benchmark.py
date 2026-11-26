@@ -40,6 +40,10 @@ def covers(hit, expected):
     return path == expected[0] and start <= expected[1] <= end
 
 
+def first_covering(hits, expected):
+    return next((i for i, hit in enumerate(hits, 1) if covers(hit, expected)), None)
+
+
 def accepts(answer, hits, expected):
     try:
         obj = json.loads(answer)
@@ -103,7 +107,9 @@ def retrieval(command, cache, corpus, output, engine):
                     write_jsonl(worker.stdin, {'root': str(repo['root']), 'query': query})
                     reply = json.loads(worker.stdout.readline())
                     hits = reply['hits']
-                    row.update(reply, rank=next((i for i, hit in enumerate(hits, 1) if covers(hit, expected)), None))
+                    # Upstream Python engines do not report what the model would see.
+                    shown_rank = first_covering(reply['shown'], expected) if 'shown' in reply else None
+                    row.update(reply, rank=first_covering(hits, expected), shown_rank=shown_rank)
                     write_jsonl(output, row)
                     if index == 0 and track == 'description':
                         first_cases.append((repo, row))
@@ -219,10 +225,14 @@ def summarize(search, model):
     result = {'retrieval': [], 'models': []}
     for engine, track in sorted({(r['engine'], r['track']) for r in search}):
         rows = [r for r in search if (r['engine'], r['track']) == (engine, track)]
-        result['retrieval'].append({'engine': engine, 'track': track, 'queries': len(rows),
-                                    'hit_at_5': sum(0 < (r['rank'] or 0) <= 5 for r in rows),
-                                    'hit_at_10': sum(r['rank'] is not None for r in rows),
-                                    'p50_ms': statistics.median(r['ms'] for r in rows)})
+        entry = {'engine': engine, 'track': track, 'queries': len(rows),
+                 'hit_at_5': sum(0 < (r['rank'] or 0) <= 5 for r in rows),
+                 'hit_at_10': sum(r['rank'] is not None for r in rows),
+                 'p50_ms': statistics.median(r['ms'] for r in rows)}
+        if any('shown_rank' in r for r in rows):
+            entry['shown_at_5'] = sum(0 < (r['shown_rank'] or 0) <= 5 for r in rows)
+            entry['shown_at_10'] = sum(r.get('shown_rank') is not None for r in rows)
+        result['retrieval'].append(entry)
     for protocol, name, phase in sorted({(r['protocol'], r['model'], r['phase']) for r in model}):
         rows = [r for r in model if (r['protocol'], r['model'], r['phase']) == (protocol, name, phase)]
         observed = [r for r in rows if r.get('cached') is not None]

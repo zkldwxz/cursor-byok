@@ -1,7 +1,9 @@
 //! Below the transcript, in thumb's reach: what Cursor waits for, its mode and model, and the message box.
+import { logo } from "./brands.js";
 import { copy } from "./copy.js";
 import { h, icon, redraw } from "./dom.js";
 import { answersOf, toggleOption } from "./model.js";
+import { bars, contextName, effortName, levelOf } from "./tune.js";
 
 const ASKED_ICONS = { command: "terminal", write: "edit", delete: "edit", read: "file", mcp: "wrench", web_search: "search", web_fetch: "search", plan: "layers" };
 
@@ -86,27 +88,23 @@ export function drawPanel(root, chat) {
   root.hidden = !root.childElementCount;
 }
 
-const label = (chat, kind) => (kind === "mode" ? (copy.modes[chat?.mode] ?? chat?.mode) : chat?.model);
+const chip = (kind, mark, text, onclick, ...end) => h("button", { type: "button", class: `chip chip-${kind}`, "aria-label": `${copy[kind]}: ${text}`, onclick }, mark, h("span", {}, text), ...end);
 
-export function drawChips(root, chat, menu) {
-  redraw(root, JSON.stringify([chat?.mode, chat?.model]), () =>
-    ["mode", "model"].map((kind) =>
-      label(chat, kind)
-        ? h(
-            "button",
-            {
-              type: "button",
-              class: `chip chip-${kind}`,
-              "aria-label": `${copy[kind]}: ${label(chat, kind)}`,
-              onclick: () => menu(kind),
-            },
-            icon(kind === "mode" ? "infinity" : "sparkles"),
-            h("span", {}, label(chat, kind)),
-            icon("down"),
-          )
-        : null,
-    ),
-  );
+/** In one line that slides: the mode, the model, and to its right what is set of it. */
+export function drawChips(root, chat, { menu, tune }) {
+  const { mode, model, modelName, tuning } = chat ?? {};
+  redraw(root, JSON.stringify([mode, model, modelName, tuning]), () => [
+    mode ? chip("mode", icon("infinity"), copy.modes[mode] ?? mode, () => menu("mode"), icon("down")) : null,
+    model ? chip("model", logo(modelName, model), model, () => menu("model"), icon("down")) : null,
+    tuning?.context ? chip("context", icon("context"), contextName(tuning.context), tune) : null,
+    tuning?.effort ? chip("effort", bars(tuning.effort.items.length, levelOf(tuning.effort)), effortName(tuning.effort), tune) : null,
+  ]);
+}
+
+/** In place of the message box, where Cursor lets nothing be sent. */
+export function drawReadOnly(root, chat) {
+  redraw(root, JSON.stringify([chat?.readOnly, chat?.model, chat?.modelName]), () => (chat?.readOnly ? [h("span", {}, copy.readOnly), chat.model ? h("span", { class: "chip chip-model" }, logo(chat.modelName, chat.model), h("span", {}, chat.model)) : null] : []));
+  root.hidden = !root.childElementCount;
 }
 
 /** The message box; it empties at once, and gets its text back if Cursor does not take it. */

@@ -4,7 +4,7 @@ import runpy
 import unittest
 from pathlib import Path
 
-from benchmark import accepts, gold, usage_counts
+from benchmark import accepts, first_covering, gold, usage_counts
 from cache_continuation import response_stream_event
 from hybrid_retrieval import interleave
 from miss_audit import miss_stage
@@ -34,6 +34,13 @@ class BenchmarkRules(unittest.TestCase):
         self.assertFalse(accepts('{"candidate":2,"line":11}', hits, expected))
         self.assertFalse(accepts('{"candidate":true,"line":10}', hits, expected))
         self.assertFalse(accepts('unstructured answer', hits, expected))
+
+    def test_a_covering_hit_is_shown_only_when_its_visible_lines_include_the_definition(self):
+        expected = ('example.py', 10, 'wanted')
+        hits = [('uses.py', 1, 40), ('example.py', 1, 40)]
+        shown = [('example.py', 1, 9)]
+        self.assertEqual(first_covering(hits, expected), 2)
+        self.assertIsNone(first_covering(shown, expected))
 
     def test_miss_audit_separates_index_coverage_from_rank_and_file_only_matches(self):
         target = ('a.rs', 20, 'area')

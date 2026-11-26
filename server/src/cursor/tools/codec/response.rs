@@ -5,6 +5,7 @@ use crate::{
         tools::{
             compat, edit,
             runtime::{CursorToolRuntime, ExecStage, PendingExec},
+            semantic_search::{self, SearchReply},
             tool_call_result::{self as result, ToolCompletion},
         },
     },
@@ -18,6 +19,7 @@ pub enum ClientExecEvent {
     Delta(Box<pb::AgentServerMessage>),
     Message(Box<pb::AgentServerMessage>),
     Completed(Box<ToolCompletion>),
+    Search(Box<SearchReply>),
     Pending,
 }
 
@@ -48,13 +50,17 @@ pub async fn client_event(
     let Some(wire_result) = &message.message else {
         return Ok(ClientExecEvent::Pending);
     };
+    if pending.is_search(message.id).await {
+        return semantic_search::receive(message.id, wire_result, pending).await;
+    }
     let pb::exec_client_message::Message::ShellStream(stream) = wire_result else {
         let entry = take(message.id, pending).await?;
         return match entry.stage {
             ExecStage::EditRead => advance_edit(entry, wire_result, pending).await,
-            ExecStage::Direct | ExecStage::DynamicMcp(_) | ExecStage::EditWrite(_) => {
-                completed(entry, wire_result.clone())
-            }
+            ExecStage::Direct
+            | ExecStage::DynamicMcp(_)
+            | ExecStage::EditWrite(_)
+            | ExecStage::Search(_) => completed(entry, wire_result.clone()),
         };
     };
     use pb::shell_stream::Event;
@@ -170,6 +176,9 @@ pub async fn stream_closed(id: u32, pending: &CursorToolRuntime) -> Result<Optio
                 ..Default::default()
             }),
         )?));
+    }
+    if matches!(entry.stage, ExecStage::Search(_)) {
+        return semantic_search::failed(&entry.call, entry.started_at_ms, error.into()).map(Some);
     }
     let rendered = match &entry.stage {
         ExecStage::DynamicMcp(definition) => {

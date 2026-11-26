@@ -274,19 +274,23 @@ impl Store {
         Ok(())
     }
 
+    /// Only the model about to read the history: another model's tokenizer, or
+    /// a bridge that trims what it forwards, counts the same messages differently.
     pub(crate) async fn latest_context_usage(
         &self,
         conversation_id: &str,
+        model_hash: &str,
     ) -> Result<Option<ContextUsageAnchor>> {
         let row = sqlx::query(
             "SELECT usage_json, message_count FROM llm_calls
-             WHERE conversation_id = ?
+             WHERE conversation_id = ? AND model_hash = ?
                AND call_id NOT LIKE '%:vision'
                AND json_extract(usage_json, '$.context_input_tokens') > 0
              ORDER BY created_at_ms DESC, rowid DESC
              LIMIT 1",
         )
         .bind(conversation_id)
+        .bind(model_hash)
         .fetch_optional(&self.pool)
         .await?;
         let Some(row) = row else {
@@ -538,12 +542,93 @@ mod tests {
         }
 
         assert_eq!(
-            store.latest_context_usage("conversation").await.unwrap(),
+            store
+                .latest_context_usage("conversation", "model-a")
+                .await
+                .unwrap(),
             Some(ContextUsageAnchor {
                 context_input_tokens: 300,
                 message_count: 7,
             })
         );
-        assert_eq!(store.latest_context_usage("other").await.unwrap(), None);
+        assert_eq!(
+            store
+                .latest_context_usage("other", "model-a")
+                .await
+                .unwrap(),
+            None
+        );
+    }
+
+    /// Each model counts the same history in its own tokens: a bridge reported
+    /// 374k for a conversation GLM counts at 1.26M. Anchored on the other
+    /// model's count, the switched-to model was sent a prompt over its window
+    /// with no compaction first.
+    #[tokio::test]
+    async fn context_usage_is_measured_by_the_model_that_will_read_it() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = Store::connect(&format!(
+            "sqlite://{}",
+            directory.path().join("test.db").display()
+        ))
+        .await
+        .unwrap();
+        for (call_id, model, context_input_tokens, message_count) in [
+            ("call-glm", "glm", 900_000_u64, 10_usize),
+            ("call-bridge", "bridge", 374_000_u64, 2_000_usize),
+        ] {
+            store
+                .start_llm_call(&NewLlmCall {
+                    call_id: call_id.into(),
+                    run_id: format!("run-{call_id}"),
+                    conversation_id: "conversation".into(),
+                    provider_call_index: 0,
+                    model_hash: model.into(),
+                    provider_type: ProviderType::Plugin,
+                    provider_url: "plugin://test".into(),
+                    request_type: ProviderType::Plugin,
+                    request_url: "plugin://test".into(),
+                    model_id: model.into(),
+                    display_name: model.into(),
+                    reasoning_effort: None,
+                    fast: false,
+                    message_count,
+                    tool_count: 0,
+                    detailed: false,
+                })
+                .await
+                .unwrap();
+            store
+                .record_llm_usage(
+                    call_id,
+                    Usage {
+                        input_tokens: Some(context_input_tokens),
+                        context_input_tokens: Some(context_input_tokens),
+                        ..Default::default()
+                    },
+                )
+                .await
+                .unwrap();
+        }
+
+        assert_eq!(
+            store
+                .latest_context_usage("conversation", "glm")
+                .await
+                .unwrap(),
+            Some(ContextUsageAnchor {
+                context_input_tokens: 900_000,
+                message_count: 10,
+            }),
+            "the newer bridge count must not stand for GLM's"
+        );
+        assert_eq!(
+            store
+                .latest_context_usage("conversation", "never-used")
+                .await
+                .unwrap(),
+            None,
+            "a model that never read the conversation has no count to reuse"
+        );
     }
 }

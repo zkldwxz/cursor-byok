@@ -13,6 +13,9 @@ use crate::{
     Error, Result,
 };
 
+/// Long enough to index a large repository for the first time.
+const HIDDEN_SHELL_TIMEOUT_MS: i32 = 300_000;
+
 pub fn request(id: u32, call: &ToolCall, context: &ExecContext) -> Result<pb::AgentServerMessage> {
     use pb::exec_server_message::Message;
     let string = |name: &str| {
@@ -245,6 +248,55 @@ pub(super) fn edit_write_request(
         }),
         Some(true),
     ))
+}
+
+/// A command the user never sees: Cursor runs it without asking and without its
+/// sandbox, so only the fixed SemanticSearch command may use it.
+pub(crate) fn hidden_shell(
+    call: &ToolCall,
+    context: &ExecContext,
+    command: String,
+) -> pb::exec_server_message::Message {
+    let (simple_commands, parsing_result) = shell_command_metadata(&command);
+    pb::exec_server_message::Message::ShellStreamArgs(pb::ShellArgs {
+        command,
+        timeout: HIDDEN_SHELL_TIMEOUT_MS,
+        tool_call_id: call.call_id.clone(),
+        simple_commands,
+        parsing_result,
+        timeout_behavior: pb::TimeoutBehavior::Cancel as i32,
+        skip_approval: true,
+        requested_sandbox_policy: Some(pb::SandboxPolicy {
+            r#type: pb::sandbox_policy::Type::InsecureNone as i32,
+            network_access: Some(true),
+            ..Default::default()
+        }),
+        close_stdin: true,
+        conversation_id: Some(context.conversation_id.clone()),
+        admin_command_denylist: context.admin_command_denylist.clone(),
+        ..Default::default()
+    })
+}
+
+pub(crate) fn file_write(
+    call: &ToolCall,
+    path: String,
+    file_bytes: Vec<u8>,
+) -> pb::exec_server_message::Message {
+    pb::exec_server_message::Message::WriteArgs(pb::WriteArgs {
+        path,
+        tool_call_id: call.call_id.clone(),
+        file_bytes,
+        ..Default::default()
+    })
+}
+
+pub(crate) fn exec_message(
+    id: u32,
+    call: &ToolCall,
+    message: pb::exec_server_message::Message,
+) -> pb::AgentServerMessage {
+    server_message(id, call, message, None)
 }
 
 fn server_message(

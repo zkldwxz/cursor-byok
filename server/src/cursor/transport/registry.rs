@@ -13,7 +13,7 @@ use tokio::sync::{mpsc, Mutex, Notify};
 use crate::{
     cursor::{
         conversation::ConversationRegistry, prompting::PromptCompiler,
-        services::observability::CursorTraceService,
+        services::observability::CursorTraceService, tools::semantic_search::SemanticPackage,
     },
     plugin::PluginRegistry,
     provider::Provider,
@@ -65,7 +65,15 @@ impl TransportRegistry {
         compiler: PromptCompiler,
         web_cache: WebCache,
     ) -> Self {
-        Self::build(store, provider, compiler, web_cache, None, None)
+        Self::build(
+            store,
+            provider,
+            compiler,
+            web_cache,
+            None,
+            None,
+            env!("CARGO_PKG_VERSION").into(),
+        )
     }
 
     /// 附带本地 rules 目录的构造;编译请求上下文时会合并该目录下的 md 规则。
@@ -82,6 +90,7 @@ impl TransportRegistry {
             WebCache::default(),
             None,
             Some(local_rules_dir),
+            env!("CARGO_PKG_VERSION").into(),
         )
     }
 
@@ -92,6 +101,7 @@ impl TransportRegistry {
         web_cache: WebCache,
         plugins: PluginRegistry,
         local_rules_dir: std::path::PathBuf,
+        app_version: String,
     ) -> Self {
         Self::build(
             store,
@@ -100,6 +110,7 @@ impl TransportRegistry {
             web_cache,
             Some(plugins),
             Some(local_rules_dir),
+            app_version,
         )
     }
 
@@ -110,6 +121,7 @@ impl TransportRegistry {
         web_cache: WebCache,
         plugins: Option<PluginRegistry>,
         local_rules_dir: Option<std::path::PathBuf>,
+        app_version: String,
     ) -> Self {
         Self {
             inner: Arc::new(RegistryInner {
@@ -124,6 +136,7 @@ impl TransportRegistry {
                     provider,
                     compiler,
                     web_cache.clone(),
+                    SemanticPackage::managed(store.clone(), app_version),
                     local_rules_dir,
                     plugins.clone(),
                 ),

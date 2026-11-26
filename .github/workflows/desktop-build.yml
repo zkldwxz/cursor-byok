@@ -28,8 +28,10 @@ jobs:
             target: ""
             artifact: cursor-byok-windows-x86_64
             path: target/release/bundle/nsis/*.exe
+          # Cross-compiled: hosted arm64 runners are often out of capacity, and a
+          # job that gets none is cancelled after 15 minutes.
           - platform: macos-aarch64
-            os: macos-15
+            os: macos-15-intel
             args: "--bundles dmg --target aarch64-apple-darwin"
             target: aarch64-apple-darwin
             artifact: cursor-byok-macos-aarch64

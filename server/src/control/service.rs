@@ -157,11 +157,7 @@ impl ControlService {
         app_version: String,
     ) -> Result<Self> {
         Ok(Self {
-            cursor_harness: CursorHarness::new(
-                store.clone(),
-                app_version.clone(),
-                remote.switch(),
-            )?,
+            cursor_harness: CursorHarness::new(store.clone(), app_version.clone())?,
             magpie: crate::provider::magpie::Magpie::managed(store.clone())?,
             remote,
             default_prices: crate::pricing::DefaultPrices::new(store.clone()),
@@ -792,12 +788,6 @@ impl ControlService {
 
     pub async fn ports(&self) -> Result<PortSettings> {
         self.store.port_settings().await
-    }
-
-    pub(super) async fn pair_browser(&self) -> Result<String> {
-        crate::cursor::tools::browser_bridge::BRIDGE
-            .pair(&self.store)
-            .await
     }
 
     pub async fn external_api_settings(&self) -> Result<ExternalApiSettings> {

@@ -35,7 +35,7 @@ pub(crate) fn chunk_parsed_source(
         return Vec::new();
     }
     let boundaries = tree
-        .map(|tree| merge_adjacent(split_node(tree.root_node(), desired, 0), desired))
+        .map(|tree| merge_adjacent(split_node(tree.root_node(), desired, 0, None), desired))
         .filter(|items| !items.is_empty())
         .unwrap_or_else(|| line_boundaries(source, desired));
     let mut offset = 0;
@@ -68,33 +68,49 @@ fn newline_count(source: &str) -> usize {
     source.bytes().filter(|byte| *byte == b'\n').count()
 }
 
-fn split_node(node: Node<'_>, desired: usize, depth: usize) -> Vec<ChunkBoundary> {
+fn split_node(
+    node: Node<'_>,
+    desired: usize,
+    depth: usize,
+    lead: Option<usize>,
+) -> Vec<ChunkBoundary> {
     if node.child_count() == 0
         || depth > MAX_DEPTH
         || node.end_byte().saturating_sub(node.start_byte()) < MIN_CHUNK_BYTES
     {
         return vec![ChunkBoundary {
-            start: node.start_byte(),
+            start: lead.unwrap_or(node.start_byte()),
             end: node.end_byte(),
         }];
     }
+    // A definition's decorators and signature are too small to stand alone; split
+    // off, they end up at the tail of the previous definition's chunk.
+    let body = node
+        .child_by_field_name("body")
+        .or_else(|| node.child_by_field_name("definition"));
     let mut cursor = node.walk();
     let children = node.children(&mut cursor).collect::<Vec<_>>();
     let mut output = Vec::new();
+    let mut lead = lead;
     let mut index = 0;
     while index < children.len() {
         let child = children[index];
         index += 1;
-        if child.end_byte().saturating_sub(child.start_byte()) > desired {
-            output.extend(split_node(child, desired, depth + 1));
+        let start = lead.unwrap_or(child.start_byte());
+        if child.end_byte().saturating_sub(start) > desired {
+            output.extend(split_node(child, desired, depth + 1, lead.take()));
             continue;
         }
-        let start = child.start_byte();
+        lead = None;
         let mut end = child.end_byte();
         while index < children.len() && children[index].end_byte().saturating_sub(start) <= desired
         {
             end = children[index].end_byte();
             index += 1;
+        }
+        if body.is_some_and(|body| children.get(index) == Some(&body)) {
+            lead = Some(start);
+            continue;
         }
         output.push(ChunkBoundary { start, end });
     }
@@ -124,6 +140,69 @@ mod tests {
         assert!(chunks.len() >= 2);
         assert_eq!(chunks[0].start_line, 1);
         assert_eq!(chunks.last().unwrap().end_line, 3);
+    }
+
+    #[test]
+    fn a_split_function_keeps_its_signature_with_the_start_of_its_body() {
+        let source = concat!(
+            "def small(): return 1\n",
+            "def large(\n",
+            "    first,\n",
+            "    second,\n",
+            "):\n",
+            "    alpha = first\n",
+            "    beta = second\n",
+            "    gamma = alpha + beta\n",
+            "    delta = gamma * 2\n",
+            "    epsilon = delta - 1\n",
+            "    zeta = epsilon + 2\n",
+            "    eta = zeta * 3\n",
+            "    theta = eta - 4\n",
+            "    iota = theta + 5\n",
+            "    return iota\n",
+        );
+        let chunks = chunk_source(source, "lib.py", Some("python"), 120);
+        let large = chunks
+            .iter()
+            .find(|chunk| chunk.content.contains("def large("))
+            .expect("the split function must appear in some chunk");
+        assert!(
+            large.content.contains("alpha = first"),
+            "the chunk carrying the signature must open the body, got:\n{}",
+            large.content
+        );
+    }
+
+    #[test]
+    fn a_decorated_split_function_keeps_decorator_signature_and_body_start_together() {
+        let source = concat!(
+            "def small(): return 1\n",
+            "@cached\n",
+            "def large(\n",
+            "    first,\n",
+            "    second,\n",
+            "):\n",
+            "    alpha = first\n",
+            "    beta = second\n",
+            "    gamma = alpha + beta\n",
+            "    delta = gamma * 2\n",
+            "    epsilon = delta - 1\n",
+            "    zeta = epsilon + 2\n",
+            "    eta = zeta * 3\n",
+            "    theta = eta - 4\n",
+            "    iota = theta + 5\n",
+            "    return iota\n",
+        );
+        let chunks = chunk_source(source, "lib.py", Some("python"), 120);
+        let decorated = chunks
+            .iter()
+            .find(|chunk| chunk.content.contains("@cached"))
+            .expect("the decorator must appear in some chunk");
+        assert!(
+            decorated.content.contains("def large(") && decorated.content.contains("alpha = first"),
+            "the decorator, the signature and the body start must share a chunk, got:\n{}",
+            decorated.content
+        );
     }
 
     #[test]

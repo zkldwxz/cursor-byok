@@ -5,6 +5,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
+base64 = "0.22"
 rmcp = { version = "3", default-features = false, features = [
     "macros",
     "server",

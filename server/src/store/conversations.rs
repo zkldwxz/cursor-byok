@@ -27,6 +27,21 @@ impl Store {
         }))
     }
 
+    /// The model last called for a conversation: its id, and its name for people.
+    pub async fn last_model(
+        &self,
+        conversation_id: &ConversationId,
+    ) -> Result<Option<(String, String)>> {
+        Ok(sqlx::query_as(
+            "SELECT model_id, display_name FROM llm_calls
+             WHERE conversation_id = ? AND call_id NOT LIKE '%:vision'
+             ORDER BY created_at_ms DESC, rowid DESC LIMIT 1",
+        )
+        .bind(conversation_id.as_str())
+        .fetch_optional(&self.pool)
+        .await?)
+    }
+
     pub(crate) async fn ensure_conversation_tx(
         tx: &mut SqliteConnection,
         conversation_id: &ConversationId,

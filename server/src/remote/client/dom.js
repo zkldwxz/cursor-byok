@@ -86,10 +86,6 @@ export const ICONS = {
     ["circle", { cx: "9", cy: "9", r: "5" }],
     ["path", { d: "m13 13 3.5 3.5" }],
   ],
-  sparkles: [
-    ["path", { d: "M9.5 3 11 7l4 1.5-4 1.5L9.5 14 8 10 4 8.5 8 7Z" }],
-    ["path", { d: "M15.5 12.5 16.2 14l1.5.7-1.5.7-.7 1.5-.7-1.5-1.5-.7 1.5-.7Z" }],
-  ],
   wrench: "M12.5 3.8a3.8 3.8 0 0 0-4.9 4.9L4 12.3a1.5 1.5 0 0 0 2.1 2.1l3.6-3.6a3.8 3.8 0 0 0 4.9-4.9l-2 2-1.8-.3-.3-1.8Z",
   layers: [
     ["path", { d: "M10 3.5 3.5 7 10 10.5 16.5 7Z" }],
@@ -99,6 +95,9 @@ export const ICONS = {
     ["circle", { cx: "10", cy: "10", r: "7" }],
     ["path", { d: "M10 6.5v4" }],
     ["circle", { cx: "10", cy: "13.3", r: "0.75", fill: "currentColor", stroke: "none" }],
+  ],
+  context: [
+    ["path", { d: "M6.5 4H4.8A.8.8 0 0 0 4 4.8v10.4a.8.8 0 0 0 .8.8h1.7M13.5 4h1.7a.8.8 0 0 1 .8.8v10.4a.8.8 0 0 1-.8.8h-1.7M7.5 8h5M7.5 12h3" }],
   ],
   clock: [
     ["circle", { cx: "10", cy: "10", r: "7" }],
@@ -123,19 +122,22 @@ export const ICONS = {
   wifiOff: "M3 3l14 14M6.5 10.5a5 5 0 0 1 3.2-1.4M13.5 10.5a5 5 0 0 1 1 .9M4 8a8.5 8.5 0 0 1 4.5-2.1M11.8 5.9A8.5 8.5 0 0 1 16 8M10 14.5h.01",
 };
 
-export function icon(name) {
-  const svg = document.createElementNS(SVG, "svg");
-  svg.setAttribute("viewBox", "0 0 20 20");
-  svg.setAttribute("class", `icon icon-${name}`);
-  svg.setAttribute("aria-hidden", "true");
-  const spec = ICONS[name];
-  const shapes = typeof spec === "string" ? [["path", { d: spec }]] : spec;
+export function svg(className, viewBox, shapes) {
+  const root = document.createElementNS(SVG, "svg");
+  root.setAttribute("viewBox", viewBox);
+  root.setAttribute("class", className);
+  root.setAttribute("aria-hidden", "true");
   for (const [tag, attrs] of shapes) {
     const node = document.createElementNS(SVG, tag);
     for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
-    svg.append(node);
+    root.append(node);
   }
-  return svg;
+  return root;
+}
+
+export function icon(name) {
+  const spec = ICONS[name];
+  return svg(`icon icon-${name}`, "0 0 20 20", typeof spec === "string" ? [["path", { d: spec }]] : spec);
 }
 
 /** Replaces the children of `parent` only when `signature` is new. */

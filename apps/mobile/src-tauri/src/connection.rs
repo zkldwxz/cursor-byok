@@ -116,7 +116,9 @@ mod tests {
     }
 
     async fn reached() -> (remote_link::Host, Connection, Link, u32, Heards) {
-        let host = remote_link::Host::bind(None).await.unwrap();
+        let host = remote_link::Host::bind(None, &remote_link::Identity::generate())
+            .await
+            .unwrap();
         let connection = Connection::default();
         let ticket = host.ticket("code".into());
         let answer = async { host.accept().await.unwrap().answer().await.unwrap() };

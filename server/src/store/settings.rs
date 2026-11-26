@@ -13,7 +13,9 @@ const COMMIT_SETTINGS_KEY: &str = "commit_settings";
 const CURSOR_TAKEOVER_ENABLED_KEY: &str = "cursor_takeover_enabled";
 const EXTERNAL_API_SETTINGS_KEY: &str = "external_api";
 const RELAY_SETTINGS_KEY: &str = "remote_relay";
-const BROWSER_PAIRING_KEY: &str = "browser_pairing";
+const REMOTE_ENABLED_KEY: &str = "remote_enabled";
+const REMOTE_IDENTITY_KEY: &str = "remote_identity";
+const REMOTE_DEVICES_KEY: &str = "remote_devices";
 
 /// Embedded default system prompts for commit message generation.
 pub const DEFAULT_COMMIT_PROMPT_ZH_CN: &str = include_str!("../../prompt/cursor/commit/zh-CN.md");
@@ -35,11 +37,40 @@ pub struct ExternalApiSettings {
     pub api_key: String,
 }
 
+/// An open iroh relay anyone may use; it forwards encrypted traffic it cannot read.
+pub const PUBLIC_RELAY_URL: &str = "https://relay-hk1.baocode.dev";
+
 /// The server that connects phones which cannot reach this computer; none when empty.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub struct RelaySettings {
     pub address: String,
     pub token: String,
+}
+
+/// A phone on mobile data reaches a computer that never set a relay up.
+impl Default for RelaySettings {
+    fn default() -> Self {
+        Self {
+            address: PUBLIC_RELAY_URL.into(),
+            token: String::new(),
+        }
+    }
+}
+
+/// What makes this computer the one its phones paired with.
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+pub(crate) struct RemoteIdentity {
+    pub key: [u8; 32],
+    pub port: u16,
+}
+
+/// A phone that paired; its token itself is kept only there.
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+pub(crate) struct RemoteDevice {
+    pub id: String,
+    pub name: String,
+    pub paired_at_ms: i64,
+    pub token_hash: [u8; 32],
 }
 
 impl RelaySettings {
@@ -252,35 +283,43 @@ impl Store {
     }
 
     pub async fn relay_settings(&self) -> Result<RelaySettings> {
-        let value = sqlx::query_scalar::<_, String>(
-            "SELECT value_json FROM service_settings WHERE setting_key = ?",
-        )
-        .bind(RELAY_SETTINGS_KEY)
-        .fetch_optional(&self.pool)
-        .await?;
-        value
-            .map(|value| serde_json::from_str(&value).map_err(Into::into))
-            .unwrap_or_else(|| Ok(RelaySettings::default()))
+        Ok(self.setting(RELAY_SETTINGS_KEY).await?.unwrap_or_default())
     }
 
     pub async fn set_relay_settings(&self, settings: &RelaySettings) -> Result<()> {
-        let value_json = serde_json::to_string(settings)?;
-        let _write = self.writes.lock().await;
-        sqlx::query("INSERT INTO service_settings(setting_key, value_json, updated_at_ms) VALUES (?, ?, ?) ON CONFLICT(setting_key) DO UPDATE SET value_json = excluded.value_json, updated_at_ms = excluded.updated_at_ms")
-            .bind(RELAY_SETTINGS_KEY)
-            .bind(value_json)
-            .bind(now_ms())
-            .execute(&self.pool)
-            .await?;
-        Ok(())
+        self.set_setting(RELAY_SETTINGS_KEY, settings).await
     }
 
-    /// The hash of the paired browser extension's token.
-    pub(crate) async fn browser_pairing(&self) -> Result<Option<String>> {
+    /// Whether phones were let in when the app last ran.
+    pub(crate) async fn remote_enabled(&self) -> Result<bool> {
+        Ok(self.setting(REMOTE_ENABLED_KEY).await?.unwrap_or(false))
+    }
+
+    pub(crate) async fn set_remote_enabled(&self, enabled: bool) -> Result<()> {
+        self.set_setting(REMOTE_ENABLED_KEY, &enabled).await
+    }
+
+    pub(crate) async fn remote_identity(&self) -> Result<Option<RemoteIdentity>> {
+        self.setting(REMOTE_IDENTITY_KEY).await
+    }
+
+    pub(crate) async fn set_remote_identity(&self, identity: &RemoteIdentity) -> Result<()> {
+        self.set_setting(REMOTE_IDENTITY_KEY, identity).await
+    }
+
+    pub(crate) async fn remote_devices(&self) -> Result<Vec<RemoteDevice>> {
+        Ok(self.setting(REMOTE_DEVICES_KEY).await?.unwrap_or_default())
+    }
+
+    pub(crate) async fn set_remote_devices(&self, devices: &[RemoteDevice]) -> Result<()> {
+        self.set_setting(REMOTE_DEVICES_KEY, devices).await
+    }
+
+    async fn setting<T: serde::de::DeserializeOwned>(&self, key: &str) -> Result<Option<T>> {
         let value = sqlx::query_scalar::<_, String>(
             "SELECT value_json FROM service_settings WHERE setting_key = ?",
         )
-        .bind(BROWSER_PAIRING_KEY)
+        .bind(key)
         .fetch_optional(&self.pool)
         .await?;
         Ok(value
@@ -288,11 +327,11 @@ impl Store {
             .transpose()?)
     }
 
-    pub(crate) async fn set_browser_pairing(&self, token_hash: &str) -> Result<()> {
-        let value_json = serde_json::to_string(token_hash)?;
+    async fn set_setting<T: Serialize + ?Sized>(&self, key: &str, value: &T) -> Result<()> {
+        let value_json = serde_json::to_string(value)?;
         let _write = self.writes.lock().await;
         sqlx::query("INSERT INTO service_settings(setting_key, value_json, updated_at_ms) VALUES (?, ?, ?) ON CONFLICT(setting_key) DO UPDATE SET value_json = excluded.value_json, updated_at_ms = excluded.updated_at_ms")
-            .bind(BROWSER_PAIRING_KEY)
+            .bind(key)
             .bind(value_json)
             .bind(now_ms())
             .execute(&self.pool)

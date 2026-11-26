@@ -18,12 +18,17 @@ use crate::{
 };
 
 use super::{
-    rerank::{is_symbol_query, path_penalty, rerank},
+    rerank::{is_symbol_query, path_penalty, rerank, symbol_name},
     rrf,
 };
 
 const NATURAL_LANGUAGE_SEMANTIC_WEIGHT: f32 = 0.5;
 const SYMBOL_SEMANTIC_WEIGHT: f32 = 0.3;
+/// Weight of a name that shares words with the question, as one more ranked list.
+const NAME_WEIGHT: f32 = 0.5;
+/// How much of the question a name must account for to be answered before
+/// anything the content says. Below it a shared word is only a hint.
+const LEADING_NAME_SHARE: f32 = 0.15;
 
 pub struct SearchEngine {
     config: SembleConfig,
@@ -120,9 +125,17 @@ impl SearchEngine {
                 .lexical
                 .exact_symbol(&request.query, &index.chunks, request.top_k);
             if !exact.is_empty() {
+                let anchors = exact
+                    .iter()
+                    .map(|hit| (hit.chunk, hit.line))
+                    .collect::<HashMap<usize, usize>>();
                 return response(
                     &request.query,
-                    exact,
+                    exact
+                        .into_iter()
+                        .map(|hit| (hit.chunk, hit.score))
+                        .collect::<Vec<_>>(),
+                    &anchors,
                     &index,
                     &root,
                     request.max_snippet_lines,
@@ -148,7 +161,21 @@ impl SearchEngine {
         } else {
             NATURAL_LANGUAGE_SEMANTIC_WEIGHT
         };
-        let mut fused = rrf::fuse(&semantic, &lexical_ranking, semantic_weight);
+        let verbatim = if symbol_query {
+            index
+                .bm25
+                .search_identifier(symbol_name(&request.query), candidate_count)
+                .iter()
+                .map(|matched| matched.document)
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let mut fused = if verbatim.is_empty() {
+            rrf::fuse(&semantic, &lexical_ranking, semantic_weight)
+        } else {
+            rrf::fuse(&[], &verbatim, 0.0)
+        };
         let literal_query = is_literal_query(&request.query);
         if !symbol_query && !literal_query {
             let declarations = fused
@@ -167,13 +194,28 @@ impl SearchEngine {
                 *current = current.max(score);
             }
         }
-        let definitions = if !symbol_query {
-            index
-                .lexical
-                .inferred_symbols(&request.query, &index.chunks, request.top_k)
-        } else {
-            Vec::new()
-        };
+        let mut definitions = Vec::new();
+        let mut anchors = HashMap::<usize, usize>::new();
+        if !symbol_query {
+            let inferred =
+                index
+                    .lexical
+                    .inferred_symbols(&request.query, &index.chunks, request.top_k);
+            let (leading, supporting): (Vec<_>, Vec<_>) =
+                inferred.into_iter().partition(|symbol| {
+                    symbol.share >= LEADING_NAME_SHARE
+                        && (symbol.compound || fused.contains_key(&symbol.chunk))
+                });
+            anchors.extend(leading.iter().map(|symbol| (symbol.chunk, symbol.line)));
+            definitions.extend(
+                leading
+                    .into_iter()
+                    .map(|symbol| (symbol.chunk, symbol.score)),
+            );
+            for (rank, symbol) in supporting.into_iter().enumerate() {
+                *fused.entry(symbol.chunk).or_default() += rrf::contribution(rank, NAME_WEIGHT);
+            }
+        }
         let strong_lexical = if symbol_query || !literal_query {
             Vec::new()
         } else {
@@ -200,6 +242,7 @@ impl SearchEngine {
         response(
             &request.query,
             ranked,
+            &anchors,
             &index,
             &root,
             request.max_snippet_lines,
@@ -254,6 +297,7 @@ impl SearchEngine {
         response(
             &format!("Chunks related to {}:{}", request.file_path, request.line),
             ranked,
+            &HashMap::new(),
             &index,
             &root,
             request.max_snippet_lines,
@@ -522,6 +566,7 @@ fn quantize_query(vector: Vec<f32>) -> Vec<i8> {
 fn response(
     query: &str,
     ranked: Vec<(usize, f32)>,
+    anchors: &HashMap<usize, usize>,
     index: &LoadedIndex,
     root: &Path,
     max_lines: Option<usize>,
@@ -532,16 +577,48 @@ fn response(
             .into_iter()
             .map(|(position, score)| {
                 let chunk = &index.chunks[position];
+                // A definition hit opens on the definition's own line, not the
+                // chunk's first line, so the model sees the name it asked for.
+                let anchor = anchors
+                    .get(&position)
+                    .copied()
+                    .filter(|line| chunk.start_line <= *line && *line <= chunk.end_line);
+                let (start_line, content) = match anchor {
+                    Some(line) => (line, anchored_content(root, chunk, line, max_lines)?),
+                    None => (chunk.start_line, chunk_content(root, chunk, max_lines)?),
+                };
                 Ok(SearchResult {
                     file_path: chunk.file_path.clone(),
-                    start_line: chunk.start_line,
+                    start_line,
                     end_line: chunk.end_line,
                     score,
-                    content: chunk_content(root, chunk, max_lines)?,
+                    content,
                 })
             })
             .collect::<Result<Vec<_>>>()?,
     })
+}
+
+fn anchored_content(
+    root: &Path,
+    chunk: &crate::Chunk,
+    anchor: usize,
+    lines: Option<usize>,
+) -> Result<Option<String>> {
+    if lines == Some(0) {
+        return Ok(None);
+    }
+    if !chunk.content.is_empty() {
+        let skip = anchor.saturating_sub(chunk.start_line);
+        let from_anchor = chunk
+            .content
+            .lines()
+            .skip(skip)
+            .collect::<Vec<_>>()
+            .join("\n");
+        return Ok(snippet(&from_anchor, lines));
+    }
+    source_span(&root.join(&chunk.file_path), anchor, chunk.end_line, lines)
 }
 
 fn chunk_content(
@@ -1042,6 +1119,249 @@ mod tests {
                 "{symbol} must be in the definition index"
             );
             assert!(hits[0].start_line <= 2 && hits[0].end_line >= 2);
+        }
+    }
+
+    fn paths(engine: &SearchEngine, root: &Path, query: &str, top_k: usize) -> Vec<String> {
+        let mut request = SearchRequest::new(query, root);
+        request.top_k = top_k;
+        engine
+            .search(request)
+            .unwrap()
+            .results
+            .into_iter()
+            .map(|hit| hit.file_path)
+            .collect()
+    }
+
+    #[test]
+    fn enum_members_resolve_to_the_enum_that_declares_them() {
+        let (source, _cache, engine) = fixture();
+        let cases = [
+            (
+                "src/attempt.rs",
+                "pub enum Attempt {\n    SharedPrefix,\n    Isolated,\n}\n",
+                ["SharedPrefix", "Attempt::SharedPrefix"],
+            ),
+            (
+                "src/flags.ts",
+                "export enum Flags {\n  SKIP_MARKER = '__skip',\n  RAW_MARKER,\n}\n",
+                ["RAW_MARKER", "Flags.SKIP_MARKER"],
+            ),
+            (
+                "src/Token.java",
+                "enum Token {\n  END_OF_INPUT,\n  BEGIN_INPUT;\n}\n",
+                ["END_OF_INPUT", "Token.BEGIN_INPUT"],
+            ),
+            (
+                "src/level.h",
+                "enum class Level {\n  kVerboseTrace,\n  kQuietTrace = 4,\n};\n",
+                ["kVerboseTrace", "Level::kQuietTrace"],
+            ),
+        ];
+        for (path, contents, queries) in &cases {
+            fs::write(source.path().join(path), contents).unwrap();
+            for (index, query) in queries.iter().enumerate() {
+                fs::write(
+                    source.path().join(format!(
+                        "src/use{index}_{}.rs",
+                        path.replace(['/', '.'], "_")
+                    )),
+                    format!("fn consume() {{\n    handle({query});\n    again({query});\n}}\n"),
+                )
+                .unwrap();
+            }
+        }
+        for (path, _, queries) in cases {
+            for query in queries {
+                assert_eq!(paths(&engine, source.path(), query, 1), [path], "{query}");
+            }
+        }
+        // A type of the same name is what the name refers to first.
+        fs::write(
+            source.path().join("src/isolated.rs"),
+            "pub struct Isolated {\n    id: u32,\n}\n",
+        )
+        .unwrap();
+        engine.prepare(source.path(), &[ContentType::Code]).unwrap();
+        assert_eq!(
+            paths(&engine, source.path(), "Isolated", 2),
+            ["src/isolated.rs", "src/attempt.rs"]
+        );
+    }
+
+    #[test]
+    fn a_verbatim_identifier_outranks_places_that_share_only_its_words() {
+        let (source, _cache, engine) = fixture();
+        for index in 0..6 {
+            fs::write(
+                source.path().join(format!("src/noise{index}.rs")),
+                "fn noise() {\n    shared(); shared(); prefix(); prefix(); shared(); prefix();\n}\n",
+            )
+            .unwrap();
+        }
+        fs::write(
+            source.path().join("src/state.rs"),
+            "fn advance(state: &mut State) {\n    let total = state.first + state.second + state.third;\n    state.sharedPrefix = total;\n}\n",
+        )
+        .unwrap();
+        assert_eq!(
+            paths(&engine, source.path(), "sharedPrefix", 5),
+            ["src/state.rs"]
+        );
+    }
+
+    #[test]
+    fn a_name_that_explains_one_word_of_a_question_does_not_displace_the_evidence() {
+        let (source, _cache, engine) = fixture();
+        fs::write(
+            source.path().join("src/dispatch.rs"),
+            "fn assign_affinity(body: &mut Body) {\n    // Parse the prompt cache lifetime of one conversation.\n    body.insert(prompt_cache_lifetime);\n}\n",
+        )
+        .unwrap();
+        for (index, name) in ["Cache", "Conversation", "Provider", "Request", "Lifetime"]
+            .iter()
+            .enumerate()
+        {
+            fs::write(
+                source.path().join(format!("src/type{index}.rs")),
+                format!("pub struct {name} {{\n    id: u32,\n}}\n"),
+            )
+            .unwrap();
+        }
+        // As in a real repository, most chunks are not candidates of either ranking.
+        for index in 0..40 {
+            fs::write(
+                source.path().join(format!("src/parser{index}.rs")),
+                format!("fn parse_{index}() {{\n    parse(request, provider, cache, conversation, lifetime);\n}}\n"),
+            )
+            .unwrap();
+        }
+        let question = "where does the provider request parse the prompt cache lifetime that belongs to one conversation";
+        assert_eq!(
+            paths(&engine, source.path(), question, 1),
+            ["src/dispatch.rs"]
+        );
+    }
+
+    #[test]
+    fn a_name_that_explains_much_of_a_short_question_still_comes_first() {
+        let (source, _cache, engine) = fixture();
+        fs::write(
+            source.path().join("src/renderer.rs"),
+            "pub fn create_renderer(options: Options) {\n    run(options);\n}\n",
+        )
+        .unwrap();
+        for index in 0..4 {
+            fs::write(
+                source.path().join(format!("src/host{index}.rs")),
+                "fn setup() {\n    // custom host operations, custom host operations\n    renderer(custom, host, operations);\n}\n",
+            )
+            .unwrap();
+        }
+        assert_eq!(
+            paths(
+                &engine,
+                source.path(),
+                "create a custom renderer from host operations",
+                1
+            ),
+            ["src/renderer.rs"]
+        );
+    }
+
+    #[test]
+    fn an_exact_name_search_shows_the_definition_line() {
+        let source = tempfile::tempdir().unwrap();
+        let cache = tempfile::tempdir().unwrap();
+        fs::write(
+            source.path().join("lib.py"),
+            concat!(
+                "def small(): return 1\n",
+                "def large(\n",
+                "    first,\n",
+                "    second,\n",
+                "):\n",
+                "    alpha = first\n",
+                "    beta = second\n",
+                "    gamma = alpha + beta\n",
+                "    delta = gamma * 2\n",
+                "    epsilon = delta - 1\n",
+                "    zeta = epsilon + 2\n",
+                "    eta = zeta * 3\n",
+                "    theta = eta - 4\n",
+                "    iota = theta + 5\n",
+                "    return iota\n",
+            ),
+        )
+        .unwrap();
+        let mut config = SembleConfig::new(cache.path());
+        config.desired_chunk_bytes = 120;
+        let prepared = SearchEngine::with_embedder(config.clone(), Arc::new(KeywordEmbedder));
+        prepared
+            .prepare(source.path(), &[ContentType::Code])
+            .unwrap();
+        drop(prepared);
+        for engine in [
+            SearchEngine::with_embedder(config.clone(), Arc::new(KeywordEmbedder)),
+            SearchEngine::with_embedder(config, Arc::new(KeywordEmbedder)),
+        ] {
+            let mut request = SearchRequest::new("large", source.path());
+            request.top_k = 1;
+            let results = engine.search(request).unwrap().results;
+            assert_eq!(results[0].start_line, 2);
+            assert!(
+                results[0]
+                    .content
+                    .as_deref()
+                    .unwrap_or_default()
+                    .starts_with("def large("),
+                "the snippet must open on the definition, got:\n{}",
+                results[0].content.as_deref().unwrap_or_default()
+            );
+        }
+    }
+
+    #[test]
+    fn an_exact_name_search_shows_a_later_definition_in_a_shared_chunk() {
+        let source = tempfile::tempdir().unwrap();
+        let cache = tempfile::tempdir().unwrap();
+        fs::write(
+            source.path().join("lib.py"),
+            concat!(
+                "def alpha():\n",
+                "    return 1\n",
+                "\n",
+                "def beta():\n",
+                "    return 2\n",
+                "\n",
+                "def gamma():\n",
+                "    return 3\n",
+                "\n",
+                "def delta():\n",
+                "    return 4\n",
+            ),
+        )
+        .unwrap();
+        for engine in [
+            SearchEngine::with_embedder(SembleConfig::new(cache.path()), Arc::new(KeywordEmbedder)),
+            SearchEngine::with_embedder(SembleConfig::new(cache.path()), Arc::new(KeywordEmbedder)),
+        ] {
+            let mut request = SearchRequest::new("delta", source.path());
+            request.top_k = 1;
+            let results = engine.search(request).unwrap().results;
+            assert_eq!(results[0].start_line, 10);
+            assert_eq!(
+                results[0]
+                    .content
+                    .as_deref()
+                    .unwrap_or_default()
+                    .lines()
+                    .next(),
+                Some("def delta():"),
+                "the snippet must open on the fourth definition, got:\n{}",
+                results[0].content.as_deref().unwrap_or_default()
+            );
         }
     }
 

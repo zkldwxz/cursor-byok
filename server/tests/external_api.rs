@@ -82,6 +82,26 @@ async fn setup() -> (
     (router, provider, store, directory)
 }
 
+/// Chrome marks an extension's own requests `none`, which no other management
+/// request may carry; the token alone decides about these.
+#[tokio::test]
+async fn the_browser_extension_is_let_in_by_its_token_and_nowhere_else() {
+    let (router, _, _, _directory) = setup().await;
+    let status = |path: &str| {
+        let request = Request::get(format!("/__byok-api__/api{path}"))
+            .header(header::HOST, "127.0.0.1:3010")
+            .header("sec-fetch-site", "none")
+            .body(Body::empty())
+            .unwrap();
+        let router = router.clone();
+        async move { router.oneshot(request).await.unwrap().status() }
+    };
+    let next = status("/browser-devtools/next?browser=one").await;
+    assert_eq!(next, StatusCode::UNAUTHORIZED);
+    assert_eq!(status("/browser-devtools").await, StatusCode::FORBIDDEN);
+    assert_eq!(status("/models").await, StatusCode::FORBIDDEN);
+}
+
 #[tokio::test]
 async fn management_model_responses_do_not_echo_saved_credentials() {
     let (router, _, store, _directory) = setup().await;

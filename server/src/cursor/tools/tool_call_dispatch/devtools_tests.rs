@@ -101,6 +101,7 @@ async fn start_call(
     start(
         runtime,
         results,
+        &crate::cursor::tools::semantic_search::SemanticPackage::built_in(),
         call,
         0,
         &BTreeMap::new(),

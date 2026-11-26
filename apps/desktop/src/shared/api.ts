@@ -215,6 +215,7 @@ export interface RemoteStatus {
   cursor: boolean;
   devices: { id: string; name: string; paired_at_ms: number }[];
   relay: RelaySettings;
+  public_relay: string;
   error: string | null;
 }
 
@@ -647,7 +648,7 @@ export const api = {
   setRemoteRelay: (relay: RelaySettings) => request<RemoteStatus>("/remote/relay", { method: "PUT", body: JSON.stringify(relay) }),
   pairRemote: () => request<PairingLink>("/remote/pairing", { method: "POST" }),
   removeRemoteDevice: (id: string) => request<void>(`/remote/devices/${encodeURIComponent(id)}`, { method: "DELETE" }),
-  pairBrowserDevTools: () => request<{ token: string }>("/browser-devtools/pair", { method: "POST" }),
+  browserDevTools: () => request<{ connected: boolean }>("/browser-devtools"),
   call: (id: string) => request<CallDetail>(`/llm-calls/${encodeURIComponent(id)}`),
   openExternalUrl: (url: string) => request<void>("/desktop/open-external-url", { method: "POST", body: JSON.stringify({ url }) }),
   observability: () => request<{ detailed: boolean }>("/settings/observability"),

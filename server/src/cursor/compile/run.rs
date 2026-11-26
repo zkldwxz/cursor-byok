@@ -612,6 +612,7 @@ fn exec_context(
         crate::model::SubagentModelOverride::Inherit => SubagentModel::Model(model_id.into()),
         crate::model::SubagentModelOverride::Disabled => SubagentModel::Disabled,
     });
+    let env = request_context.env.clone().unwrap_or_default();
     ExecContext {
         conversation_id: conversation_id.to_string(),
         root_conversation_id: request
@@ -622,11 +623,10 @@ fn exec_context(
         subagent_model,
         allow_subagents: request.subagent_type_name.is_none() && !subagents_disabled,
         subagents_disabled,
-        terminals_folder: request_context
-            .env
-            .as_ref()
-            .map(|env| env.terminals_folder.clone())
-            .unwrap_or_default(),
+        terminals_folder: env.terminals_folder,
+        os_version: env.os_version,
+        project_folder: env.project_folder,
+        workspace_paths: env.workspace_paths,
         admin_command_denylist: request_context.admin_command_denylist.clone(),
         mcp_routes: context::meta_mcp_routes(request_context),
     }

@@ -46,8 +46,18 @@ jobs:
           export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
           npm ci
           npm run tauri -- android init --ci
-          npm run tauri -- icon ../desktop/src-tauri/icons/linux-512x512.png
-          cp src-tauri/android/MainActivity.kt src-tauri/gen/android/app/src/main/java/dev/cursorbyok/mobile/
+          npm run tauri -- icon src-tauri/icons/cnod.svg
+          cp src-tauri/android/MainActivity.kt src-tauri/android/Work.kt src-tauri/gen/android/app/src/main/java/dev/cursorbyok/mobile/
+          cp -R src-tauri/android/res/. src-tauri/gen/android/app/src/main/res/
+          manifest=src-tauri/gen/android/app/src/main/AndroidManifest.xml
+          permissions=""
+          for name in VIBRATE POST_NOTIFICATIONS FOREGROUND_SERVICE FOREGROUND_SERVICE_REMOTE_MESSAGING; do
+            permissions="$permissions\n    <uses-permission android:name=\"android.permission.$name\" />"
+          done
+          sed -i "s|<uses-permission android:name=\"android.permission.INTERNET\" />|&$permissions|" "$manifest"
+          sed -i 's|</application>|    <service android:name=".Work" android:exported="false" android:foregroundServiceType="remoteMessaging" />\n    </application>|' "$manifest"
+          grep -q FOREGROUND_SERVICE_REMOTE_MESSAGING "$manifest"
+          grep -q 'android:name=".Work"' "$manifest"
           npm run tauri -- android build --ci --apk --target aarch64
 
       - name: Sign

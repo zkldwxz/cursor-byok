@@ -18,6 +18,15 @@ pub fn is_symbol_query(query: &str) -> bool {
                 .any(|character| character == '_' || character.is_ascii_uppercase()))
 }
 
+/// The last name of a symbol query such as `Config::load`.
+pub(super) fn symbol_name(query: &str) -> &str {
+    query
+        .rsplit([':', '.', '>'])
+        .find(|part| !part.is_empty())
+        .unwrap_or(query)
+        .trim()
+}
+
 pub fn rerank(
     scores: HashMap<usize, f32>,
     chunks: &[Chunk],
@@ -59,11 +68,7 @@ pub fn rerank(
     }
 
     if is_symbol_query(query) {
-        let symbol = query
-            .rsplit([':', '.', '>'])
-            .find(|part| !part.is_empty())
-            .unwrap_or(query)
-            .trim();
+        let symbol = symbol_name(query);
         let pattern = Regex::new(&format!(r"(?m)(?:^|\s)(?:class|def|fn|func|function|struct|enum|trait|interface|type|record|module|namespace|protocol)\s+{}(?:\s|[<({{:\[;]|$)", regex::escape(symbol))).ok();
         if let Some(pattern) = pattern {
             for (&index, score) in &mut scores {
