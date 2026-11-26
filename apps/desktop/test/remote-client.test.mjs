@@ -11,6 +11,7 @@ import {
   buildThreads,
   busyCount,
   changesOf,
+  withOpen,
   chatState,
   dateBucket,
   delivered,
@@ -514,4 +515,13 @@ test('a conversation that stops or starts to wait is told once, and nothing is t
   assert.equal(busyCount(before), 3);
   assert.equal(busyCount(after), 3);
   assert.equal(busyCount(null), 0);
+});
+
+test('the open conversation is told by its own stream, which hears a short turn the overview never shows running', () => {
+  const at = (state) => [{ id: 'w', title: 'W', chats: [{ id: 'a', label: 'A', state, updatedAt: 1 }, { id: 'b', label: 'B', state: 'running', updatedAt: 1 }] }];
+  const sent = withOpen(at('idle'), { id: 'a', state: 'running' });
+  assert.equal(busyCount(sent), 2);
+  const answered = withOpen(at('idle'), { id: 'a', state: 'idle' });
+  assert.deepEqual(changesOf(sent, answered), [{ id: 'a', label: 'A', kind: 'done' }]);
+  assert.deepEqual(withOpen(at('idle'), null), at('idle'));
 });

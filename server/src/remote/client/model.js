@@ -6,6 +6,10 @@ export const waitingCount = (workspaces) => everyChat(workspaces).filter((chat) 
 /** Conversations still running or waiting for an answer. */
 export const busyCount = (workspaces) => everyChat(workspaces).filter((chat) => chat.state !== "idle").length;
 
+/** The overview, with the open conversation as its own stream tells it: the overview is seconds late. */
+export const withOpen = (workspaces, open) =>
+  open ? workspaces.map((workspace) => ({ ...workspace, chats: workspace.chats.map((chat) => (chat.id === open.id ? { ...chat, state: open.state } : chat)) })) : workspaces;
+
 /** What finished or began to wait between two overviews; nothing on the first, which only shows what already was. */
 export function changesOf(before, after) {
   if (!before) return [];
