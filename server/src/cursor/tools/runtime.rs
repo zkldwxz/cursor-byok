@@ -131,6 +131,8 @@ impl ExecContext {
 pub(crate) struct PendingInteraction {
     pub call: ToolCall,
     pub started_at_ms: u64,
+    /// Where files the interaction writes go; empty where no context was there.
+    pub project_folder: String,
 }
 
 impl CursorToolRuntime {
@@ -239,13 +241,14 @@ impl CursorToolRuntime {
         Ok(id)
     }
 
-    pub async fn reserve_interaction(&self, call: &ToolCall) -> Result<u32> {
+    pub async fn reserve_interaction(&self, call: &ToolCall, project_folder: &str) -> Result<u32> {
         let id = self.next_id()?;
         self.interactions.lock().await.insert(
             id,
             PendingInteraction {
                 call: call.clone(),
                 started_at_ms: now_ms(),
+                project_folder: project_folder.to_owned(),
             },
         );
         Ok(id)

@@ -139,7 +139,7 @@ pub(crate) async fn receive(
     let Some(call) = runtime.exec_call(id).await else {
         return Ok(ClientExecEvent::Pending);
     };
-    let slot = runtime.reserve_interaction(&call).await?;
+    let slot = runtime.reserve_interaction(&call, "").await?;
     let Some(entry) = runtime.take_exec(id).await else {
         runtime.discard_interaction(slot).await;
         return Ok(ClientExecEvent::Pending);

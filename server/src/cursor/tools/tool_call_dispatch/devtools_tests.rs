@@ -121,6 +121,7 @@ async fn respond(
         results,
         &WebSearch::built_in(),
         &WebFetch::built_in(),
+        None,
         pending,
         response,
     )

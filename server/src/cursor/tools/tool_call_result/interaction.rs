@@ -1,6 +1,7 @@
 //! Converts Cursor interaction completions into Tool results.
 use crate::{
     cursor::{protocol::proto::agent::v1 as pb, tools::codec as interaction},
+    provider::images::GeneratedImage,
     search::{FetchedPage, SearchHit},
     Error, Result,
 };
@@ -164,6 +165,44 @@ pub(crate) fn from_interaction(
                 "unexpected InteractionResponse for tool {}",
                 call.name
             )));
+        }
+    };
+    ToolCompletion::from_rendered(call, pending.started_at_ms, output, is_error, rendered)
+}
+
+pub(crate) fn complete_generate_image(
+    pending: PendingInteraction,
+    outcome: std::result::Result<GeneratedImage, String>,
+) -> Result<ToolCompletion> {
+    let call = &pending.call;
+    let mut rendered = interaction::render_tool_call(call, false)?;
+    let Some(pb::tool_call::Tool::GenerateImageToolCall(tool)) = rendered.tool.as_mut() else {
+        return Err(Error::Protocol(format!(
+            "tool {} is not GenerateImage",
+            call.name
+        )));
+    };
+    let (output, is_error) = match outcome {
+        Ok(image) => {
+            tool.result = Some(pb::GenerateImageResult {
+                result: Some(pb::generate_image_result::Result::Success(
+                    pb::GenerateImageSuccess {
+                        file_path: image.file_path.clone(),
+                        image_data: image.image_data,
+                    },
+                )),
+            });
+            (format!("image generated: {}", image.file_path), false)
+        }
+        Err(error) => {
+            tool.result = Some(pb::GenerateImageResult {
+                result: Some(pb::generate_image_result::Result::Error(
+                    pb::GenerateImageError {
+                        error: error.clone(),
+                    },
+                )),
+            });
+            (error, true)
         }
     };
     ToolCompletion::from_rendered(call, pending.started_at_ms, output, is_error, rendered)
@@ -421,6 +460,7 @@ mod tests {
                 argument_error: None,
             },
             started_at_ms: 1,
+            project_folder: String::new(),
         }
     }
 }
