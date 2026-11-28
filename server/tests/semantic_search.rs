@@ -561,3 +561,22 @@ fn every_mode_tells_the_model_when_semantic_search_comes_first() {
         }
     }
 }
+
+#[tokio::test]
+async fn a_disabled_semantic_search_refuses_the_call_without_a_command() {
+    let (url, _hits) = serve();
+    let cache = tempfile::tempdir().unwrap();
+    let mut round = Round::new(&url, cache.path());
+    round.context.semantic_search_disabled = true;
+
+    let dispatched = round.start("call", json!({"query": "verify token"})).await;
+
+    let result = dispatched
+        .completion
+        .as_ref()
+        .expect("a disabled search completes immediately")
+        .result();
+    assert!(result.is_error);
+    assert!(result.content.contains("disabled"), "{}", result.content);
+    assert!(dispatched.messages.len() <= 1, "no command may be sent");
+}

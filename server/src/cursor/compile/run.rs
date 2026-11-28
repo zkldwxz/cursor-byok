@@ -175,6 +175,12 @@ pub(crate) async fn prepare(
     if subagents_disabled {
         checkpoint_prompt.tools.retain(|tool| tool.name != "Task");
     }
+    let semantic_search_enabled = store.semantic_search_enabled().await?;
+    if !semantic_search_enabled {
+        checkpoint_prompt
+            .tools
+            .retain(|tool| tool.name != "SemanticSearch");
+    }
     // Compaction repeats the conversation's own prompt so its cached prefix is
     // read back instead of written again.
     let prompt = checkpoint_prompt.clone();
@@ -337,6 +343,7 @@ pub(crate) async fn prepare(
         &conversation_id,
         &model.model_id,
         subagents_disabled,
+        !semantic_search_enabled,
         &subagent_model_overrides,
     );
     Ok((
@@ -600,6 +607,7 @@ fn exec_context(
     conversation_id: &ConversationId,
     model_id: &str,
     subagents_disabled: bool,
+    semantic_search_disabled: bool,
     overrides: &[(
         crate::model::SubagentKind,
         crate::model::SubagentModelOverride,
@@ -623,6 +631,7 @@ fn exec_context(
         subagent_model,
         allow_subagents: request.subagent_type_name.is_none() && !subagents_disabled,
         subagents_disabled,
+        semantic_search_disabled,
         terminals_folder: env.terminals_folder,
         os_version: env.os_version,
         project_folder: env.project_folder,

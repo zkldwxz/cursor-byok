@@ -71,6 +71,18 @@ pub(super) async fn start(
         | "callmcptool" | "fetchmcpresource" | "getmcptools" => {
             exec::start(runtime, call, context).await
         }
+        "semanticsearch" if context.semantic_search_disabled => {
+            // The model can still call the tool from a checkpoint prompt that
+            // predates the setting change; refuse it instead of silently
+            // searching an index the user asked to retire.
+            Ok(ToolStart {
+                messages: Vec::new(),
+                completion: Some(compat::failure_with_message(
+                    call,
+                    "SemanticSearch is disabled in the Cursor BYOK settings".into(),
+                )),
+            })
+        }
         "semanticsearch" => Ok(
             match semantic_search::start(runtime, package, call, context).await? {
                 Ok(message) => ToolStart {
