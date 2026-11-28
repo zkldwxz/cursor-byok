@@ -13,6 +13,7 @@ use std::collections::BTreeMap;
 use crate::{
     cursor::protocol::proto::agent::v1 as pb,
     model::ToolCall,
+    provider::images::ImageGeneration,
     search::{WebFetch, WebSearch},
     Error, Result,
 };
@@ -56,7 +57,7 @@ pub(super) async fn start(
         return devtools::start(runtime, results, call).await;
     }
     if is_mcp_auth(call) {
-        return interaction::start(runtime, call).await;
+        return interaction::start(runtime, call, context).await;
     }
 
     if context.task_disabled(call) {
@@ -97,7 +98,7 @@ pub(super) async fn start(
         ),
         "write" | "strreplace" | "editnotebook" => edit::start(runtime, call, context).await,
         "askquestion" | "websearch" | "webfetch" | "switchmode" | "createplan"
-        | "generateimage" => interaction::start(runtime, call).await,
+        | "generateimage" => interaction::start(runtime, call, context).await,
         "todowrite" | "updatecurrentstep" => local::start(call, message_index),
         _ => Ok(unavailable_tool(call)),
     }
@@ -172,13 +173,14 @@ pub(super) async fn resume_interaction(
     results: &ToolResultSender,
     search: &WebSearch,
     fetch: &WebFetch,
+    images: Option<&ImageGeneration>,
     pending: PendingInteraction,
     response: &pb::InteractionResponse,
 ) -> Result<ToolStart> {
     if devtools::is_local_run(&pending.call) {
         return devtools::resume(results, pending, response);
     }
-    interaction::resume(results, search, fetch, pending, response).await
+    interaction::resume(results, search, fetch, images, pending, response).await
 }
 
 fn is_shell_tool(name: &str) -> bool {

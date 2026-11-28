@@ -82,6 +82,12 @@ pub(crate) async fn prepare(
             model.model_id
         )));
     }
+    // The tool only shows where it can run: with the channel's image model configured.
+    model.supports_image_generation = store
+        .magpie_catalog()
+        .await?
+        .and_then(|catalog| catalog.image_model)
+        .is_some();
     checkpoint
         .import_prefetched(&request.pre_fetched_blobs)
         .await?;

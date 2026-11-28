@@ -20,6 +20,10 @@ pub(crate) const PREFIX: &str = "magpie-";
 const APP_KEY: &str = "magpie-cursor-byok";
 const DEFAULT_PORT: u16 = 3425;
 
+pub(crate) fn app_key() -> &'static str {
+    APP_KEY
+}
+
 pub(super) fn set_session_affinity(
     headers: &mut reqwest::header::HeaderMap,
     conversation_id: &str,
@@ -408,6 +412,20 @@ pub(crate) async fn verify_gateway(client: &reqwest::Client, base: &str) -> Resu
         return Err(Error::Provider(format!("{base} is not a Magpie gateway")));
     }
     Ok(())
+}
+
+/// A bare catalog on a port with no chat models, for tests of what reads it.
+#[cfg(test)]
+pub(crate) fn test_catalog(port: u16, image_model: &str) -> Catalog {
+    Catalog {
+        port,
+        models: Vec::new(),
+        disabled: HashSet::new(),
+        aliases: Default::default(),
+        protocols: Default::default(),
+        group_name: None,
+        image_model: (!image_model.is_empty()).then(|| image_model.to_owned()),
+    }
 }
 
 #[cfg(test)]

@@ -21,6 +21,7 @@ pub(crate) mod tool_call_result;
 
 use crate::{
     model::{CanonicalMessage, MessageContent, Role, ToolCall},
+    provider::images::ImageGeneration,
     search::{WebCache, WebFetch, WebSearch},
     store::Store,
     Error, Result,
@@ -39,6 +40,8 @@ pub struct ToolDispatcher {
     results: ToolResultSender,
     search: WebSearch,
     fetch: WebFetch,
+    /// Present where a store is: the channel's image model, when one is configured.
+    images: Option<ImageGeneration>,
     semantic: SemanticPackage,
     edit_schedule: Arc<Mutex<EditSchedule>>,
 }
@@ -77,6 +80,7 @@ impl ToolDispatcher {
             results,
             search: WebSearch::built_in(),
             fetch: WebFetch::built_in(),
+            images: None,
             semantic: SemanticPackage::built_in(),
             edit_schedule: Arc::new(Mutex::new(EditSchedule::default())),
         };
@@ -98,8 +102,9 @@ impl ToolDispatcher {
         Self {
             runtime,
             results,
+            images: Some(ImageGeneration::new(store.clone())),
             search: WebSearch::managed(store.clone()),
-            fetch: WebFetch::managed(store, web_cache),
+            fetch: WebFetch::managed(store.clone(), web_cache),
             semantic,
             edit_schedule: Arc::new(Mutex::new(EditSchedule::default())),
         }
@@ -285,6 +290,7 @@ impl ToolDispatcher {
             &self.results,
             &self.search,
             &self.fetch,
+            self.images.as_ref(),
             pending,
             response,
         )

@@ -52,7 +52,7 @@ pub(super) async fn start(
         let mut approved_call = call.clone();
         // Resolve the cwd before showing it so approval and execution share the same input.
         approved_call.arguments["arguments"]["cwd"] = json!(local.cwd);
-        let id = runtime.reserve_interaction(&approved_call).await?;
+        let id = runtime.reserve_interaction(&approved_call, "").await?;
         let question = approval_question(&approved_call)?;
         messages.push(codec::tool_started(&question, None)?);
         messages.push(codec::tool_query(id, &question)?);
@@ -141,6 +141,7 @@ fn settle_question(
         PendingInteraction {
             call: question.clone(),
             started_at_ms: pending.started_at_ms,
+            project_folder: pending.project_folder.clone(),
         },
         response,
     )?;

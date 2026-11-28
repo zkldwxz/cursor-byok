@@ -2,6 +2,7 @@
 mod anthropic;
 mod attempt;
 mod event;
+pub(crate) mod images;
 pub(crate) mod magpie;
 mod normalize;
 mod openai_chat;
