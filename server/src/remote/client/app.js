@@ -215,7 +215,27 @@ const run = async (command) => {
 const stretches = h("div", { class: "stretches" });
 const tuning = h("div", { class: "tune" });
 const scroller = $("scroll");
-const transcript = new Transcript($("transcript"));
+const transcript = new Transcript($("transcript"), { onPreview: previewFile });
+
+async function previewFile(path) {
+  const url = `api/file?token=${encodeURIComponent(computers.current?.token ?? "")}&path=${encodeURIComponent(path)}`;
+  const title = path.split(/[\\/]/).pop() || path;
+  const loading = h("pre", { class: "output file-content" }, copy.loadingFile);
+  openSheet(title, loading);
+  const reply = await fetch(url).catch(() => null);
+  if (!reply?.ok) {
+    loading.textContent = copy.fileMissing;
+    return;
+  }
+  const type = reply.headers.get("content-type") ?? "";
+  if (type.startsWith("image/")) {
+    const image = h("img", { class: "file-image", alt: title });
+    image.src = url;
+    loading.replaceWith(image);
+    return;
+  }
+  loading.textContent = await reply.text();
+}
 const composer = new Composer($("composer"), send, () => run({ type: "stop" }));
 
 function open(place) {

@@ -36,6 +36,9 @@ pub(super) struct ToolView {
     /// What the step does: run, edit, read, search or tool.
     pub kind: &'static str,
     pub title: String,
+    /// The file the step is about, for the preview; empty for the rest.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub path: String,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub detail: String,
     #[serde(skip_serializing_if = "String::is_empty")]
@@ -380,6 +383,7 @@ fn view(tool: &Tool) -> ToolView {
         Tool::EditToolCall(call) => {
             let path = call.args.as_ref().map(|args| args.path.as_str());
             let mut view = step("edit", &file_name(path.unwrap_or_default()), String::new());
+            view.path = path.unwrap_or_default().into();
             if let Some(pb::edit_result::Result::Success(done)) = call
                 .result
                 .as_ref()
@@ -396,7 +400,9 @@ fn view(tool: &Tool) -> ToolView {
         }
         Tool::ReadToolCall(call) => {
             let path = call.args.as_ref().map(|args| args.path.as_str());
-            step("read", "Read", file_name(path.unwrap_or_default()))
+            let mut view = step("read", "Read", file_name(path.unwrap_or_default()));
+            view.path = path.unwrap_or_default().into();
+            view
         }
         Tool::LsToolCall(call) => {
             let path = call.args.as_ref().map(|args| args.path.as_str());

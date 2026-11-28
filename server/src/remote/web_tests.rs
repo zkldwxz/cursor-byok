@@ -24,7 +24,19 @@ use crate::{
     store::Store,
 };
 
-const WORKSPACE: &str = "/projects/shop";
+/// A real directory, so the file preview tests can write into it. The string
+/// is leaked once; the directory itself lives as long as the test binary.
+fn workspace_path() -> &'static str {
+    use std::sync::OnceLock;
+    static PATH: OnceLock<&'static str> = OnceLock::new();
+    PATH.get_or_init(|| {
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(directory.path().join("shop")).unwrap();
+        let path = directory.path().join("shop").to_string_lossy().into_owned();
+        std::mem::forget(directory);
+        Box::leak(path.into_boxed_str())
+    })
+}
 
 struct Computer {
     relay: Relay,
@@ -254,7 +266,7 @@ impl Agents {
 
 fn workspace() -> pb::AgentHostWorkspace {
     pb::AgentHostWorkspace {
-        workspace_paths: vec![WORKSPACE.into()],
+        workspace_paths: vec![workspace_path().into()],
         ..Default::default()
     }
 }
@@ -349,7 +361,7 @@ async fn the_overview_follows_cursor_as_it_comes_and_goes() {
     let shop = &overview["workspaces"][0];
     assert_eq!(
         (&shop["id"], &shop["title"]),
-        (&json!(WORKSPACE), &json!("shop"))
+        (&json!(workspace_path()), &json!("shop"))
     );
     assert_eq!(shop["chats"][0]["label"], "about one");
     assert_eq!(shop["chats"][0]["state"], "waiting");
@@ -428,9 +440,9 @@ async fn a_new_conversation_begins_with_its_first_message_in_the_chosen_mode_and
     let mut agents = Agents::open(&computer.relay, Vec::new());
     let mut phone = computer.phone().await;
     phone
-        .hear(|it| it["workspaces"][0]["id"] == WORKSPACE)
+        .hear(|it| it["workspaces"][0]["id"] == workspace_path())
         .await;
-    phone.say(json!({"draft": WORKSPACE})).await;
+    phone.say(json!({"draft": workspace_path()})).await;
     for pick in [
         json!({"type": "pick", "kind": "mode", "id": "plan"}),
         json!({"type": "pick", "kind": "model", "id": "model-b"}),
@@ -445,7 +457,7 @@ async fn a_new_conversation_begins_with_its_first_message_in_the_chosen_mode_and
         .await;
     assert_eq!(
         create.session_options.unwrap().workspace_paths,
-        vec![WORKSPACE.to_owned()]
+        vec![workspace_path().to_owned()]
     );
     agents.answer(&id, pb::CreateAgentHostSessionResponse {});
     agents.attached(&create.session_id).await;
@@ -903,4 +915,252 @@ async fn context_and_effort_are_shown_and_go_with_the_next_message() {
     phone
         .hear(|it| it["type"] == "chat" && it["tuning"]["context"].is_null())
         .await;
+}
+
+fn asks_shell(id: &str, command: &str) -> Event {
+    Event::TurnAwaitingInput(pb::AgentHostTurnAwaitingInput {
+        turn_id: "turn".into(),
+        interaction_id: id.into(),
+        question: Some(pb::agent_host_turn_awaiting_input::Question::ExecApproval(
+            pb::AgentHostApprovalRequest {
+                operation: Some(pb::AgentHostApprovalOperation {
+                    details: Some(pb::agent_host_approval_operation::Details::Shell(
+                        pb::AgentHostApprovalShellDetails {
+                            command: command.into(),
+                            ..Default::default()
+                        },
+                    )),
+                }),
+                ..Default::default()
+            },
+        )),
+        ..Default::default()
+    })
+}
+
+fn asks_read(id: &str) -> Event {
+    Event::TurnAwaitingInput(pb::AgentHostTurnAwaitingInput {
+        turn_id: "turn".into(),
+        interaction_id: id.into(),
+        question: Some(pb::agent_host_turn_awaiting_input::Question::ExecApproval(
+            pb::AgentHostApprovalRequest {
+                operation: Some(pb::AgentHostApprovalOperation {
+                    details: Some(pb::agent_host_approval_operation::Details::Read(
+                        pb::AgentHostApprovalReadDetails {
+                            path: "/etc/passwd".into(),
+                            ..Default::default()
+                        },
+                    )),
+                }),
+                ..Default::default()
+            },
+        )),
+        ..Default::default()
+    })
+}
+
+#[tokio::test]
+async fn an_always_verdict_answers_later_approvals_of_the_same_kind_itself() {
+    let computer = Computer::start().await;
+    let mut agents = Agents::open(&computer.relay, vec![session("one")]);
+    let mut phone = computer.phone().await;
+    phone.say(json!({"attach": "one"})).await;
+    agents.attached("one").await;
+    agents.event("one", started());
+    agents.event("one", asks_shell("ask-1", "ls"));
+    phone.hear(|it| it["asked"][0]["id"] == "ask-1").await;
+    phone
+        .say(json!({"command": {"type": "answer", "id": "ask-1", "verdict": "always"}}))
+        .await;
+    let (id, request) = agents
+        .called::<pb::RespondToAgentHostInteractionRequest>("RespondToInteraction")
+        .await;
+    use pb::respond_to_agent_host_interaction_request::Answer;
+    let Some(Answer::ExecApproval(result)) = request.answer else {
+        panic!("not an approval");
+    };
+    assert!(result.approved, "always answers this approval too");
+    agents.answer(
+        &id,
+        pb::RespondToAgentHostInteractionResponse {
+            status: pb::AgentHostInteractionResponseStatus::Accepted as i32,
+        },
+    );
+    agents.event(
+        "one",
+        Event::InteractionResolved(pb::AgentHostInteractionResolved {
+            interaction_id: "ask-1".into(),
+            ..Default::default()
+        }),
+    );
+    phone.hear_type("done").await;
+
+    // The next command approval is answered without the phone doing anything.
+    agents.event("one", asks_shell("ask-2", "make test"));
+    let (id, request) = agents
+        .called::<pb::RespondToAgentHostInteractionRequest>("RespondToInteraction")
+        .await;
+    let Some(Answer::ExecApproval(result)) = request.answer else {
+        panic!("not an approval");
+    };
+    assert!(result.approved);
+    assert_eq!(request.interaction_id, "ask-2");
+    agents.answer(
+        &id,
+        pb::RespondToAgentHostInteractionResponse {
+            status: pb::AgentHostInteractionResponseStatus::Accepted as i32,
+        },
+    );
+    // Cursor settles an accepted interaction and the phone stops asking it.
+    agents.event(
+        "one",
+        Event::InteractionResolved(pb::AgentHostInteractionResolved {
+            interaction_id: "ask-2".into(),
+            ..Default::default()
+        }),
+    );
+    // Another kind is still asked rather than answered.
+    agents.event("one", asks_read("ask-3"));
+    phone.hear(|it| it["asked"][0]["id"] == "ask-3").await;
+}
+
+async fn get_file(computer: &Computer, query: &str, origin: &str) -> reqwest::Response {
+    reqwest::Client::new()
+        .get(format!("http://{}/api/file?{query}", computer.address))
+        .header("origin", format!("http://{origin}"))
+        .send()
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn a_paired_device_reads_files_of_the_open_workspace() {
+    let computer = Computer::start().await;
+    let _agents = Agents::open(&computer.relay, vec![session("one")]);
+    std::fs::write(format!("{}/main.rs", workspace_path()), "fn main() {}").unwrap();
+    let token = computer.token().await;
+    let inside = get_file(
+        &computer,
+        &format!("token={token}&path={}/main.rs", workspace_path()),
+        &computer.address,
+    )
+    .await;
+    assert_eq!(inside.status(), 200);
+    assert_eq!(inside.text().await.unwrap(), "fn main() {}");
+    std::fs::remove_file(format!("{}/main.rs", workspace_path())).unwrap();
+}
+
+#[tokio::test]
+async fn files_outside_the_workspace_and_without_a_token_are_refused() {
+    let computer = Computer::start().await;
+    let _agents = Agents::open(&computer.relay, vec![session("one")]);
+    let token = computer.token().await;
+    let secret = tempfile::tempdir().unwrap();
+    std::fs::write(secret.path().join("secret.txt"), "hidden").unwrap();
+    let outside = get_file(
+        &computer,
+        &format!(
+            "token={token}&path={}",
+            secret.path().join("secret.txt").display()
+        ),
+        &computer.address,
+    )
+    .await;
+    assert_eq!(outside.status(), 404);
+    // A path inside the workspace by its words alone — a symlink or .. — is out too.
+    let sneaky = get_file(
+        &computer,
+        &format!("token={token}&path={}/../secret.txt", workspace_path()),
+        &computer.address,
+    )
+    .await;
+    assert_eq!(sneaky.status(), 404);
+    let anonymous = get_file(
+        &computer,
+        &format!("path={}/main.rs", workspace_path()),
+        &computer.address,
+    )
+    .await;
+    assert_eq!(anonymous.status(), 401);
+    let foreign = get_file(
+        &computer,
+        &format!("token={token}&path={}/main.rs", workspace_path()),
+        "evil.example",
+    )
+    .await;
+    assert_eq!(foreign.status(), 403);
+}
+
+// Browsers send no Origin on a same-origin GET (the preview's fetch and the
+// image load both), so the guard cannot require one; Sec-Fetch-Site is what
+// marks another site's page instead.
+#[tokio::test]
+async fn a_same_origin_get_without_an_origin_header_reads_the_file() {
+    let computer = Computer::start().await;
+    let _agents = Agents::open(&computer.relay, vec![session("one")]);
+    std::fs::write(format!("{}/page.rs", workspace_path()), "fn page() {}").unwrap();
+    let token = computer.token().await;
+    let url = format!(
+        "http://{}/api/file?token={token}&path={}/page.rs",
+        computer.address,
+        workspace_path()
+    );
+    let bare = reqwest::get(&url).await.unwrap();
+    assert_eq!(bare.status(), 200);
+    let same_site = reqwest::Client::new()
+        .get(&url)
+        .header("sec-fetch-site", "same-origin")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(same_site.status(), 200);
+    for foreign in ["cross-site", "same-site"] {
+        let rejected = reqwest::Client::new()
+            .get(&url)
+            .header("sec-fetch-site", foreign)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(rejected.status(), 403, "{foreign}");
+    }
+    std::fs::remove_file(format!("{}/page.rs", workspace_path())).unwrap();
+}
+
+#[tokio::test]
+async fn binary_files_come_back_as_bytes_and_big_ones_are_cut() {
+    let computer = Computer::start().await;
+    let _agents = Agents::open(&computer.relay, vec![session("one")]);
+    let token = computer.token().await;
+    std::fs::write(
+        format!("{}/pic.png", workspace_path()),
+        [0x89, 0x50, 0x4e, 0x47, 1, 2, 3],
+    )
+    .unwrap();
+    let reply = get_file(
+        &computer,
+        &format!("token={token}&path={}/pic.png", workspace_path()),
+        &computer.address,
+    )
+    .await;
+    assert_eq!(reply.status(), 200);
+    assert_eq!(
+        reply.headers()["content-type"].to_str().unwrap(),
+        "image/png"
+    );
+    std::fs::write(
+        format!("{}/big.txt", workspace_path()),
+        "x".repeat(300 * 1024),
+    )
+    .unwrap();
+    let big = get_file(
+        &computer,
+        &format!("token={token}&path={}/big.txt", workspace_path()),
+        &computer.address,
+    )
+    .await;
+    assert_eq!(big.status(), 200);
+    assert_eq!(big.text().await.unwrap().len(), 256 * 1024);
+    for file in ["pic.png", "big.txt"] {
+        let _ = std::fs::remove_file(format!("{}/{file}", workspace_path()));
+    }
 }
