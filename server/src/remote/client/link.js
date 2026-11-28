@@ -20,7 +20,7 @@ export async function pair(computers) {
     const reply = await fetch("api/pair", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ code, name: deviceName(navigator.userAgent) }),
+      body: JSON.stringify({ code, name: deviceName(navigator.userAgent), device: computers.deviceId }),
     }).catch(() => null);
     if (reply?.ok) computers.add({ id: location.host, link: null, token: (await reply.json()).token });
     else if (!computers.current) return "expired";
@@ -78,7 +78,7 @@ export class Link {
     replaced?.close();
     socket.onopen = () => {
       if (this.#socket !== socket) return;
-      socket.send(JSON.stringify(this.#pending ? { code: ticketOf(this.#pending).code, name: deviceName(navigator.userAgent) } : { token: this.#computers.current.token }));
+      socket.send(JSON.stringify(this.#pending ? { code: ticketOf(this.#pending).code, name: deviceName(navigator.userAgent), device: this.#computers.deviceId } : { token: this.#computers.current.token }));
       this.#heard();
       this.#on.open();
     };

@@ -428,7 +428,7 @@ mod tests {
         {
             let state = remote.inner.state.lock().await;
             let access = &state.active.as_ref().unwrap().access;
-            access.pair(&code, "phone").await.unwrap().unwrap();
+            access.pair(&code, "phone", None).await.unwrap().unwrap();
         }
         assert_eq!(remote.status().await.unwrap().devices.len(), 1);
         remote.disable().await.unwrap();

@@ -55,4 +55,14 @@ export class Computers {
     this.#kept = kept;
     this.#storage.setItem(KEY, JSON.stringify(kept));
   }
+
+  /** One per browser profile or app install, made once and kept: a re-pairing is the same device again, not another entry on the computer. */
+  get deviceId() {
+    let id = this.#storage.getItem("cursor-byok-device-id");
+    if (!id) {
+      id = crypto.randomUUID();
+      this.#storage.setItem("cursor-byok-device-id", id);
+    }
+    return id;
+  }
 }

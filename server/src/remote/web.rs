@@ -126,6 +126,9 @@ fn asset(content_type: &'static str, body: &'static str) -> impl IntoResponse {
 struct PairRequest {
     code: String,
     name: String,
+    /// The install id the phone or browser keeps, by which a re-pairing is
+    /// one device rather than another entry.
+    device: Option<String>,
 }
 
 async fn pair(
@@ -136,7 +139,11 @@ async fn pair(
     if !same_origin(&headers) {
         return StatusCode::FORBIDDEN.into_response();
     }
-    match phones.access.pair(&request.code, &request.name).await {
+    match phones
+        .access
+        .pair(&request.code, &request.name, request.device.as_deref())
+        .await
+    {
         Ok(Some(token)) => (
             [(header::CACHE_CONTROL, "no-store")],
             Json(json!({"token": token})),
@@ -216,7 +223,10 @@ async fn authenticate(wire: &mut Wire, phones: &Phones) -> Option<CancellationTo
     let token = match serde_json::from_str(&wire.receive().await?).ok()? {
         Hello::Paired { token } => token,
         Hello::New(request) => {
-            let paired = phones.access.pair(&request.code, &request.name).await;
+            let paired = phones
+                .access
+                .pair(&request.code, &request.name, request.device.as_deref())
+                .await;
             let token = paired
                 .inspect_err(|error| tracing::warn!(%error, "cannot keep the paired phone"))
                 .ok()??;

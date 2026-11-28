@@ -79,7 +79,15 @@ impl Access {
     }
 
     /// The device's token, if the code is the one of the newest link.
-    pub async fn pair(&self, code: &str, name: &str) -> Result<Option<String>> {
+    /// A `device` the client keeps across pairings — its install id — pairs
+    /// into the entry it already has rather than adding another one of the
+    /// same phone, and the token it replaces stops working.
+    pub async fn pair(
+        &self,
+        code: &str,
+        name: &str,
+        device: Option<&str>,
+    ) -> Result<Option<String>> {
         {
             let mut pairing = self.pairing.lock();
             let Some(current) = pairing.as_ref() else {
@@ -91,20 +99,42 @@ impl Access {
             *pairing = None;
         }
         let token = secret();
+        let mut devices = self.devices.lock().await;
+        let device = device.map(str::trim).filter(|device| !device.is_empty());
+        // Devices kept without an install id — paired before there was one —
+        // stay as they are; a re-pair then adds the id to its own entry only.
+        let known = device.and_then(|device| {
+            devices
+                .iter()
+                .position(|existing| existing.kept.device_id.as_deref() == Some(device))
+        });
         let device = Device {
             kept: RemoteDevice {
-                id: Uuid::new_v4().to_string(),
+                id: known
+                    .map(|index| devices[index].kept.id.clone())
+                    .unwrap_or_else(|| Uuid::new_v4().to_string()),
                 name: name.trim().chars().take(MAX_NAME_CHARS).collect(),
                 paired_at_ms: chrono::Utc::now().timestamp_millis(),
                 token_hash: hash(&token),
+                device_id: device.map(str::to_owned),
             },
             session: self.stop.child_token(),
         };
-        let mut devices = self.devices.lock().await;
-        let mut kept = kept(&devices);
-        kept.push(device.kept.clone());
-        self.store.set_remote_devices(&kept).await?;
-        devices.push(device);
+        match known {
+            Some(index) => {
+                let replaced = std::mem::replace(&mut devices[index], device);
+                replaced.session.cancel();
+                let mut kept = kept(&devices);
+                kept[index] = devices[index].kept.clone();
+                self.store.set_remote_devices(&kept).await?;
+            }
+            None => {
+                let mut kept = kept(&devices);
+                kept.push(device.kept.clone());
+                self.store.set_remote_devices(&kept).await?;
+                devices.push(device);
+            }
+        }
         Ok(Some(token))
     }
 
@@ -169,7 +199,7 @@ mod tests {
     }
 
     async fn paired(access: &Access, code: &str) -> Option<String> {
-        access.pair(code, "  phone  ").await.unwrap()
+        access.pair(code, "  phone  ", None).await.unwrap()
     }
 
     async fn names(access: &Access) -> Vec<String> {
@@ -240,6 +270,43 @@ mod tests {
         assert!(session.is_cancelled());
         let again = Access::open(store, CancellationToken::new()).await.unwrap();
         assert!(!again.session(&token).await.unwrap().is_cancelled());
+    }
+
+    #[tokio::test]
+    async fn a_device_id_pairs_again_into_its_own_entry_not_a_new_one() {
+        let access = access().await;
+        let first = {
+            let code = access.new_pairing_code();
+            access
+                .pair(&code, "phone", Some("install-1"))
+                .await
+                .unwrap()
+                .unwrap()
+        };
+        let second = {
+            let code = access.new_pairing_code();
+            access
+                .pair(&code, "phone", Some("install-1"))
+                .await
+                .unwrap()
+                .unwrap()
+        };
+        let devices = access.store.remote_devices().await.unwrap();
+        assert_eq!(devices.len(), 1);
+        assert_ne!(first, second);
+        // The token of before is retired: only the newest of one device enters.
+        assert!(access.session(&first).await.is_none());
+        assert!(access.session(&second).await.is_some());
+    }
+
+    #[tokio::test]
+    async fn different_device_ids_stay_apart_and_a_missing_one_pairs_new() {
+        let access = access().await;
+        for device in [Some("install-1"), Some("install-2"), None] {
+            let code = access.new_pairing_code();
+            assert!(access.pair(&code, "phone", device).await.unwrap().is_some());
+        }
+        assert_eq!(access.store.remote_devices().await.unwrap().len(), 3);
     }
 
     #[tokio::test]
