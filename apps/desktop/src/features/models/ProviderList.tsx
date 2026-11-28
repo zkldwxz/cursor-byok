@@ -7,7 +7,7 @@ import { Icon } from "../../shared/ui/Icon";
 import { addIcon, chevronRightIcon } from "../../shared/ui/icons";
 import type { CursorModelTestState } from "./CursorModelTestResult";
 import { MAGPIE_PROVIDER, testStatus, type CursorProvider, type ProviderStatus } from "./cursorProviders";
-import { magpieSummary } from "./MagpieProvider";
+import { magpieGroupName, magpieSummary } from "./MagpieProvider";
 import { ProviderIcon } from "./ProviderParts";
 import styles from "./Providers.module.scss";
 
@@ -50,7 +50,7 @@ export function ProviderList({ providers, magpie, magpieHashes, testResults, bus
     })}
     <ProviderRow
       icon={<ProviderIcon provider={MAGPIE_PROVIDER} size="1.6em" />}
-      name="Magpie"
+      name={magpieGroupName(magpie)}
       badge={t("本机网关")}
       detail={magpieDetail}
       status={magpieStatus}

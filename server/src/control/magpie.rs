@@ -1,6 +1,9 @@
 //! Manages the independent Magpie channel without editing manual providers.
 use super::ControlService;
-use crate::{provider::magpie::Catalog, Result};
+use crate::{
+    provider::magpie::{Catalog, Customize},
+    Result,
+};
 use axum::{extract::State, http::StatusCode, Json};
 
 pub(super) async fn status(State(service): State<ControlService>) -> Result<Json<Option<Catalog>>> {
@@ -20,4 +23,12 @@ pub(super) async fn select(
 ) -> Result<StatusCode> {
     service.magpie.select(ids).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+pub(super) async fn customize(
+    State(service): State<ControlService>,
+    Json(input): Json<Customize>,
+) -> Result<Json<Option<Catalog>>> {
+    service.magpie.customize(input).await?;
+    Ok(Json(service.magpie.catalog().await?))
 }

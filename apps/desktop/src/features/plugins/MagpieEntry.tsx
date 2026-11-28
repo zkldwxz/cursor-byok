@@ -47,7 +47,7 @@ export function MagpieEntry() {
         </span>
         <div className={styles.pluginIdentity}>
           <span className={styles.pluginTitle}>
-            <span className={styles.pluginName}>Magpie</span>
+            <span className={styles.pluginName}>{catalog?.group_name?.trim() || "Magpie"}</span>
             <span className={styles.builtinTag}>{t("内置")}</span>
           </span>
           <span className={styles.pluginDescription}>{t("本机网关，无需 API Key；自动发现并每 10 分钟同步模型目录")}</span>

@@ -138,6 +138,7 @@ pub fn api_router(service: ControlService) -> Router {
         )
         .route("/__byok-api__/api/providers/magpie",get(magpie::status).post(magpie::connect).delete(magpie::disconnect))
         .route("/__byok-api__/api/providers/magpie/selection",put(magpie::select))
+        .route("/__byok-api__/api/providers/magpie/customize",put(magpie::customize))
         .route("/__byok-api__/api/settings/vision", get(settings::get_vision).put(settings::update_vision))
         .route("/__byok-api__/api/settings/semantic-search", get(settings::get_semantic_search).put(settings::update_semantic_search))
         .route("/__byok-api__/api/models/discover", post(models::discover))
