@@ -42,6 +42,8 @@ pub struct ToolDispatcher {
     fetch: WebFetch,
     /// Present where a store is: the channel's image model, when one is configured.
     images: Option<ImageGeneration>,
+    /// The store the desktop language is read from, where one is configured.
+    store: Option<Store>,
     semantic: SemanticPackage,
     edit_schedule: Arc<Mutex<EditSchedule>>,
 }
@@ -81,6 +83,7 @@ impl ToolDispatcher {
             search: WebSearch::built_in(),
             fetch: WebFetch::built_in(),
             images: None,
+            store: None,
             semantic: SemanticPackage::built_in(),
             edit_schedule: Arc::new(Mutex::new(EditSchedule::default())),
         };
@@ -105,6 +108,7 @@ impl ToolDispatcher {
             images: Some(ImageGeneration::new(store.clone())),
             search: WebSearch::managed(store.clone()),
             fetch: WebFetch::managed(store.clone(), web_cache),
+            store: Some(store),
             semantic,
             edit_schedule: Arc::new(Mutex::new(EditSchedule::default())),
         }
@@ -248,6 +252,7 @@ impl ToolDispatcher {
             &self.runtime,
             &self.results,
             &self.semantic,
+            self.store.as_ref(),
             &call,
             message_index,
             dynamic_mcp,
@@ -291,6 +296,7 @@ impl ToolDispatcher {
             &self.search,
             &self.fetch,
             self.images.as_ref(),
+            self.store.as_ref(),
             pending,
             response,
         )

@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { api } from "../shared/api";
 import { setRuntimeLocale, type Locale } from "./runtime";
 
 export type LocalePreference = "system" | Locale;
@@ -38,12 +39,21 @@ function readPreference(): LocalePreference {
   }
 }
 
+// The server writes the local_run approval question into Cursor in this
+// language, so the app reports it whenever it is resolved.
+function reportLocale(locale: Locale) {
+  api.setDesktopLanguage(locale).catch((error) => {
+    console.warn("report interface language:", error);
+  });
+}
+
 function applyPreference(preference: LocalePreference, notify: boolean) {
   const locale = preference === "system" ? resolveSystemLocale() : preference;
   const changed = snapshot.preference !== preference || snapshot.locale !== locale;
   snapshot = { preference, locale };
   setRuntimeLocale(locale);
   document.documentElement.lang = locale;
+  reportLocale(locale);
   if (notify && changed) listeners.forEach((listener) => listener());
 }
 

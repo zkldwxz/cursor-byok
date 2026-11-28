@@ -15,6 +15,7 @@ use crate::{
     model::ToolCall,
     provider::images::ImageGeneration,
     search::{WebFetch, WebSearch},
+    store::Store,
     Error, Result,
 };
 
@@ -44,6 +45,7 @@ pub(super) async fn start(
     runtime: &CursorToolRuntime,
     results: &ToolResultSender,
     package: &SemanticPackage,
+    store: Option<&Store>,
     call: &ToolCall,
     message_index: usize,
     dynamic_mcp: &BTreeMap<String, pb::McpToolDefinition>,
@@ -54,7 +56,7 @@ pub(super) async fn start(
     }
 
     if devtools::is_local_mcp(call) {
-        return devtools::start(runtime, results, call).await;
+        return devtools::start(runtime, results, store, call).await;
     }
     if is_mcp_auth(call) {
         return interaction::start(runtime, call, context).await;
@@ -174,11 +176,12 @@ pub(super) async fn resume_interaction(
     search: &WebSearch,
     fetch: &WebFetch,
     images: Option<&ImageGeneration>,
+    store: Option<&Store>,
     pending: PendingInteraction,
     response: &pb::InteractionResponse,
 ) -> Result<ToolStart> {
     if devtools::is_local_run(&pending.call) {
-        return devtools::resume(results, pending, response);
+        return devtools::resume(results, store, pending, response).await;
     }
     interaction::resume(results, search, fetch, images, pending, response).await
 }

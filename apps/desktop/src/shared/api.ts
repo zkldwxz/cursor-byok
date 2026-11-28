@@ -24,6 +24,8 @@ export interface MagpieCatalog {
   /** The channel's default image model for GenerateImage; none until one is chosen. */
   image_model?: string | null;
 }
+
+/** One customize call carries only what changed; an empty alias clears it, a null protocol clears it. */
 export interface MagpieCustomize {
   group_name?: string | null;
   aliases?: Record<string, string>;
@@ -32,11 +34,11 @@ export interface MagpieCustomize {
   image_model?: string;
 }
 
+export type VisionSettings = { mode: "cursor" } | { mode: "model"; model_id: string } | { mode: "mcp"; url: string; tool: string };
+
 export interface SemanticSearchSettings {
   enabled: boolean;
 }
-
-export type VisionSettings = { mode: "cursor" } | { mode: "model"; model_id: string } | { mode: "mcp"; url: string; tool: string };
 
 export interface Model {
   supports_images: boolean;
@@ -218,6 +220,8 @@ export interface TabSettings {
 export interface DesktopSettings {
   silent_start: boolean;
   show_dock_icon: boolean;
+  /** The interface language the app reports; prompts the server writes into Cursor follow it. */
+  language?: string;
 }
 
 export interface CommitSettings {
@@ -687,11 +691,11 @@ export const api = {
   setTabSettings: (settings: TabSettings) => request<TabSettings>("/settings/tab", { method: "PUT", body: JSON.stringify(settings) }),
   desktopSettings: () => request<DesktopSettings>("/settings/desktop"),
   setDesktopSettings: (settings: DesktopSettings) => request<DesktopSettings>("/settings/desktop", { method: "PUT", body: JSON.stringify(settings) }),
+  setDesktopLanguage: (language: string) => request<DesktopSettings>("/settings/desktop/language", { method: "PUT", body: JSON.stringify({ language }) }),
   visionSettings: () => request<VisionSettings>("/settings/vision"),
+  setVisionSettings: (settings: VisionSettings) => request<VisionSettings>("/settings/vision", { method: "PUT", body: JSON.stringify(settings) }),
   semanticSearchSettings: () => request<SemanticSearchSettings>("/settings/semantic-search"),
   setSemanticSearchSettings: (settings: SemanticSearchSettings) => request<SemanticSearchSettings>("/settings/semantic-search", { method: "PUT", body: JSON.stringify(settings) }),
-
-  setVisionSettings: (settings: VisionSettings) => request<VisionSettings>("/settings/vision", { method: "PUT", body: JSON.stringify(settings) }),
   commitSettings: (locale: Locale) => request<CommitSettingsView>("/settings/commit", { headers: { "accept-language": locale } }),
   setCommitSettings: (settings: CommitSettings) => request<CommitSettingsView>("/settings/commit", { method: "PUT", body: JSON.stringify(settings) }),
   modelPrices: () => request<ModelPriceEntry[]>("/model-prices"),

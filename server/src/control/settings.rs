@@ -156,6 +156,20 @@ pub async fn update_desktop(
     get_desktop(State(service)).await
 }
 
+#[derive(Deserialize)]
+pub struct DesktopLanguage {
+    pub language: String,
+}
+
+/// The desktop app reports its interface language here, so prompts the server
+/// writes into Cursor (the local_run approval) follow it.
+pub async fn update_desktop_language(
+    State(service): State<ControlService>,
+    Json(body): Json<DesktopLanguage>,
+) -> Result<Json<DesktopSettings>> {
+    Ok(Json(service.set_desktop_language(&body.language).await?))
+}
+
 /// Settings view for commit message generation. Empty `model_id` means 直连
 /// (forward the original Cursor RPC). A non-empty value is a configured
 /// built-in or plugin model identifier. Empty `prompt` means "use the built-in default".

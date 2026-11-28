@@ -16,6 +16,7 @@ use crate::{
         tool_call_result::{self as result, ToolCompletion, ToolResultSender},
     },
     model::ToolCall,
+    store::Store,
     Error, Result,
 };
 
@@ -37,6 +38,7 @@ pub(super) fn is_local_run(call: &ToolCall) -> bool {
 pub(super) async fn start(
     runtime: &CursorToolRuntime,
     results: &ToolResultSender,
+    store: Option<&Store>,
     call: &ToolCall,
 ) -> Result<ToolStart> {
     let (name, arguments) = tool_arguments(call)?;
@@ -53,7 +55,7 @@ pub(super) async fn start(
         // Resolve the cwd before showing it so approval and execution share the same input.
         approved_call.arguments["arguments"]["cwd"] = json!(local.cwd);
         let id = runtime.reserve_interaction(&approved_call, "").await?;
-        let question = approval_question(&approved_call)?;
+        let question = approval_question(&approved_call, desktop_chinese(store).await)?;
         messages.push(codec::tool_started(&question, None)?);
         messages.push(codec::tool_query(id, &question)?);
     } else {
@@ -72,12 +74,13 @@ pub(super) async fn start(
     })
 }
 
-pub(super) fn resume(
+pub(super) async fn resume(
     results: &ToolResultSender,
+    store: Option<&Store>,
     pending: PendingInteraction,
     response: &pb::InteractionResponse,
 ) -> Result<ToolStart> {
-    let messages = settle_question(&pending, response)?;
+    let messages = settle_question(&pending, response, desktop_chinese(store).await)?;
     let failure = |message: String| -> Result<ToolStart> {
         Ok(ToolStart {
             messages: messages.clone(),
@@ -102,10 +105,24 @@ pub(super) fn resume(
     })
 }
 
+/// Whether the desktop interface is in Chinese, so the approval question the
+/// user answers in Cursor is written in it. Without a store (tests, direct
+/// dispatch) the question is English.
+async fn desktop_chinese(store: Option<&Store>) -> bool {
+    let Some(store) = store else {
+        return false;
+    };
+    store
+        .desktop_settings()
+        .await
+        .map(|settings| settings.language.to_lowercase().starts_with("zh"))
+        .unwrap_or(false)
+}
+
 /// The approval is a separate card: Cursor finds a question's card by its call
 /// id, and the local_run call's id already belongs to an MCP card, which cannot
 /// display a question.
-fn approval_question(call: &ToolCall) -> Result<ToolCall> {
+fn approval_question(call: &ToolCall, chinese: bool) -> Result<ToolCall> {
     let arguments = tool_arguments(call)?.1;
     let text = |name: &str| {
         arguments
@@ -116,11 +133,19 @@ fn approval_question(call: &ToolCall) -> Result<ToolCall> {
     let mut question = call.clone();
     question.call_id = format!("{}-approval", call.call_id);
     question.name = "AskQuestion".into();
-    question.arguments = json!({"title":"Run a command on this desktop?", "questions":[{
-        "id": QUESTION,
-        "prompt": format!("Desktop directory: {}\nCommand:\n{}", text("cwd"), text("command")),
-        "options":[{"id": APPROVE,"label":"Run once"},{"id":"deny","label":"Reject"}]
-    }]});
+    question.arguments = if chinese {
+        json!({"title":"要在这台电脑上运行命令吗？", "questions":[{
+            "id": QUESTION,
+            "prompt": format!("电脑目录：{}\n命令：\n{}", text("cwd"), text("command")),
+            "options":[{"id": APPROVE,"label":"运行一次"},{"id":"deny","label":"拒绝"}]
+        }]})
+    } else {
+        json!({"title":"Run a command on this desktop?", "questions":[{
+            "id": QUESTION,
+            "prompt": format!("Desktop directory: {}\nCommand:\n{}", text("cwd"), text("command")),
+            "options":[{"id": APPROVE,"label":"Run once"},{"id":"deny","label":"Reject"}]
+        }]})
+    };
     question.arguments_text = question.arguments.to_string();
     Ok(question)
 }
@@ -130,13 +155,14 @@ fn approval_question(call: &ToolCall) -> Result<ToolCall> {
 fn settle_question(
     pending: &PendingInteraction,
     response: &pb::InteractionResponse,
+    chinese: bool,
 ) -> Result<Vec<pb::AgentServerMessage>> {
     use pb::interaction_response::Result::AskQuestionInteractionResponse;
     if !matches!(response.result.as_ref(), Some(AskQuestionInteractionResponse(reply)) if reply.result.is_some())
     {
         return Ok(Vec::new());
     }
-    let question = approval_question(&pending.call)?;
+    let question = approval_question(&pending.call, chinese)?;
     let completion = result::from_interaction(
         PendingInteraction {
             call: question.clone(),

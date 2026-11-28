@@ -117,12 +117,16 @@ pub struct TabSettings {
     pub address: String,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub struct DesktopSettings {
     #[serde(default)]
     pub silent_start: bool,
     #[serde(default = "default_true")]
     pub show_dock_icon: bool,
+    /// The interface language the desktop app last reported, e.g. zh-CN;
+    /// empty until the app reports one.
+    #[serde(default)]
+    pub language: String,
 }
 
 impl Default for DesktopSettings {
@@ -130,6 +134,7 @@ impl Default for DesktopSettings {
         Self {
             silent_start: false,
             show_dock_icon: true,
+            language: String::new(),
         }
     }
 }
@@ -550,6 +555,15 @@ impl Store {
         .execute(&self.pool)
         .await?;
         Ok(())
+    }
+
+    /// Records the language the desktop interface is in, merging it into the
+    /// saved desktop settings so a partial write cannot drop the others.
+    pub async fn set_desktop_language(&self, language: &str) -> Result<DesktopSettings> {
+        let mut settings = self.desktop_settings().await?;
+        settings.language = language.into();
+        self.set_desktop_settings(settings.clone()).await?;
+        Ok(settings)
     }
 
     pub async fn commit_settings(&self) -> Result<CommitSettings> {
