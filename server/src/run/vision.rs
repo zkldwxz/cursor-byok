@@ -112,31 +112,66 @@ impl ImageReaders<'_> {
                 {
                     Some(text) => text,
                     None => {
-                        let text = match &settings {
+                        let described = match &settings {
                             VisionSettings::Cursor => {
                                 match self.cursor {
-                                    Some(cursor) => cursor.describe(&upstream_id, mime_type, data, &question).await?.unwrap_or_else(|| {
-                                        "[Image not analyzed: Cursor marked this image description inapplicable.]".to_owned()
-                                    }),
-                                    None => "[Image not analyzed: no authenticated Cursor session is available.]".to_owned(),
+                                    // Not analyzed is a state of the reader, not a
+                                    // description of the image. Caching it would pin
+                                    // the failure forever: switching the vision model
+                                    // later could never re-read the image.
+                                    Some(cursor) => {
+                                        cursor
+                                            .describe(&upstream_id, mime_type, data, &question)
+                                            .await?
+                                    }
+                                    None => None,
                                 }
                             }
                             VisionSettings::Model { model_id } => {
-                                let (accepts_images, _) = model_image_support(self.store, self.plugins, model_id).await?;
+                                let (accepts_images, _) =
+                                    model_image_support(self.store, self.plugins, model_id).await?;
                                 if !accepts_images {
-                                    return Err(Error::Config(format!("selected vision model {model_id} does not accept images")));
+                                    return Err(Error::Config(format!(
+                                        "selected vision model {model_id} does not accept images"
+                                    )));
                                 }
-                                self.describe_with_model(run, model_id, &question, part.clone(), cancellation).await?
+                                Some(
+                                    self.describe_with_model(
+                                        run,
+                                        model_id,
+                                        &question,
+                                        part.clone(),
+                                        cancellation,
+                                    )
+                                    .await?,
+                                )
                             }
                             VisionSettings::Mcp { url, tool } => {
                                 let call = describe_with_mcp(url, tool, &question, mime_type, data);
-                                tokio::time::timeout(std::time::Duration::from_secs(180), call)
-                                    .await.map_err(|_| Error::Provider(format!("vision MCP tool {tool} timed out")))??
+                                Some(
+                                    tokio::time::timeout(std::time::Duration::from_secs(180), call)
+                                        .await
+                                        .map_err(|_| {
+                                            Error::Provider(format!(
+                                                "vision MCP tool {tool} timed out"
+                                            ))
+                                        })??,
+                                )
                             }
                         };
-                        self.store
-                            .save_image_description(conversation, message_id, &digest, &text)
-                            .await?
+                        match described {
+                            Some(text) => {
+                                self.store
+                                    .save_image_description(conversation, message_id, &digest, &text)
+                                    .await?
+                            }
+                            None if self.cursor.is_none() => {
+                                "[Image not analyzed: no authenticated Cursor session is available.]".to_owned()
+                            }
+                            None => {
+                                "[Image not analyzed: Cursor marked this image description inapplicable.]".to_owned()
+                            }
+                        }
                     }
                 };
                 *part = ContentPart::Text {
