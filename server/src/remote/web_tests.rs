@@ -110,7 +110,7 @@ impl Computer {
 
     async fn token(&self) -> String {
         let code = self.access.new_pairing_code();
-        let paired = self.access.pair(&code, "phone").await;
+        let paired = self.access.pair(&code, "phone", None).await;
         paired.unwrap().unwrap()
     }
 

@@ -72,6 +72,11 @@ pub(crate) struct RemoteDevice {
     pub name: String,
     pub paired_at_ms: i64,
     pub token_hash: [u8; 32],
+    /// The install id the phone reports at pairing, by which a re-pairing
+    /// finds this entry instead of adding the same phone again; absent in
+    /// what was kept before there was one.
+    #[serde(default)]
+    pub device_id: Option<String>,
 }
 
 impl RelaySettings {
