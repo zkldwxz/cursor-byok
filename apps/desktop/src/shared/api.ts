@@ -2,6 +2,8 @@ import type { CommitPromptLocale, Locale } from "../i18n/runtime";
 
 export type ModelType = "openai" | "anthropic";
 
+export type MagpieProtocol = "anthropic" | "openai_chat" | "openai_responses";
+
 export interface MagpieCatalog {
   port: number;
   models: {
@@ -11,8 +13,23 @@ export interface MagpieCatalog {
     context_window?: number | null;
     reasoning?: boolean;
     modalities?: { input: string[] } | null;
+    native_endpoints?: string[];
   }[];
   disabled: string[];
+  /** Display overrides by gateway model id. */
+  aliases: Record<string, string>;
+  /** Wire protocol overrides by gateway model id; absent ids follow the gateway's native serving. */
+  protocols: Record<string, MagpieProtocol>;
+  group_name?: string | null;
+  /** The channel's default image model for GenerateImage; none until one is chosen. */
+  image_model?: string | null;
+}
+export interface MagpieCustomize {
+  group_name?: string | null;
+  aliases?: Record<string, string>;
+  protocols?: Record<string, MagpieProtocol | null>;
+  /** The default image model; an empty string clears it. */
+  image_model?: string;
 }
 
 export interface SemanticSearchSettings {
@@ -593,6 +610,7 @@ export const api = {
   connectMagpie: () => request<void>("/providers/magpie", {method: "POST"}),
   disconnectMagpie: () => request<void>("/providers/magpie", {method: "DELETE"}),
   selectMagpieModels: (ids: string[]) => request<void>("/providers/magpie/selection", {method: "PUT", body: JSON.stringify(ids)}),
+  customizeMagpie: (input: MagpieCustomize) => request<MagpieCatalog | null>("/providers/magpie/customize", {method: "PUT", body: JSON.stringify(input)}),
   models: () => request<Model[]>("/models"),
   createModels: (models: ModelInput[]) => request<Model[]>("/models", { method: "POST", body: JSON.stringify({ models }) }),
   reorderModels: (modelHashes: string[]) => request<Model[]>("/models/order", { method: "PUT", body: JSON.stringify({ model_hashes: modelHashes }) }),

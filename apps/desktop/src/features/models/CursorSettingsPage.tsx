@@ -9,7 +9,7 @@ import { MAGPIE_PROVIDER, manualProviders, mergeOrder, pluginProviders, type Man
 import styles from "./CursorSettings.module.scss";
 import { PageContent } from "../../shell/layout/PageContent";
 import { LegacyModelImport } from "./LegacyModelImport";
-import { MagpiePage, magpieSummary, useMagpieCatalog } from "./MagpieProvider";
+import { MagpiePage, magpieGroupName, magpieSummary, useMagpieCatalog } from "./MagpieProvider";
 import { ProviderList, protocolLabel } from "./ProviderList";
 import { ProviderPage } from "./ProviderPage";
 import { ProviderIcon, ProviderTitle } from "./ProviderParts";
@@ -349,7 +349,7 @@ export function CursorSettingsPage() {
     ? ((magpie.catalog?.models.length ?? 0) + 2) * rowHeight
     : opened ? opened.models.length * rowHeight : (providers.length + 2) * rowHeight);
   const title = opened === MAGPIE_PROVIDER
-    ? <ProviderTitle icon={<ProviderIcon provider={MAGPIE_PROVIDER} size="0.9em" />} name="Magpie" detail={magpie.catalog ? magpieSummary(magpie.catalog) : undefined} onBack={() => open(null)} />
+    ? <ProviderTitle icon={<ProviderIcon provider={MAGPIE_PROVIDER} size="0.9em" />} name={magpieGroupName(magpie.catalog)} detail={magpie.catalog ? magpieSummary(magpie.catalog) : undefined} onBack={() => open(null)} />
     : opened
       ? <ProviderTitle icon={<ProviderIcon provider={opened} size="0.9em" />} name={opened.name}
         detail={[opened.kind === "manual" && opened.host !== opened.name ? opened.host : null, protocolLabel(opened), t("{count} 个模型", { count: opened.models.length })].filter(Boolean).join(" · ")}

@@ -159,8 +159,25 @@ export function installDemoApi() {
     if (path === "/models" && method === "GET") return json([...models, ...magpieCursorModels()]);
     if (path === "/providers/magpie" && method === "GET") return json(magpie);
     if (path === "/providers/magpie" && method === "POST") {
-      magpie = { port: 18_642, models: magpieModels, disabled: magpie?.disabled ?? ["openai/gpt-5.2-mini", "deepseek/deepseek-v3.2"] };
+      magpie = { port: 18_642, models: magpieModels, disabled: magpie?.disabled ?? ["openai/gpt-5.2-mini", "deepseek/deepseek-v3.2"], aliases: magpie?.aliases ?? {}, protocols: magpie?.protocols ?? {}, group_name: magpie?.group_name ?? null, image_model: magpie?.image_model ?? null };
       return empty();
+    }
+    if (path === "/providers/magpie/customize" && method === "PUT" && magpie) {
+      const input = body as { group_name?: string | null; aliases?: Record<string, string>; protocols?: Record<string, string | null>; image_model?: string };
+      const aliases = { ...magpie.aliases };
+      for (const [id, alias] of Object.entries(input.aliases ?? {})) {
+        if (alias) aliases[id] = alias;
+        else delete aliases[id];
+      }
+      const protocols = { ...magpie.protocols };
+      for (const [id, protocol] of Object.entries(input.protocols ?? {})) {
+        if (protocol) protocols[id] = protocol as MagpieCatalog["protocols"][string];
+        else delete protocols[id];
+      }
+      const group = input.group_name?.trim();
+      const image = input.image_model?.trim();
+      magpie = { ...magpie, aliases, protocols, group_name: input.group_name === undefined ? magpie.group_name : (group && group !== "Magpie" ? group : null), image_model: input.image_model === undefined ? magpie.image_model : (image || null) };
+      return json(magpie);
     }
     if (path === "/providers/magpie" && method === "DELETE") {
       magpie = null;

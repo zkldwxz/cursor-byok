@@ -39,6 +39,39 @@ pub(crate) struct Catalog {
     pub port: u16,
     pub models: Vec<GatewayModel>,
     pub disabled: HashSet<String>,
+    /// Display overrides by gateway model id, kept across catalog refreshes.
+    #[serde(default)]
+    pub aliases: std::collections::HashMap<String, String>,
+    /// Protocol overrides by gateway model id; absent means "what the gateway natively serves".
+    #[serde(default)]
+    pub protocols: std::collections::HashMap<String, Protocol>,
+    /// The provider group's display name; "Magpie" while the user never renamed it.
+    #[serde(default)]
+    pub group_name: Option<String>,
+    /// The channel's default image model for GenerateImage; none until one is chosen.
+    #[serde(default)]
+    pub image_model: Option<String>,
+}
+
+/// How BYOK talks to the gateway for one model. The gateway accepts every
+/// protocol it serves, so the choice is about what the upstream behind the
+/// gateway receives, and it natively serves only some of them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum Protocol {
+    Anthropic,
+    OpenAiChat,
+    OpenAiResponses,
+}
+
+impl Protocol {
+    fn endpoint(self) -> &'static str {
+        match self {
+            Self::Anthropic => "/v1/messages",
+            Self::OpenAiChat => "/v1/chat/completions",
+            Self::OpenAiResponses => "/v1/responses",
+        }
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -53,6 +86,9 @@ pub(crate) struct GatewayModel {
     #[serde(default)]
     reasoning: bool,
     modalities: Option<Modalities>,
+    /// What the gateway serves natively for this model, as endpoint paths.
+    #[serde(default)]
+    native_endpoints: Vec<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -62,12 +98,54 @@ struct Modalities {
 }
 
 impl Catalog {
+    fn protocol(&self, model: &GatewayModel) -> Protocol {
+        if let Some(protocol) = self.protocols.get(&model.id) {
+            return *protocol;
+        }
+        // Prefer the wire protocol the upstream natively speaks; Anthropic
+        // first because the gateway's translation loses the least there.
+        for protocol in [
+            Protocol::Anthropic,
+            Protocol::OpenAiResponses,
+            Protocol::OpenAiChat,
+        ] {
+            if model
+                .native_endpoints
+                .iter()
+                .any(|endpoint| endpoint == protocol.endpoint())
+            {
+                return protocol;
+            }
+        }
+        Protocol::Anthropic
+    }
+
+    pub(crate) fn group_name(&self) -> &str {
+        self.group_name.as_deref().unwrap_or("Magpie")
+    }
+
     pub(crate) fn configurations(&self) -> impl Iterator<Item = ModelConfig> + '_ {
         self.models
             .iter()
             .filter(|m| !self.disabled.contains(&m.id))
-            .map(|m| {
+            .map(move |m| {
                 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+                let protocol = self.protocol(m);
+                let (model_type, openai_endpoint) = match protocol {
+                    Protocol::Anthropic => (ModelType::Anthropic, String::new()),
+                    Protocol::OpenAiChat => (
+                        ModelType::OpenAi,
+                        crate::model::OPENAI_CHAT_ENDPOINT.to_owned(),
+                    ),
+                    Protocol::OpenAiResponses => (
+                        ModelType::OpenAi,
+                        crate::model::OPENAI_RESPONSES_ENDPOINT.to_owned(),
+                    ),
+                };
+                let (max_completion_tokens, anthropic_max_tokens) = match model_type {
+                    ModelType::OpenAi => (m.max_output_tokens, None),
+                    ModelType::Anthropic => (None, m.max_output_tokens),
+                };
                 ModelConfig {
                     supports_images: m
                         .modalities
@@ -75,21 +153,22 @@ impl Catalog {
                         .is_some_and(|m| m.input.iter().any(|s| s == "image")),
                     model_hash: format!("{PREFIX}{}", URL_SAFE_NO_PAD.encode(&m.id)),
                     sort_order: i64::MAX,
-                    display_name: m
-                        .magpie_label
-                        .as_ref()
+                    display_name: self
+                        .aliases
+                        .get(&m.id)
+                        .or(m.magpie_label.as_ref())
                         .or(m.display_name.as_ref())
                         .unwrap_or(&m.id)
                         .clone(),
-                    group_name: Some("Magpie".into()),
-                    model_type: ModelType::Anthropic,
+                    group_name: Some(self.group_name().to_owned()),
+                    model_type,
                     base_url: format!("http://127.0.0.1:{}", self.port),
                     use_full_url: false,
                     api_key: APP_KEY.into(),
-                    tooltip_data: "Magpie".into(),
+                    tooltip_data: self.group_name().to_owned(),
                     model_id: m.id.clone(),
                     reasoning_effort: None,
-                    openai_endpoint: String::new(),
+                    openai_endpoint,
                     openai_extra_params_enabled: false,
                     openai_extra_params: json!({}),
                     custom_headers_enabled: true,
@@ -97,8 +176,8 @@ impl Catalog {
                     anthropic_extra_params_enabled: false,
                     anthropic_extra_params: json!({}),
                     context_window_tokens: m.context_window,
-                    max_completion_tokens: None,
-                    anthropic_max_tokens: m.max_output_tokens,
+                    max_completion_tokens,
+                    anthropic_max_tokens,
                     anthropic_thinking_effort: None,
                     thinking_budget_tokens: None,
                     created_at_ms: 0,
@@ -110,6 +189,20 @@ impl Catalog {
                 }
             })
     }
+}
+
+/// What the user changed about how the gateway's models show up and are reached.
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(crate) struct Customize {
+    #[serde(default)]
+    pub group_name: Option<String>,
+    #[serde(default)]
+    pub aliases: std::collections::HashMap<String, String>,
+    #[serde(default)]
+    pub protocols: std::collections::HashMap<String, Option<Protocol>>,
+    /// The default image model; an empty string clears it. Absent leaves it.
+    #[serde(default)]
+    pub image_model: Option<String>,
 }
 
 #[derive(Clone)]
@@ -174,10 +267,25 @@ impl Magpie {
                 "Magpie catalog contains an empty or duplicate model ID".into(),
             ));
         }
-        let catalog = Catalog {
-            port,
-            models,
-            disabled: previous.map(|c| c.disabled).unwrap_or_default(),
+        let catalog = match previous {
+            Some(previous) => Catalog {
+                port,
+                models,
+                disabled: previous.disabled,
+                aliases: previous.aliases,
+                protocols: previous.protocols,
+                group_name: previous.group_name,
+                image_model: previous.image_model,
+            },
+            None => Catalog {
+                port,
+                models,
+                disabled: HashSet::new(),
+                aliases: Default::default(),
+                protocols: Default::default(),
+                group_name: None,
+                image_model: None,
+            },
         };
         self.store.save_magpie_catalog(Some(&catalog)).await?;
         *refreshed = Some(Instant::now());
@@ -196,6 +304,48 @@ impl Magpie {
                 catalog.disabled.remove(&model.id);
             } else {
                 catalog.disabled.insert(model.id.clone());
+            }
+        }
+        self.store.save_magpie_catalog(Some(&catalog)).await
+    }
+
+    pub(crate) async fn customize(&self, input: Customize) -> Result<()> {
+        let _guard = self.refreshed.lock().await;
+        let mut catalog = self
+            .catalog()
+            .await?
+            .ok_or_else(|| Error::Config("Magpie is not connected".into()))?;
+        if let Some(group_name) = input.group_name {
+            let trimmed = group_name.trim();
+            catalog.group_name =
+                (!trimmed.is_empty() && trimmed != "Magpie").then(|| trimmed.to_owned());
+        }
+        for (id, alias) in input.aliases {
+            if !catalog.models.iter().any(|model| model.id == id) {
+                return Err(Error::Config(format!("Magpie has no model {id}")));
+            }
+            let trimmed = alias.trim();
+            if trimmed.is_empty() {
+                catalog.aliases.remove(&id);
+            } else {
+                catalog.aliases.insert(id, trimmed.to_owned());
+            }
+        }
+        if let Some(image_model) = input.image_model {
+            let trimmed = image_model.trim();
+            catalog.image_model = (!trimmed.is_empty()).then(|| trimmed.to_owned());
+        }
+        for (id, protocol) in input.protocols {
+            if !catalog.models.iter().any(|model| model.id == id) {
+                return Err(Error::Config(format!("Magpie has no model {id}")));
+            }
+            match protocol {
+                Some(protocol) => {
+                    catalog.protocols.insert(id, protocol);
+                }
+                None => {
+                    catalog.protocols.remove(&id);
+                }
             }
         }
         self.store.save_magpie_catalog(Some(&catalog)).await

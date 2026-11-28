@@ -1,11 +1,14 @@
 //! The local Magpie gateway as a provider: connect it, choose which of its chat models Cursor offers, and test them.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, type MagpieCatalog, type Model } from "../../shared/api";
+import { api, type MagpieCatalog, type MagpieCustomize, type MagpieProtocol, type Model } from "../../shared/api";
 import { appStore } from "../../shared/store/appStore";
 import { Card } from "../../shared/ui/Card";
 import controls from "../../shared/ui/Controls.module.scss";
+import { FormField, TextInput } from "../../shared/ui/FormControls";
 import { Icon } from "../../shared/ui/Icon";
-import { checkIcon, searchIcon } from "../../shared/ui/icons";
+import { checkIcon, editIcon, searchIcon } from "../../shared/ui/icons";
+import { Modal } from "../../shared/ui/Modal";
+import { Select } from "../../shared/ui/Select";
 import { brandIconUrl } from "../../shared/utils/brandIcons";
 import { useMessage } from "../../shared/ui/message";
 import { TruncatedButton } from "../../shared/ui/TruncatedButton";
@@ -27,6 +30,16 @@ const knownVendors = new Map([
 ]);
 
 export const enabledMagpieModels = (catalog: MagpieCatalog) => catalog.models.filter(model => !catalog.disabled.includes(model.id));
+
+export const magpieGroupName = (catalog: MagpieCatalog | null | undefined) => catalog?.group_name?.trim() || "Magpie";
+const magpieModelName = (catalog: MagpieCatalog, model: GatewayModel) => catalog.aliases?.[model.id] || model.magpie_label || model.display_name || model.id;
+
+const protocolOptions = () => [
+  { value: "", label: t("跟随网关") },
+  { value: "anthropic", label: "Anthropic /v1/messages" },
+  { value: "openai_responses", label: "OpenAI /v1/responses" },
+  { value: "openai_chat", label: "OpenAI /v1/chat/completions" },
+];
 
 export const magpieSummary = (catalog: MagpieCatalog) =>
   `127.0.0.1:${catalog.port} · ${t("已启用 {enabled} / {total} 个模型", { enabled: enabledMagpieModels(catalog).length, total: catalog.models.length })}`;
@@ -57,6 +70,8 @@ export function MagpiePage({ catalog, setCatalog, models, busy: pageBusy, testin
 }) {
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [customizing, setCustomizing] = useState<GatewayModel | null>(null);
   const saving = useRef(Promise.resolve());
   const message = useMessage();
   const cursorModels = useMemo(() => new Map(models.map(model => [model.model_id, model])), [models]);
@@ -95,11 +110,18 @@ export function MagpiePage({ catalog, setCatalog, models, busy: pageBusy, testin
     });
   };
 
+  // Names and protocols change how Cursor registers the models, so the model list reloads after each save.
+  const customize = async (input: MagpieCustomize) => {
+    const next = await api.customizeMagpie(input);
+    setCatalog(next);
+    await appStore.refresh();
+  };
+
   const groups = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const result = new Map<string, GatewayModel[]>();
     for (const model of catalog?.models ?? []) {
-      const name = model.magpie_label ?? model.display_name ?? model.id;
+      const name = catalog ? magpieModelName(catalog, model) : model.id;
       if (needle && !`${model.id} ${name}`.toLowerCase().includes(needle)) continue;
       const key = vendor(model.id);
       result.set(key, [...(result.get(key) ?? []), model]);
@@ -135,6 +157,7 @@ export function MagpiePage({ catalog, setCatalog, models, busy: pageBusy, testin
       <div className={styles.segmented}>
         <button type="button" disabled={pageBusy || models.length === 0} onClick={() => onTestAll(models)}>{batchTesting ? t("取消全部测试") : t("一键测试")}</button>
         <button type="button" disabled={busy} onClick={() => void connect()}>{t("同步目录")}</button>
+        <button type="button" disabled={busy} onClick={() => setRenaming(true)}>{t("设置")}</button>
         <button type="button" disabled={busy} onClick={() => void disconnect()}>{t("断开连接")}</button>
       </div>
     </PageActions>
@@ -154,7 +177,7 @@ export function MagpiePage({ catalog, setCatalog, models, busy: pageBusy, testin
           </div>
             {group.map(model => {
               const on = !catalog.disabled.includes(model.id);
-              const name = model.magpie_label ?? model.display_name ?? model.id;
+              const name = magpieModelName(catalog, model);
               const cursorModel = on ? cursorModels.get(model.id) : undefined;
               const running = cursorModel ? testing.has(cursorModel.model_hash) : false;
               return <ModelRow
@@ -166,14 +189,87 @@ export function MagpiePage({ catalog, setCatalog, models, busy: pageBusy, testin
                 badges={[...(model.reasoning ? [t("推理")] : []), ...(model.modalities?.input.includes("image") ? [t("图片")] : [])]}
                 context={model.context_window ?? null}
                 leading={<ModelCheck checked={on} label={t("启用 {model}", { model: name })} onChange={checked => select([model.id], checked)} />}
-                trailing={cursorModel && <div className={styles.actions}>
-                  <CursorModelTestResult compact state={testResults.get(cursorModel.model_hash)} testing={running} />
-                  <TruncatedButton size="small" disabled={pageBusy && !running} label={running ? t("取消测试") : t("测试")} onClick={() => onTest(cursorModel)} />
+                trailing={<div className={styles.actions}>
+                  <button type="button" className={controls.iconButton} aria-label={t("编辑 {model}", { model: name })} onClick={() => setCustomizing(model)}><Icon icon={editIcon} size="1em" /></button>
+                  {cursorModel && <>
+                    <CursorModelTestResult compact state={testResults.get(cursorModel.model_hash)} testing={running} />
+                    <TruncatedButton size="small" disabled={pageBusy && !running} label={running ? t("取消测试") : t("测试")} onClick={() => onTest(cursorModel)} />
+                  </>}
                 </div>}
               />;
             })}
         </Card>;
       })}
     </div>}
+    <RenameGroupModal open={renaming} catalog={catalog} busy={busy} onClose={() => setRenaming(false)} onSubmit={async (name, imageModel) => {
+      await run(async () => {
+        await customize({ group_name: name, image_model: imageModel });
+        setRenaming(false);
+      });
+    }} />
+    {customizing && <CustomizeModelModal
+      catalog={catalog}
+      model={customizing}
+      busy={busy}
+      onClose={() => setCustomizing(null)}
+      onSubmit={async (alias, protocol) => {
+        await run(async () => {
+          await customize({ aliases: { [customizing.id]: alias }, protocols: { [customizing.id]: protocol } });
+          setCustomizing(null);
+        });
+      }}
+    />}
   </>;
+}
+
+function RenameGroupModal({ open, catalog, busy, onClose, onSubmit }: {
+  open: boolean;
+  catalog: MagpieCatalog;
+  busy: boolean;
+  onClose: () => void;
+  onSubmit: (name: string, imageModel: string) => void;
+}) {
+  const [name, setName] = useState(magpieGroupName(catalog));
+  const [imageModel, setImageModel] = useState(catalog.image_model ?? "");
+  useEffect(() => {
+    if (open) {
+      setName(magpieGroupName(catalog));
+      setImageModel(catalog.image_model ?? "");
+    }
+  }, [open, catalog]);
+  return <Modal open={open} title={t("渠道设置")} busy={busy} onClose={onClose} onSubmit={() => onSubmit(name, imageModel.trim())}>
+    <FormField label={t("渠道名称")} hint={t("这个渠道下的模型在 Cursor 里都归到这个组名下；清空或填 Magpie 恢复默认")}>
+      <TextInput value={name} placeholder="Magpie" onChange={event => setName(event.target.value)} />
+    </FormField>
+    <FormField label={t("默认生图模型")} hint={t("Cursor 的 GenerateImage 工具用它出图；清空关闭生图")}>
+      <TextInput value={imageModel} placeholder="gpt-image-1.5" onChange={event => setImageModel(event.target.value)} />
+    </FormField>
+  </Modal>;
+}
+
+function CustomizeModelModal({ catalog, model, busy, onClose, onSubmit }: {
+  catalog: MagpieCatalog;
+  model: GatewayModel;
+  busy: boolean;
+  onClose: () => void;
+  onSubmit: (alias: string, protocol: MagpieProtocol | null) => void;
+}) {
+  const [alias, setAlias] = useState(catalog.aliases?.[model.id] ?? "");
+  const [protocol, setProtocol] = useState<string>(catalog.protocols?.[model.id] ?? "");
+  const originalName = model.magpie_label || model.display_name || model.id;
+  const native = (model.native_endpoints ?? []).join(" ");
+  return <Modal
+    open
+    title={t("编辑 {model}", { model: originalName })}
+    busy={busy}
+    onClose={onClose}
+    onSubmit={() => onSubmit(alias.trim(), (protocol || null) as MagpieProtocol | null)}
+  >
+    <FormField label={t("显示名称")} hint={t("留空恢复网关原本的名称")}>
+      <TextInput value={alias} placeholder={originalName} onChange={event => setAlias(event.target.value)} />
+    </FormField>
+    <FormField label={t("访问协议")} hint={native ? t("网关原生支持：{endpoints}", { endpoints: native }) : t("网关会为不在原生协议里的请求做转换")}>
+      <Select value={protocol} options={protocolOptions()} ariaLabel={t("访问协议")} onChange={setProtocol} />
+    </FormField>
+  </Modal>;
 }
