@@ -98,10 +98,20 @@ async fn start_call(
     results: &ToolResultSender,
     call: &ToolCall,
 ) -> ToolStart {
+    start_with_store(runtime, results, None, call).await
+}
+
+async fn start_with_store(
+    runtime: &CursorToolRuntime,
+    results: &ToolResultSender,
+    store: Option<&crate::store::Store>,
+    call: &ToolCall,
+) -> ToolStart {
     start(
         runtime,
         results,
         &crate::cursor::tools::semantic_search::SemanticPackage::built_in(),
+        store,
         call,
         0,
         &BTreeMap::new(),
@@ -116,12 +126,22 @@ async fn respond(
     results: &ToolResultSender,
     response: &pb::InteractionResponse,
 ) -> ToolStart {
+    respond_with_store(runtime, results, None, response).await
+}
+
+async fn respond_with_store(
+    runtime: &CursorToolRuntime,
+    results: &ToolResultSender,
+    store: Option<&crate::store::Store>,
+    response: &pb::InteractionResponse,
+) -> ToolStart {
     let pending = runtime.take_interaction(response.id).await.unwrap();
     resume_interaction(
         results,
         &WebSearch::built_in(),
         &WebFetch::built_in(),
         None,
+        store,
         pending,
         response,
     )
@@ -238,4 +258,68 @@ async fn approved_local_run_returns_desktop_output_in_an_mcp_card() {
         completion.tool_call().tool,
         Some(pb::tool_call::Tool::McpToolCall(_))
     ));
+}
+
+async fn stored_store(language: &str) -> crate::store::Store {
+    let store = crate::store::Store::connect("sqlite::memory:")
+        .await
+        .unwrap();
+    store.set_desktop_language(language).await.unwrap();
+    store
+}
+
+// The user answers the approval in Cursor, so it follows the desktop app's
+// interface language rather than staying English for everyone.
+#[tokio::test]
+async fn the_approval_question_follows_the_desktop_interface_language() {
+    for (language, title, prompt_start, approve) in [
+        (
+            "zh-CN",
+            "要在这台电脑上运行命令吗？",
+            "电脑目录：",
+            "运行一次",
+        ),
+        (
+            "en-US",
+            "Run a command on this desktop?",
+            "Desktop directory:",
+            "Run once",
+        ),
+    ] {
+        let runtime = CursorToolRuntime::default();
+        let (results, _receiver) = crate::cursor::tools::tool_call_result::tool_result_channel();
+        let store = stored_store(language).await;
+        let mcp_call = call("local_run", json!({"command":"printf localized"}));
+        let started = start_with_store(&runtime, &results, Some(&store), &mcp_call).await;
+        let (id, ask) = approval_query(&started.messages);
+        let args = ask.args.as_ref().unwrap();
+        assert_eq!(args.title, title, "{language}");
+        assert!(
+            args.questions[0].prompt.starts_with(prompt_start),
+            "{language}: {}",
+            args.questions[0].prompt
+        );
+        assert_eq!(args.questions[0].options[0].label, approve, "{language}");
+        let outcome =
+            respond_with_store(&runtime, &results, Some(&store), &answer(id, "run-once")).await;
+        assert_eq!(
+            completed_ids(&outcome.messages),
+            [ask.tool_call_id.as_str()],
+            "{language}"
+        );
+    }
+}
+
+// Without a store there is no language to follow: the question is English.
+#[tokio::test]
+async fn the_approval_question_is_english_without_a_store() {
+    let runtime = CursorToolRuntime::default();
+    let (results, _receiver) = crate::cursor::tools::tool_call_result::tool_result_channel();
+    let mcp_call = call("local_run", json!({"command":"printf default-language"}));
+    let started = start_call(&runtime, &results, &mcp_call).await;
+    let (_, ask) = approval_query(&started.messages);
+    assert_eq!(
+        ask.args.as_ref().unwrap().title,
+        "Run a command on this desktop?"
+    );
 }

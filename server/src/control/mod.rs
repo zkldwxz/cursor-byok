@@ -237,6 +237,10 @@ pub fn api_router(service: ControlService) -> Router {
             get(settings::get_desktop).put(settings::update_desktop),
         )
         .route(
+            "/__byok-api__/api/settings/desktop/language",
+            axum::routing::put(settings::update_desktop_language),
+        )
+        .route(
             "/__byok-api__/api/settings/commit",
             get(settings::get_commit).put(settings::update_commit),
         )

@@ -851,6 +851,10 @@ impl ControlService {
         self.store.set_desktop_settings(settings).await
     }
 
+    pub async fn set_desktop_language(&self, language: &str) -> Result<DesktopSettings> {
+        self.store.set_desktop_language(language).await
+    }
+
     pub async fn semantic_search_enabled(&self) -> Result<bool> {
         self.store.semantic_search_enabled().await
     }
