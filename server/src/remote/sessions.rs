@@ -1,5 +1,5 @@
 //! What a phone can see of, and do with, the conversations in Cursor's Agents Window.
-use std::{collections::BTreeMap, time::Duration};
+use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use futures_util::{Stream, StreamExt};
 use prost::Message;
@@ -40,6 +40,8 @@ pub(super) struct Sessions {
     modes: MessageModes,
     ssh: SshChats,
     retries: UpstreamRetries,
+    /// Approval kinds the phone said "always" to, by session.
+    always: Arc<std::sync::Mutex<BTreeMap<String, std::collections::HashSet<&'static str>>>>,
 }
 
 /// What the agent was asked for is answered with one of these.
@@ -48,6 +50,8 @@ pub(super) struct Sessions {
 pub(super) enum Verdict {
     Approve,
     Reject,
+    /// Approve, and approve what asks the same way in this session from now on.
+    Always,
     Answers(Vec<QuestionAnswer>),
 }
 
@@ -87,6 +91,24 @@ impl Overview {
     pub fn has_workspace(&self, path: &str) -> bool {
         let open = self.open.as_ref();
         open.is_some_and(|open| open.workspaces.iter().any(|known| known == path))
+    }
+
+    /// The open workspaces of this computer, for what may be read through it:
+    /// the workspaces Cursor lists, and the ones its sessions sit in, which
+    /// the list only catches up with seconds later.
+    pub fn workspaces(&self) -> Vec<String> {
+        let Some(open) = &self.open else {
+            return Vec::new();
+        };
+        let mut workspaces = open.workspaces.clone();
+        for session in open.sessions.values() {
+            if let Some(path) = workspace_path(session.workspace.as_ref()) {
+                if !workspaces.iter().any(|known| known == path) {
+                    workspaces.push(path.to_owned());
+                }
+            }
+        }
+        workspaces
     }
 
     pub fn is_ssh(&self, session: &str) -> bool {
@@ -210,7 +232,26 @@ impl Sessions {
             modes,
             ssh,
             retries,
+            always: Default::default(),
         }
+    }
+
+    /// The phone said "always" to an approval of this kind in this session.
+    pub(super) fn always_allow(&self, session_id: &str, kind: &'static str) {
+        self.always
+            .lock()
+            .expect("always-allow lock")
+            .entry(session_id.into())
+            .or_default()
+            .insert(kind);
+    }
+
+    pub(super) fn is_always_allowed(&self, session_id: &str, kind: &'static str) -> bool {
+        self.always
+            .lock()
+            .expect("always-allow lock")
+            .get(session_id)
+            .is_some_and(|kinds| kinds.contains(kind))
     }
 
     /// Which time its model is being tried again; `None` while it answers.
@@ -481,7 +522,7 @@ impl Sessions {
 
 fn answer(asked: &pb::AgentHostTurnAwaitingInput, verdict: Verdict) -> Result<Answer> {
     const DECLINED: &str = "The user declined.";
-    let approved = matches!(verdict, Verdict::Approve);
+    let approved = matches!(verdict, Verdict::Approve | Verdict::Always);
     let query = match &asked.question {
         Some(Question::ExecApproval(_)) if !matches!(verdict, Verdict::Answers(_)) => {
             return Ok(Answer::ExecApproval(pb::AgentHostApprovalResult {

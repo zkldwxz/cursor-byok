@@ -76,9 +76,11 @@ const stepIcon = (name) => {
 export class Transcript {
   #drawn = new Map();
   #open = new Set();
+  #onPreview;
 
-  constructor(root) {
+  constructor(root, { onPreview = null } = {}) {
     this.root = root;
+    this.#onPreview = onPreview;
   }
 
   forget() {
@@ -171,7 +173,9 @@ export class Transcript {
       more ? icon("right") : null,
     ];
     const body = [tool.command && tool.command !== tool.title ? h("pre", { class: "command" }, tool.command) : null, tool.output || row.text ? h("pre", { class: "output", tabindex: "0" }, tool.output ?? row.text) : null].filter(Boolean);
-    const content = body.length ? this.#details(row.key, line(true), body) : h("div", { class: "step-line" }, line(false));
+    const preview = tool.path && this.#onPreview ? () => this.#onPreview(tool.path) : null;
+    if (preview) body.unshift(h("button", { type: "button", class: "file-preview", onclick: preview }, copy.previewFile));
+    const content = body.length ? this.#details(row.key, line(true), body) : preview ? h("button", { type: "button", class: "step-line step-file", onclick: preview }, line(false)) : h("div", { class: "step-line" }, line(false));
     return h("li", { class: "step", "data-state": state, "data-kind": kind }, content);
   }
 

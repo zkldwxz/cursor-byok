@@ -50,7 +50,7 @@ function approval({ id, kind, subject, why }, run) {
     h("p", { class: "asked-title", "data-tone": "caution" }, icon(ASKED_ICONS[kind] ?? "alert"), copy.asked[kind] ?? copy.asked.unknown),
     text ? h("pre", { class: "asked-subject", tabindex: "0" }, words(text)) : null,
     why ? h("p", { class: "asked-why" }, why) : null,
-    kind === "unknown" ? null : h("div", { class: "asked-buttons" }, button(copy.approve, "go", () => "approve"), button(copy.reject, "quiet", () => "reject")),
+    kind === "unknown" ? null : h("div", { class: "asked-buttons" }, button(copy.approve, "go", () => "approve"), button(copy.approveAlways, "quiet", () => "always"), button(copy.reject, "quiet", () => "reject")),
   ];
 }
 

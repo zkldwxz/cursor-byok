@@ -101,6 +101,7 @@ pub(super) fn router(phones: Phones) -> Router {
     }
     router
         .route("/api/pair", post(pair))
+        .route("/api/file", get(file))
         .route("/ws", get(connect))
         .with_state(phones)
 }
@@ -157,6 +158,80 @@ async fn pair(
     }
 }
 
+/// A file of an open workspace, for the preview in the conversation. What is
+/// not inside one answers 404, so the listing of the machine's files stays
+/// the phone's own business.
+const MAX_FILE_BYTES: u64 = 256 * 1024;
+
+#[derive(Deserialize)]
+struct FileQuery {
+    token: Option<String>,
+    path: String,
+}
+
+async fn file(
+    State(phones): State<Phones>,
+    headers: HeaderMap,
+    axum::extract::Query(query): axum::extract::Query<FileQuery>,
+) -> Response {
+    if !same_origin(&headers) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    let Some(token) = &query.token else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    if phones.access.session(token).await.is_none() {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+    let Ok(path) = std::fs::canonicalize(&query.path) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let workspaces = phones.overview.borrow().workspaces();
+    let inside = workspaces.iter().any(|workspace| {
+        std::fs::canonicalize(workspace)
+            .map(|root| path.starts_with(root))
+            .unwrap_or(false)
+    });
+    if !inside || !path.is_file() {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let bytes = match tokio::fs::read(&path).await {
+        Ok(bytes) => bytes,
+        Err(_) => return StatusCode::NOT_FOUND.into_response(),
+    };
+    let content_type = file_content_type(&path, &bytes);
+    (
+        [
+            (header::CONTENT_TYPE, content_type),
+            (header::CACHE_CONTROL, "no-store"),
+        ],
+        bytes[..bytes.len().min(MAX_FILE_BYTES as usize)].to_vec(),
+    )
+        .into_response()
+}
+
+fn file_content_type(path: &std::path::Path, bytes: &[u8]) -> &'static str {
+    match path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(str::to_lowercase)
+        .as_deref()
+    {
+        Some("png") => return "image/png",
+        Some("jpg" | "jpeg") => return "image/jpeg",
+        Some("gif") => return "image/gif",
+        Some("webp") => return "image/webp",
+        Some("svg") => return "image/svg+xml",
+        Some("pdf") => return "application/pdf",
+        _ => {}
+    }
+    if std::str::from_utf8(bytes).is_ok() {
+        "text/plain; charset=utf-8"
+    } else {
+        "application/octet-stream"
+    }
+}
+
 async fn connect(
     State(phones): State<Phones>,
     headers: HeaderMap,
@@ -170,12 +245,24 @@ async fn connect(
         .on_upgrade(move |socket| serve(Wire::Browser(Box::new(socket)), phones, None))
 }
 
+/// Guards the endpoints a browser can reach against other sites' pages:
+/// simple GETs carry no Origin even when they are same-origin, so a missing
+/// one is not a rejection — Sec-Fetch-Site says what the browser knows, and
+/// anything but its own site loses. A non-browser client sends neither, and
+/// poses no cross-site risk of its own.
 fn same_origin(headers: &HeaderMap) -> bool {
-    let text = |name| headers.get(name).and_then(|value| value.to_str().ok());
-    let origin = text(header::ORIGIN)
-        .and_then(|origin| origin.parse::<Uri>().ok())
-        .and_then(|origin| origin.authority().map(ToString::to_string));
-    origin.is_some() && origin.as_deref() == text(header::HOST)
+    let text = |name: header::HeaderName| headers.get(name).and_then(|value| value.to_str().ok());
+    if let Some(origin) = text(header::ORIGIN) {
+        let authority = origin
+            .parse::<Uri>()
+            .ok()
+            .and_then(|origin| origin.authority().map(ToString::to_string));
+        return authority.as_deref() == text(header::HOST);
+    }
+    !matches!(
+        text(header::HeaderName::from_static("sec-fetch-site")),
+        Some("cross-site" | "same-site")
+    )
 }
 
 /// `place` is the link by which an app finds this computer next time.
@@ -474,8 +561,14 @@ impl<'a> Session<'a> {
             Command::Answer { id, verdict } => {
                 let session = chat.session().ok_or(Refusal::Gone)?;
                 let asked = chat.transcript.pending(&id).ok_or(Refusal::Gone)?;
+                let always = matches!(verdict, Verdict::Always)
+                    .then(|| approval_kind(asked))
+                    .flatten();
                 if !sessions.respond(session, asked, verdict).await? {
                     return Err(Refusal::Gone);
+                }
+                if let Some(kind) = always {
+                    sessions.always_allow(session, kind);
                 }
             }
             Command::Pick {
@@ -647,7 +740,25 @@ impl<'a> Session<'a> {
         }
         chat.fresh = false;
         // Once Cursor reports a mode, that is the one the phone asked for.
-        chat.transcript.apply(event);
+        chat.transcript.apply(event.clone());
+        // An approval the phone said "always" to is answered before it can
+        // reach the screen; the refusal is only logged, the turn stays asked.
+        if let (Event::TurnAwaitingInput(asked), Some(session)) = (&event, chat.session()) {
+            if let Some(kind) = approval_kind(asked) {
+                if self.phones.sessions.is_always_allowed(session, kind) {
+                    let sessions = self.phones.sessions.clone();
+                    let asked = asked.clone();
+                    let session = session.to_owned();
+                    tokio::spawn(async move {
+                        if let Err(error) =
+                            sessions.respond(&session, &asked, Verdict::Approve).await
+                        {
+                            tracing::debug!(%error, "cannot always-answer an approval");
+                        }
+                    });
+                }
+            }
+        }
     }
 
     async fn list(&mut self) -> Result<()> {
@@ -705,6 +816,35 @@ async fn heard(chat: &mut Option<Chat>) -> Option<Result<pb::AgentHostSessionEve
     match chat.as_mut().and_then(|chat| chat.events.as_mut()) {
         Some(events) => events.next().await,
         None => std::future::pending().await,
+    }
+}
+
+/// The kind an approval asks for, in the same words the phone's page uses.
+fn approval_kind(asked: &pb::AgentHostTurnAwaitingInput) -> Option<&'static str> {
+    use pb::agent_host_approval_operation::Details;
+    use pb::agent_host_turn_awaiting_input::Question;
+    use pb::interaction_query::Query;
+    match &asked.question {
+        Some(Question::ExecApproval(request)) => match request
+            .operation
+            .as_ref()
+            .and_then(|operation| operation.details.as_ref())
+        {
+            Some(Details::Shell(_)) => Some("command"),
+            Some(Details::Write(_)) => Some("write"),
+            Some(Details::Read(_)) => Some("read"),
+            Some(Details::Delete(_)) => Some("delete"),
+            Some(Details::Mcp(_)) => Some("mcp"),
+            None => None,
+        },
+        Some(Question::InteractionQuery(query)) => match &query.query {
+            Some(Query::WebSearchRequestQuery(_)) => Some("web_search"),
+            Some(Query::WebFetchRequestQuery(_)) => Some("web_fetch"),
+            Some(Query::SwitchModeRequestQuery(_)) => Some("switch_mode"),
+            Some(Query::CreatePlanRequestQuery(_)) => Some("plan"),
+            _ => None,
+        },
+        _ => None,
     }
 }
 
