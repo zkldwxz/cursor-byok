@@ -56,6 +56,7 @@ fn exec_context() -> ExecContext {
         admin_command_denylist: Vec::new(),
         allow_subagents: true,
         subagents_disabled: false,
+        semantic_search_disabled: false,
         mcp_routes: std::collections::HashMap::new(),
     }
 }

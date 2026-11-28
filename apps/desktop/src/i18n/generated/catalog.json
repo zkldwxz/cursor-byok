@@ -682,7 +682,7 @@
       "refs": [
         {
           "file": "features/plugins/WorkspaceSearchEntry.tsx",
-          "line": 48,
+          "line": 75,
           "column": 74
         }
       ]
@@ -728,7 +728,7 @@
       "refs": [
         {
           "file": "features/plugins/WorkspaceSearchEntry.tsx",
-          "line": 55,
+          "line": 82,
           "column": 9
         }
       ]
@@ -776,7 +776,7 @@
       "refs": [
         {
           "file": "features/plugins/WorkspaceSearchEntry.tsx",
-          "line": 87,
+          "line": 122,
           "column": 41
         },
         {
@@ -1482,6 +1482,18 @@
         }
       ]
     },
+    "2dfd9ac9fcd54e3f": {
+      "source": "已开启代码检索优化，新的对话生效",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/plugins/WorkspaceSearchEntry.tsx",
+          "line": 40,
+          "column": 22
+        }
+      ]
+    },
     "2e429deb24d4b3be": {
       "source": "{count} 个分块",
       "kind": "template",
@@ -1633,7 +1645,7 @@
       "refs": [
         {
           "file": "features/plugins/WorkspaceSearchEntry.tsx",
-          "line": 87,
+          "line": 122,
           "column": 81
         }
       ]
@@ -1963,7 +1975,7 @@
       "refs": [
         {
           "file": "features/plugins/WorkspaceSearchEntry.tsx",
-          "line": 54,
+          "line": 81,
           "column": 9
         }
       ]
@@ -1990,7 +2002,7 @@
       "refs": [
         {
           "file": "features/plugins/WorkspaceSearchEntry.tsx",
-          "line": 42,
+          "line": 69,
           "column": 10
         }
       ]
@@ -2064,7 +2076,7 @@
       "refs": [
         {
           "file": "features/plugins/WorkspaceSearchEntry.tsx",
-          "line": 29,
+          "line": 56,
           "column": 26
         }
       ]
@@ -3170,7 +3182,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 637,
+          "line": 641,
           "column": 43
         }
       ]
@@ -3268,6 +3280,23 @@
           "file": "features/settings/SettingsPage.tsx",
           "line": 104,
           "column": 55
+        }
+      ]
+    },
+    "6817123d40b3e00e": {
+      "source": "代码检索优化",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/plugins/WorkspaceSearchEntry.tsx",
+          "line": 92,
+          "column": 50
+        },
+        {
+          "file": "features/plugins/WorkspaceSearchEntry.tsx",
+          "line": 102,
+          "column": 20
         }
       ]
     },
@@ -3599,7 +3628,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 632,
+          "line": 636,
           "column": 43
         }
       ]
@@ -3647,7 +3676,7 @@
       "refs": [
         {
           "file": "features/plugins/WorkspaceSearchEntry.tsx",
-          "line": 83,
+          "line": 118,
           "column": 14
         }
       ]
@@ -3827,18 +3856,6 @@
         }
       ]
     },
-    "801ad7eb1183d8f0": {
-      "source": "工作区搜索",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/plugins/WorkspaceSearchEntry.tsx",
-          "line": 65,
-          "column": 50
-        }
-      ]
-    },
     "802b0faf0ceb513e": {
       "source": "{label} 剩余 {percent}%",
       "kind": "template",
@@ -3873,7 +3890,7 @@
       "refs": [
         {
           "file": "shared/api.ts",
-          "line": 570,
+          "line": 574,
           "column": 21
         }
       ]
@@ -4033,7 +4050,7 @@
       "refs": [
         {
           "file": "features/plugins/WorkspaceSearchEntry.tsx",
-          "line": 76,
+          "line": 111,
           "column": 12
         }
       ]
@@ -4432,7 +4449,7 @@
         },
         {
           "file": "features/plugins/WorkspaceSearchEntry.tsx",
-          "line": 66,
+          "line": 93,
           "column": 50
         }
       ]
@@ -4444,7 +4461,7 @@
       "refs": [
         {
           "file": "features/plugins/WorkspaceSearchEntry.tsx",
-          "line": 52,
+          "line": 79,
           "column": 7
         }
       ]
@@ -4631,7 +4648,7 @@
       "refs": [
         {
           "file": "features/plugins/WorkspaceSearchEntry.tsx",
-          "line": 23,
+          "line": 50,
           "column": 15
         }
       ]
@@ -6209,6 +6226,18 @@
         }
       ]
     },
+    "ce4ea26520f99579": {
+      "source": "已关闭代码检索优化，新的对话生效",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/plugins/WorkspaceSearchEntry.tsx",
+          "line": 40,
+          "column": 46
+        }
+      ]
+    },
     "cfae1a14d2120c57": {
       "source": "详细模式",
       "kind": "text",
@@ -6647,7 +6676,7 @@
       "refs": [
         {
           "file": "features/plugins/WorkspaceSearchEntry.tsx",
-          "line": 38,
+          "line": 65,
           "column": 10
         }
       ]
@@ -6753,7 +6782,7 @@
       "refs": [
         {
           "file": "features/plugins/WorkspaceSearchEntry.tsx",
-          "line": 68,
+          "line": 95,
           "column": 55
         }
       ]
@@ -7311,7 +7340,7 @@
       "refs": [
         {
           "file": "features/plugins/WorkspaceSearchEntry.tsx",
-          "line": 87,
+          "line": 122,
           "column": 91
         }
       ]

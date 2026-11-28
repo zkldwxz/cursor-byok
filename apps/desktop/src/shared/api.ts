@@ -15,6 +15,10 @@ export interface MagpieCatalog {
   disabled: string[];
 }
 
+export interface SemanticSearchSettings {
+  enabled: boolean;
+}
+
 export type VisionSettings = { mode: "cursor" } | { mode: "model"; model_id: string } | { mode: "mcp"; url: string; tool: string };
 
 export interface Model {
@@ -666,6 +670,9 @@ export const api = {
   desktopSettings: () => request<DesktopSettings>("/settings/desktop"),
   setDesktopSettings: (settings: DesktopSettings) => request<DesktopSettings>("/settings/desktop", { method: "PUT", body: JSON.stringify(settings) }),
   visionSettings: () => request<VisionSettings>("/settings/vision"),
+  semanticSearchSettings: () => request<SemanticSearchSettings>("/settings/semantic-search"),
+  setSemanticSearchSettings: (settings: SemanticSearchSettings) => request<SemanticSearchSettings>("/settings/semantic-search", { method: "PUT", body: JSON.stringify(settings) }),
+
   setVisionSettings: (settings: VisionSettings) => request<VisionSettings>("/settings/vision", { method: "PUT", body: JSON.stringify(settings) }),
   commitSettings: (locale: Locale) => request<CommitSettingsView>("/settings/commit", { headers: { "accept-language": locale } }),
   setCommitSettings: (settings: CommitSettings) => request<CommitSettingsView>("/settings/commit", { method: "PUT", body: JSON.stringify(settings) }),

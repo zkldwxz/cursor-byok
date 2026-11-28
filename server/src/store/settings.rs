@@ -16,6 +16,7 @@ const RELAY_SETTINGS_KEY: &str = "remote_relay";
 const REMOTE_ENABLED_KEY: &str = "remote_enabled";
 const REMOTE_IDENTITY_KEY: &str = "remote_identity";
 const REMOTE_DEVICES_KEY: &str = "remote_devices";
+const SEMANTIC_SEARCH_ENABLED_KEY: &str = "semantic_search_enabled";
 
 /// Embedded default system prompts for commit message generation.
 pub const DEFAULT_COMMIT_PROMPT_ZH_CN: &str = include_str!("../../prompt/cursor/commit/zh-CN.md");
@@ -337,6 +338,24 @@ impl Store {
             .execute(&self.pool)
             .await?;
         Ok(())
+    }
+
+    /// SemanticSearch is on unless the user turned it off; a missing row is the default.
+    pub async fn semantic_search_enabled(&self) -> Result<bool> {
+        let value = sqlx::query_scalar::<_, String>(
+            "SELECT value_json FROM service_settings WHERE setting_key = ?",
+        )
+        .bind(SEMANTIC_SEARCH_ENABLED_KEY)
+        .fetch_optional(&self.pool)
+        .await?;
+        value
+            .map(|value| serde_json::from_str(&value).map_err(Into::into))
+            .unwrap_or(Ok(true))
+    }
+
+    pub async fn set_semantic_search_enabled(&self, enabled: bool) -> Result<()> {
+        self.set_setting(SEMANTIC_SEARCH_ENABLED_KEY, &enabled)
+            .await
     }
 
     pub(crate) async fn cursor_takeover_enabled(&self) -> Result<bool> {

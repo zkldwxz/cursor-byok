@@ -851,6 +851,14 @@ impl ControlService {
         self.store.set_desktop_settings(settings).await
     }
 
+    pub async fn semantic_search_enabled(&self) -> Result<bool> {
+        self.store.semantic_search_enabled().await
+    }
+
+    pub async fn set_semantic_search_enabled(&self, enabled: bool) -> Result<()> {
+        self.store.set_semantic_search_enabled(enabled).await
+    }
+
     pub async fn vision_settings(&self) -> Result<crate::store::VisionSettings> {
         self.store.vision_settings().await
     }

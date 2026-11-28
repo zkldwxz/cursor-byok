@@ -1,9 +1,12 @@
-//! Built-in workspace-search entry in the plugin list; installs the Cursor workspace-search extension.
+//! Built-in semantic-search entry in the plugin list; toggles the tool and installs the Cursor workspace-search extension.
+import { useEffect, useState } from "react";
+import { api } from "../../shared/api";
 import { appStore, useAppStore } from "../../shared/store/appStore";
 import { Button } from "../../shared/ui/Button";
 import { Card } from "../../shared/ui/Card";
 import { searchIcon } from "../../shared/ui/icons";
 import { Icon } from "../../shared/ui/Icon";
+import { Switch } from "../../shared/ui/Switch";
 import { useMessage } from "../../shared/ui/message";
 import { workspaceExtensionEntry } from "../models/workspaceExtension";
 import styles from "./PluginManagementPage.module.scss";
@@ -17,6 +20,30 @@ export function WorkspaceSearchEntry() {
   const { workspaceExtension, workspaceExtensionBusy, workspaceExtensionError } = useAppStore();
   const message = useMessage();
   const entry = workspaceExtensionEntry(workspaceExtension);
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [toggling, setToggling] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    api.semanticSearchSettings().then(
+      settings => { if (active) setEnabled(settings.enabled); },
+      error => { if (active) message(String(error)); },
+    );
+    return () => { active = false; };
+  }, [message]);
+
+  const toggle = async (next: boolean) => {
+    setToggling(true);
+    try {
+      const settings = await api.setSemanticSearchSettings({ enabled: next });
+      setEnabled(settings.enabled);
+      message(next ? t("已开启代码检索优化，新的对话生效") : t("已关闭代码检索优化，新的对话生效"), { duration: 4000 });
+    } catch (error) {
+      message(String(error));
+    } finally {
+      setToggling(false);
+    }
+  };
 
   const install = async () => {
     if (await appStore.installWorkspaceExtension()) {
@@ -62,12 +89,20 @@ export function WorkspaceSearchEntry() {
         </span>
         <div className={styles.pluginIdentity}>
           <span className={styles.pluginTitle}>
-            <span className={styles.pluginName}>{t("工作区搜索")}</span>
+            <span className={styles.pluginName}>{t("代码检索优化")}</span>
             <span className={styles.builtinTag}>{t("内置")}</span>
           </span>
           <span className={styles.pluginDescription}>{t("让 Agent 按函数名和描述找代码、查引用")}</span>
         </div>
         <div className={styles.pluginState}>{stateBadge}</div>
+        {enabled !== null && (
+          <Switch
+            checked={enabled}
+            disabled={toggling}
+            label={t("代码检索优化")}
+            onChange={next => void toggle(next)}
+          />
+        )}
       </div>
       {workspaceExtensionError && (
         <div className={styles.entryError}>

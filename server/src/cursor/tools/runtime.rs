@@ -57,6 +57,7 @@ pub struct ExecContext {
     pub subagent_model: Option<SubagentModel>,
     pub allow_subagents: bool,
     pub subagents_disabled: bool,
+    pub semantic_search_disabled: bool,
     pub terminals_folder: String,
     pub os_version: String,
     pub project_folder: String,

@@ -205,3 +205,67 @@ async fn unanalyzed_placeholders_are_not_cached_across_turns() {
     );
     assert_eq!(requests[1].model.model_id, reader.model_hash);
 }
+
+#[tokio::test]
+async fn a_disabled_semantic_search_leaves_the_compiled_prompt() {
+    let (_directory, store) = fixtures::temp_store().await;
+    let model = store
+        .create_model(&windowed_model("text-model", None))
+        .await
+        .unwrap();
+    store.set_semantic_search_enabled(false).await.unwrap();
+    let provider = fake_provider::FakeProvider::default();
+    provider.push(text_response("answer", 20, 4));
+    let registry = TransportRegistry::new(
+        store.clone(),
+        Arc::new(provider.clone()),
+        PromptCompiler::new(PromptAssets::embedded().unwrap()),
+    );
+    run(
+        &registry,
+        "semantic-off",
+        user_request(
+            "semantic-conversation",
+            "first",
+            "Hello",
+            &model.model_hash,
+            None,
+        ),
+    )
+    .await;
+
+    let requests = provider.requests();
+    assert_eq!(requests.len(), 1);
+    assert!(
+        !requests[0]
+            .prompt
+            .tools
+            .iter()
+            .any(|tool| tool.name == "SemanticSearch"),
+        "a disabled semantic search must leave the prompt"
+    );
+
+    store.set_semantic_search_enabled(true).await.unwrap();
+    provider.push(text_response("again", 20, 4));
+    run(
+        &registry,
+        "semantic-on",
+        user_request(
+            "semantic-conversation-2",
+            "first",
+            "Hello",
+            &model.model_hash,
+            None,
+        ),
+    )
+    .await;
+    let requests = provider.requests();
+    assert!(
+        requests[1]
+            .prompt
+            .tools
+            .iter()
+            .any(|tool| tool.name == "SemanticSearch"),
+        "the default keeps SemanticSearch in the prompt"
+    );
+}

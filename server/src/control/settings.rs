@@ -108,6 +108,29 @@ pub async fn update_tab(
     Ok(Json(service.set_tab_settings(settings).await?))
 }
 
+#[derive(Clone, Copy, Deserialize, Serialize)]
+pub struct SemanticSearchSettings {
+    pub enabled: bool,
+}
+
+pub async fn get_semantic_search(
+    State(service): State<ControlService>,
+) -> Result<Json<SemanticSearchSettings>> {
+    Ok(Json(SemanticSearchSettings {
+        enabled: service.semantic_search_enabled().await?,
+    }))
+}
+
+pub async fn update_semantic_search(
+    State(service): State<ControlService>,
+    Json(settings): Json<SemanticSearchSettings>,
+) -> Result<Json<SemanticSearchSettings>> {
+    service
+        .set_semantic_search_enabled(settings.enabled)
+        .await?;
+    Ok(Json(settings))
+}
+
 pub async fn get_vision(
     State(service): State<ControlService>,
 ) -> Result<Json<crate::store::VisionSettings>> {
