@@ -143,3 +143,65 @@ async fn only_text_models_delegate_and_the_next_turn_reuses_the_description() {
         }
     }
 }
+
+#[tokio::test]
+async fn unanalyzed_placeholders_are_not_cached_across_turns() {
+    let (_directory, store) = fixtures::temp_store().await;
+    let mut input = serde_json::to_value(windowed_model("text-only", None)).unwrap();
+    input["supports_images"] = false.into();
+    let model = store
+        .create_model(&serde_json::from_value(input).unwrap())
+        .await
+        .unwrap();
+    let reader = store
+        .create_model(&windowed_model("reader", None))
+        .await
+        .unwrap();
+    let provider = fake_provider::FakeProvider::default();
+    provider.push(text_response("answer", 20, 4));
+    let registry = TransportRegistry::new(
+        store.clone(),
+        Arc::new(provider.clone()),
+        PromptCompiler::new(PromptAssets::embedded().unwrap()),
+    );
+    let first = run(
+        &registry,
+        "placeholder-first",
+        image_request(&model.model_hash),
+    )
+    .await;
+    assert_eq!(
+        provider.requests().len(),
+        1,
+        "the cursor-less reader never runs a vision call"
+    );
+
+    store
+        .set_vision_settings(&VisionSettings::Model {
+            model_id: reader.model_hash.clone(),
+        })
+        .await
+        .unwrap();
+    provider.push(text_response("Save is disabled", 20, 4));
+    provider.push(text_response("next", 20, 4));
+    run(
+        &registry,
+        "placeholder-next",
+        user_request(
+            "image-conversation",
+            "followup",
+            "Thanks",
+            &model.model_hash,
+            first.checkpoints.last().cloned(),
+        ),
+    )
+    .await;
+
+    let requests = provider.requests();
+    assert_eq!(
+        requests.len(),
+        3,
+        "switching the vision model must re-read the cached image instead of replaying the failure placeholder"
+    );
+    assert_eq!(requests[1].model.model_id, reader.model_hash);
+}

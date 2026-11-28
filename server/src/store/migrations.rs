@@ -480,7 +480,7 @@ mod tests {
             .unwrap();
 
             assert_eq!(checksum_after, checksum_before);
-            assert_eq!(versions, (1..=12).collect::<Vec<_>>());
+            assert_eq!(versions, (1..=13).collect::<Vec<_>>());
             assert_eq!(token_pricing_rows, 0);
             assert_eq!(model_prices_exists, 1);
             assert_eq!(checkpoint_table_exists, 1);

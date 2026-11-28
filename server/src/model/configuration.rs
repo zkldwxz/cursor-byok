@@ -226,7 +226,12 @@ impl ModelConfig {
         if model.context_window_tokens.is_none() {
             model.context_window_tokens = self.context_window_tokens;
         }
-        if model.reasoning.effort.is_none() {
+        // An effort belongs to thinking calls only. Internal calls such as
+        // vision descriptions and compaction explicitly disable reasoning;
+        // filling their effort from the model default would make a mechanical
+        // subcall think, and image-plus-thinking requests are rejected or
+        // truncated by several upstreams.
+        if model.reasoning.enabled && model.reasoning.effort.is_none() {
             model.reasoning.effort = match self.model_type {
                 ModelType::OpenAi => self.reasoning_effort.clone(),
                 ModelType::Anthropic => self.anthropic_thinking_effort.clone(),
@@ -560,5 +565,83 @@ impl ModelSpec {
             supports_image_generation: false,
             extra_params: serde_json::json!({}),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn configure_does_not_inject_reasoning_into_calls_that_disabled_it() {
+        let input = normalize_model_input(&ModelConfigInput {
+            supports_images: true,
+            sort_order: 0,
+            display_name: "vision".into(),
+            group_name: None,
+            model_type: ModelType::Anthropic,
+            base_url: "https://example.com".into(),
+            use_full_url: false,
+            api_key: "key".into(),
+            tooltip_data: "vision".into(),
+            model_id: "vision-model".into(),
+            reasoning_effort: None,
+            openai_endpoint: String::new(),
+            openai_extra_params_enabled: false,
+            openai_extra_params: serde_json::json!({}),
+            custom_headers_enabled: false,
+            custom_headers: serde_json::json!({}),
+            anthropic_extra_params_enabled: false,
+            anthropic_extra_params: serde_json::json!({}),
+            context_window_tokens: None,
+            max_completion_tokens: None,
+            anthropic_max_tokens: None,
+            anthropic_thinking_effort: None,
+            thinking_budget_tokens: None,
+        })
+        .unwrap();
+        assert_eq!(input.anthropic_thinking_effort.as_deref(), Some("xhigh"));
+        let config = ModelConfig {
+            supports_images: input.supports_images,
+            gateway_capabilities: None,
+            model_hash: "hash".into(),
+            sort_order: input.sort_order,
+            display_name: input.display_name,
+            group_name: input.group_name,
+            model_type: input.model_type,
+            base_url: input.base_url,
+            use_full_url: input.use_full_url,
+            api_key: input.api_key,
+            tooltip_data: input.tooltip_data,
+            model_id: input.model_id,
+            reasoning_effort: input.reasoning_effort,
+            openai_endpoint: input.openai_endpoint,
+            openai_extra_params_enabled: input.openai_extra_params_enabled,
+            openai_extra_params: input.openai_extra_params,
+            custom_headers_enabled: input.custom_headers_enabled,
+            custom_headers: input.custom_headers,
+            anthropic_extra_params_enabled: input.anthropic_extra_params_enabled,
+            anthropic_extra_params: input.anthropic_extra_params,
+            context_window_tokens: input.context_window_tokens,
+            max_completion_tokens: input.max_completion_tokens,
+            anthropic_max_tokens: input.anthropic_max_tokens,
+            anthropic_thinking_effort: input.anthropic_thinking_effort,
+            thinking_budget_tokens: input.thinking_budget_tokens,
+            created_at_ms: 0,
+            updated_at_ms: 0,
+        };
+
+        let mut internal = ModelSpec::new("hash");
+        internal.reasoning.enabled = false;
+        config.configure(&mut internal);
+        assert!(
+            internal.reasoning.effort.is_none(),
+            "an internal call that disabled reasoning must stay without it"
+        );
+
+        let mut user = ModelSpec::new("hash");
+        user.reasoning.enabled = true;
+        config.configure(&mut user);
+        assert_eq!(user.reasoning.effort.as_deref(), Some("xhigh"));
     }
 }
